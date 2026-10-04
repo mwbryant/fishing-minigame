@@ -1,0 +1,12 @@
+[package]
+name = "orbit_game"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+bevy.workspace = true
+orbit_gfx.workspace = true
+
+[lints]
+workspace = true

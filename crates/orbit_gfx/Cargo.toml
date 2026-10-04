@@ -1,0 +1,12 @@
+[package]
+name = "orbit_gfx"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+embedded-graphics.workspace = true
+libm.workspace = true
+
+[lints]
+workspace = true
