@@ -6,6 +6,8 @@ AMOLED + touch), with a desktop simulator that shares the renderer.
 **Read `docs/ESP32_PLATFORM.md` before changing anything.** It has the hardware
 pin/protocol reference, the toolchain and crate set, the no_std Bevy rules, the render
 and memory budgets, the verification tools, and what is still unverified on real hardware.
+`docs/reference/` holds researched, compile-checked driver code that is not yet wired in
+(ES8311 speaker audio).
 
 Rules that bite:
 - `crates/orbit_game` and `crates/orbit_gfx` stay `#![no_std]`. Use `bevy::math::ops`

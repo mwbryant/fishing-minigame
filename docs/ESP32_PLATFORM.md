@@ -8,7 +8,8 @@ so a fresh session can keep going without re-deriving it. Facts are marked
 Status as of 2026-10-04: the board has **not arrived**. The game, renderer, and
 simulator are tested on the host. The firmware builds and links for the
 ESP32-S3, and its runtime ran in Espressif's QEMU. Display, touch, and audio
-have never run on real hardware.
+have never run on real hardware. Audio is researched and compile-checked
+(`docs/reference/es8311_audio.rs`) but not wired into the firmware.
 
 ---
 
@@ -86,8 +87,8 @@ Arduino demos and the ESP-IDF BSP `waveshare__esp32_s3_touch_amoled_1_75`).
 | LCD reset / LCD TE (tearing) | 39 / 13 (TE unused so far) |
 | I2C SDA / SCL (400 kHz, 2.2k pull-ups) | 15 / 14 |
 | Touch INT / touch reset | 11 / 40 |
-| I2S MCLK / BCLK / WS / DOUT / DIN | 42 / 9 / 45 / 8 / 10 |
-| Speaker amp enable | 46 |
+| I2S MCLK / BCLK / WS(LRCK) / DOUT (to ES8311) / DIN (from ES7210 mics) | 42 / 9 / 45 / 8 / 10 |
+| Speaker amp (NS4150B) enable, active high, pulled down | 46 |
 | SD card | 1, 2, 3 (+41) |
 | IMU INT2 | 21 |
 | BOOT button | 0 (active low) |
@@ -96,6 +97,8 @@ Arduino demos and the ESP-IDF BSP `waveshare__esp32_s3_touch_amoled_1_75`).
 - **PWR button:** goes to the AXP2101 PWRON pin. Firmware can read it as TCA9554 P4 (high = pressed).
 - **Display/touch power:** neither the AXP2101 PMIC nor the TCA9554 expander needs any setup before the display or touch work.
 - **Brightness:** there is no backlight pin. Brightness is set with panel register `0x51`.
+- **Stale MCLK define:** Waveshare's Arduino `pin_config.h` says `I2S_MCK_IO 16`. That is stale;
+  the schematic routes GPIO16 to header pin 8, and MCLK is GPIO42.
 
 ### I2C addresses [verified]
 
@@ -328,19 +331,112 @@ Then run these experiments, in this order:
     (ripples, the bobber) instead.
 - **Simulator:** shows sprites unchanged, because it uses the same renderer.
 
-### 10.2 Sound
-See the audio findings below (added from the hardware research).
+### 10.2 Sound [verified from schematic, BSP, and an esp-hal 1.2.2 compile; never run on hardware]
+
+**Hardware path:**
+- Chain: ESP32-S3 I2S0 → **ES8311** codec (I2C `0x18`, fixed in hardware) → **NS4150B** mono
+  class-D amp (3.3 V supply, about 0.5 W into 8 Ω, estimated) → `SPK` MX1.25 2-pin connector.
+- **The amp is off by default.** GPIO46 enables it: active high, with a 10k pull-down.
+- **A speaker is in the box:** Waveshare's package contents list "8Ω 2W speaker ×1" for every variant.
+- **Chip ID:** registers `0xFD`/`0xFE` read `0x83`/`0x11` on an ES8311. Use this as a first
+  bring-up check.
+
+**Driver code:**
+- `docs/reference/es8311_audio.rs` holds the reference driver.
+- The I2S setup below compiled in a scratch firmware against esp-hal 1.2.2.
+- Everything I2S-related needs esp-hal's `unstable` feature.
+
+```rust
+// I2C is now shared: touch and codec each get a RefCellDevice (embedded-hal-bus 0.3).
+let i2c_bus = RefCell::new(i2c);
+let i2s = I2s::new(peripherals.I2S0, peripherals.DMA_CH1,          // CH0 is the display
+    TdmConfig::new_tdm_philips()
+        .with_sample_rate(Rate::from_hz(22_050))
+        .with_data_format(DataFormat::Data16Channel16)
+        .with_channels(Channels::STEREO))                        // same sample in L and R
+    .expect("I2S config")
+    .with_mclk(peripherals.GPIO42);                              // 256 x fs, what the ES8311 wants
+let i2s_tx = i2s.i2s_tx.with_bclk(peripherals.GPIO9).with_ws(peripherals.GPIO45)
+    .with_dout(peripherals.GPIO8).build();
+let mut amp = Output::new(peripherals.GPIO46, Level::Low, OutputConfig::default());
+let mut audio = AudioOut::start(i2s_tx, dma_tx_stream_buffer!(8 * 1024, 1024), &mut source);
+let mut codec = Es8311::new(RefCellDevice::new(&i2c_bus));
+codec.init(22_050, &mut amp)?;   // after I2S so MCLK is already running; raises GPIO46, unmutes, 0 dB
+// every frame: audio.pump(&mut mixer);  tops up whatever the DMA has consumed
+```
+
+**esp-hal 1.2 API notes:**
+- `write_dma_circular` and `write_dma` are **gone** (removed in 1.2.0-rc.0). Streaming is now
+  `I2sTx::write(DmaTxStreamBuf)` → a transfer with `available_bytes()` / `push()` / `push_with()`.
+- The stream buffer is **not a ring**. If the game stalls long enough for it to drain, the
+  transfer stops; `AudioOut::pump` detects that with `is_done()` and restarts it.
+- Pre-fill the buffer before `write`.
+- 8 KB holds about 93 ms at 22.05 kHz stereo 16-bit.
+- Start audio *after* the first `app.update()` (the slow schedule build), or the first pump underruns.
+- Memory: the stream buffer is a static, so it comes out of the stack. With audio the stack is
+  about **67 KB** (measured from section sizes).
+
+**ES8311 register sequence:**
+- Source: esp_codec_dev 1.6.2 `es8311.c`, as used by the BSP (slave, MCLK from the pin, DAC only).
+  It is encoded in `init_sequence()` in the reference file.
+- Every MCLK = 256 × fs rate from 8 to 48 kHz uses the same dividers. Only DAC OSR (reg `0x04`)
+  changes: `0x20` for ≤16 kHz, `0x10` above.
+- Volume is reg `0x32` in 0.5 dB steps: `0xBF` = 0 dB, `0x00` = −95.5 dB.
+- Unmute by clearing bits 5–6 of reg `0x31`.
+- Waveshare's Arduino demo runs 16 kHz and volume `0xE5`, about +19 dB.
+- A crates.io alternative exists: `es8311` 0.1.1 (blocking, embedded-hal 1.0, untested). It
+  doesn't unmute or set volume in `init`.
+
+**Game-side design (not built):**
+- Make a `no_std` mixer crate beside `orbit_gfx`. It needs a few voices, each playing either:
+  - a PCM clip from flash (`include_bytes!`, i16 or i8 at 22.05 kHz; a 0.5 s 16-bit clip is
+    about 22 KB of flash, no RAM), or
+  - a tiny synth: phase-accumulator square, triangle, or noise with an envelope.
+- The game emits `Sfx` messages, like logic_kit's message-driven SFX. The platform drains them
+  into the mixer and pumps samples:
+  - device → `AudioOut::pump`;
+  - desktop → **tinyaudio 2.0 + rtrb 0.4**, which works on macOS at 22,050 Hz mono, so desktop
+    and device sound the same.
+- Don't add cpal 0.18 to the same dependency graph as tinyaudio: the two hit an `alsa-sys`
+  `links` conflict.
+- Mixing 22 k samples/s is negligible CPU.
 
 ### 10.3 Input beyond touch
 - QMI8658 6-axis IMU at `0x6B` on the shared I2C bus, interrupt on GPIO21. Good for
   flick-to-cast or tilt.
+  - The crate `ph-qmi8658` 0.1.1 is **async-only** (embedded-hal-async). Use
+    `Qmi8658Address::Secondary` for 0x6B; its default is 0x6A.
+  - The blocking `IniterWorker/qmi8658` is unpublished and reads the wrong register for accel Y-low.
+  - A small hand-written blocking reader is probably simplest.
 - The BOOT button (GPIO0) and PWR button (via TCA9554 P4) are usable as buttons.
 - Put the I2C bus behind a shared-bus wrapper (e.g. `embedded-hal-bus` `RefCellDevice`) once
   more than one driver needs it. Touch currently owns the bus outright.
 
+### 10.4 Next game idea: fishing (feasibility notes, nothing built)
+
+Everything a fishing minigame needs fits the platform:
+- **Cast:** flick or drag-release on the touch screen (use release velocity), optionally an
+  accelerometer flick.
+- **Reel:** circle the finger around the rim like a crank. The angle delta per frame comes
+  from the same `atan2` the Orbit paddle uses, which suits the round glass.
+- **Tension:** an arc gauge around the rim (`Shape::Arc`, already cheap).
+- **Visuals:** pixel-art sprites (10.1) for the bobber, fish, and splash over a static lake
+  background, which costs nothing after the first frame.
+- **Sound:** sfx through the mixer (10.2): plop, splash, reel clicks, catch jingle.
+
+The risk is **heap**, not CPU or the link:
+- Orbit leaves about 14 KB of headroom at peak.
+- More states and screens (`OnEnter`/`OnExit` schedules), systems, resources, and message
+  types each cost KB.
+- Run `tools/heap32/run.sh` after every feature and resolve §7 first (ideally by running the
+  PSRAM-atomics experiment on the board).
+- Prefer one state machine resource over many Bevy states, the way logic-rails' `TurnEngine`
+  does. Keep asset data out of the ECS: put sprite ids, not pixel data, in components.
+
 ## 11. Gotchas (all hit or confirmed during bring-up)
 
 - **The touch crate's example uses the 1.75C reset pin** (GPIO2). This board uses GPIO40.
+- **Old I2S answers are wrong for esp-hal 1.2:** `write_dma_circular` was removed. See §10.2.
 - **embedded-graphics' `Arc::bounding_box()` is the whole circle.** Using it would redraw the
   full screen every frame.
 - **`cargo new` inside the repo can create a nested `.git`.** Delete it before committing.
@@ -363,6 +459,11 @@ See the audio findings below (added from the hardware research).
   docs.waveshare.com/ESP32-S3-Touch-AMOLED-1.75
 - espressif/esp_lcd_co5300 2.2.0 (CO5300 opcodes); SensorLib `TouchDrvCST92xx`
 - github.com/okhsunrog/claudial (esp-hal 1.2 CO5300 transport); crates `cst92xx` 0.2.4
+- Audio:
+  - Waveshare BSP `esp32_s3_touch_amoled_1_75.c`;
+  - esp_codec_dev `es8311.c` (esp-adf);
+  - esp-hal v1.2.2 `qa-test/src/bin/embassy_i2s_sound.rs` and `hil-test/src/bin/i2s.rs`;
+  - waveshare.com/esp32-s3-touch-amoled-1.75.htm (package contents).
 - esp-hal v1.2.2: CHANGELOG, MIGRATING-1.0.0/1.1.0, `qa-test/src/bin/qspi_flash.rs`, esp-alloc `macros.rs`
 - Bevy v0.19.1 `bevy_platform/src/time/fallback.rs`, `examples/no_std`
 - espressif/qemu releases and issue #154
