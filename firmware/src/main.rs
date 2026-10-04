@@ -14,6 +14,7 @@ use core::time::Duration;
 
 use bevy::{platform::time::Instant, prelude::*};
 use cst92xx::CST92xx;
+use esp_alloc::MemoryCapability;
 use esp_backtrace as _;
 use esp_hal::{
     clock::CpuClock,
@@ -22,7 +23,6 @@ use esp_hal::{
     gpio::{Level, Output, OutputConfig},
     i2c::master::{Config as I2cConfig, I2c},
     main,
-    psram::{PsramConfig, PsramMode},
     rng::Rng as HardwareRng,
     spi::{
         Mode,
@@ -41,11 +41,15 @@ esp_bootloader_esp_idf::esp_app_desc!();
 /// 40 MHz is what every Waveshare demo uses; the CO5300 write clock tops out
 /// at 50 MHz.
 const DISPLAY_SPI_MHZ: u32 = 40;
-/// Rows rendered per band. A band (466 * 16 * 2 = 14,912 bytes) goes out in
-/// one DMA transfer, under the 32,736-byte per-transaction limit.
-const BAND_ROWS: usize = 16;
+/// Rows rendered per band. Small bands leave internal SRAM to Bevy; each
+/// band (466 * 8 * 2 = 7,456 bytes) goes out in a single DMA transfer.
+const BAND_ROWS: usize = 8;
 const BAND_BYTES: usize = SCREEN_SIZE as usize * 2 * BAND_ROWS;
-const DMA_BYTES: usize = 16 * 1024;
+const DMA_BYTES: usize = 7680;
+/// Second internal heap region. Bevy needs ~216 KB steady (~270 KB peak while
+/// schedules build), measured on a 32-bit target; this plus the 72 KB
+/// reclaimed region holds even the peak and leaves ~76 KB of stack.
+const INTERNAL_HEAP_BYTES: usize = 212 * 1024;
 /// The touch panel reports coordinates rotated 180 degrees from the display.
 const TOUCH_MIRROR_X: bool = true;
 const TOUCH_MIRROR_Y: bool = true;
@@ -56,18 +60,13 @@ fn main() -> ! {
     esp_println::logger::init_logger_from_env();
     let peripherals = esp_hal::init(esp_hal::Config::default().with_cpu_clock(CpuClock::max()));
 
-    // Internal SRAM first so small, hot allocations stay fast; the 8 MB of
-    // octal PSRAM catches everything else.
+    // Internal SRAM first: on the S3, atomic read-modify-write instructions
+    // don't work on PSRAM, and Bevy keeps Arc counts and spinlocks on the
+    // heap. PSRAM is registered last as a safety net; in emulation the whole
+    // app fits internally and nothing lands there.
     esp_alloc::heap_allocator!(#[esp_hal::ram(reclaimed)] size: 73744);
-    esp_alloc::heap_allocator!(size: 64 * 1024);
-    esp_alloc::psram_allocator!(
-        peripherals.PSRAM,
-        esp_hal::psram,
-        PsramConfig {
-            mode: PsramMode::OctalSpi,
-            ..Default::default()
-        }
-    );
+    esp_alloc::heap_allocator!(size: INTERNAL_HEAP_BYTES);
+    esp_alloc::psram_allocator!(peripherals.PSRAM, esp_hal::psram);
 
     // SAFETY: called once, before anything reads Bevy's clock.
     unsafe { Instant::set_elapsed(since_boot) };
@@ -118,7 +117,14 @@ fn main() -> ! {
         .insert_resource(Rng::new(HardwareRng::new().random()));
     app.finish();
     app.cleanup();
-    info!("bevy app built");
+    app.update();
+    match psram_used() {
+        0 => info!("bevy app built entirely in internal SRAM"),
+        spilled => warn!(
+            "bevy spilled {spilled} B into PSRAM; atomics there are unreliable, \
+             grow INTERNAL_HEAP_BYTES if the game hangs"
+        ),
+    }
 
     let mut presenter = Presenter::new(vec![0u8; BAND_BYTES], BACKGROUND);
     let mut stats = Stats::new();
@@ -143,6 +149,17 @@ fn main() -> ! {
         let spare = FRAME_BUDGET.saturating_sub(Duration::from_micros(busy.as_micros()));
         delay.delay_micros(spare.as_micros() as u32);
     }
+}
+
+fn psram_used() -> usize {
+    esp_alloc::HEAP
+        .stats()
+        .region_stats
+        .iter()
+        .flatten()
+        .filter(|region| region.capabilities.contains(MemoryCapability::External))
+        .map(|region| region.used)
+        .sum()
 }
 
 fn since_boot() -> Duration {
