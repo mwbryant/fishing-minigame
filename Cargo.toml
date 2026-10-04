@@ -1,7 +1,7 @@
 [workspace]
 resolver = "2"
 members = ["crates/*", "desktop"]
-exclude = ["firmware"]
+exclude = ["firmware", "tools/heap32", "tools/qemu-smoke"]
 
 [workspace.package]
 version = "0.1.0"

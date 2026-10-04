@@ -1,0 +1,368 @@
+# Bevy on the Waveshare ESP32-S3-Touch-AMOLED-1.75: platform handbook
+
+Everything learned bringing a `no_std` Bevy game (Orbit) to this board, written
+so a fresh session can keep going without re-deriving it. Facts are marked
+**[verified]** (built, tested, read in source, or run in the emulator) or
+**[unverified]** (from vendor sources or inference; not yet seen on hardware).
+
+Status as of 2026-10-04: the board has **not arrived**. The game, renderer, and
+simulator are tested on the host. The firmware builds and links for the
+ESP32-S3, and its runtime ran in Espressif's QEMU. Display, touch, and audio
+have never run on real hardware.
+
+---
+
+## 1. Quick commands
+
+```sh
+# host workspace (game + renderer + simulator)
+cargo test --workspace && cargo clippy --workspace --all-targets && cargo fmt
+cargo run -p orbit_desktop                          # play (hold left mouse = finger)
+cargo run -p orbit_desktop -- snapshot screenshots  # headless PNGs of each screen
+
+# device firmware (separate crate, Xtensa toolchain)
+cd firmware && . ~/export-esp.sh
+cargo run --release                                 # build, flash over USB-C, serial monitor
+cargo clippy --release && cargo fmt
+
+# verification without a board
+tools/heap32/run.sh          # game heap on a 32-bit target vs the firmware's SRAM budget
+tools/qemu-smoke/run.sh      # firmware runtime in Espressif QEMU; prints SMOKE PASS/FAIL
+```
+
+Installed on the dev Mac: `espup` 0.18, `espflash` 4.6, the `esp` Rust toolchain
+(rustc 1.97.0.0, made by `espup install --targets esp32s3`, writes
+`~/export-esp.sh`), and Homebrew `libgcrypt` (needed only by QEMU).
+
+## 2. Repo map and data flow
+
+```
+crates/orbit_game   #![no_std] Bevy plugin. Owns all game logic. Emits a `Frame` shape list.
+crates/orbit_gfx    #![no_std] rasterizer + dirty-rect diff + band Presenter + `Panel` trait.
+desktop/            std simulator (minifb window, RAM model of the panel, PNG snapshots).
+firmware/           ESP32-S3 binary. Excluded from the workspace (own toolchain + Cargo.lock).
+tools/heap32/       wasm32 heap measurement (excluded from workspace).
+tools/qemu-smoke/   QEMU runtime smoke test (excluded from workspace).
+```
+
+The frame loop is the same on both platforms:
+
+1. The platform polls touch and calls `Touch::set(Option<Vec2>)` in screen pixels.
+2. It calls `app.update()`. Game systems run, and `draw_frame` (PostUpdate) refills `Frame { shapes }`.
+3. It calls `Presenter::present(&shapes, &mut panel)`, which:
+   - diffs the shapes against the previous frame (`FrameDiff`);
+   - takes the bounds of each shape that appeared or vanished, even-aligned and merged;
+   - renders each dirty rect in full-width bands into a small buffer (`render`);
+   - calls `Panel::write(area, bytes)`. The bytes are big-endian RGB565, which is the panel's wire format.
+
+The desktop `Panel` copies into a 466x466 RAM model. The firmware `Panel` is the
+CO5300 driver (QSPI + DMA). The simulator therefore shows exactly the pixels
+the device would get, including any dirty-rect bugs.
+
+Conventions, matching the user's other logic-* games:
+- Red-green TDD with behavioral test names.
+- `cargo clippy` + `cargo fmt`, and a commit per feature.
+- The user's global style rules: no `else { None }` tails, no comments that just
+  restate the code, `use` imports instead of full paths, and no `_`-prefixed
+  unused variables (remove them instead).
+- UI strings are ASCII only. The font is embedded-graphics' `FONT_10X20`
+  (ASCII), scaled by an integer.
+
+## 3. Hardware reference
+
+Board: Waveshare ESP32-S3-Touch-AMOLED-1.75 (SKU 31261). The SoC is an
+ESP32-S3R8: 2x LX7 at 240 MHz, 512 KB SRAM, 8 MB **octal** PSRAM, and 16 MB flash.
+Waveshare's sources are github.com/waveshareteam/ESP32-S3-Touch-AMOLED-1.75 (the
+Arduino demos and the ESP-IDF BSP `waveshare__esp32_s3_touch_amoled_1_75`).
+
+**Variant trap:** the **1.75C** is a different board with different reset pins
+(LCD reset GPIO1, touch reset GPIO2). Everything here is for the plain 1.75.
+
+### Pins [verified from Waveshare source/schematic]
+
+| Function | GPIO |
+|---|---|
+| QSPI LCD: CS / SCLK / D0 / D1 / D2 / D3 | 12 / 38 / 4 / 5 / 6 / 7 |
+| LCD reset / LCD TE (tearing) | 39 / 13 (TE unused so far) |
+| I2C SDA / SCL (400 kHz, 2.2k pull-ups) | 15 / 14 |
+| Touch INT / touch reset | 11 / 40 |
+| I2S MCLK / BCLK / WS / DOUT / DIN | 42 / 9 / 45 / 8 / 10 |
+| Speaker amp enable | 46 |
+| SD card | 1, 2, 3 (+41) |
+| IMU INT2 | 21 |
+| BOOT button | 0 (active low) |
+| Octal PSRAM (never assign) | 33-37 |
+
+- **PWR button:** goes to the AXP2101 PWRON pin. Firmware can read it as TCA9554 P4 (high = pressed).
+- **Display/touch power:** neither the AXP2101 PMIC nor the TCA9554 expander needs any setup before the display or touch work.
+- **Brightness:** there is no backlight pin. Brightness is set with panel register `0x51`.
+
+### I2C addresses [verified]
+
+ES8311 codec `0x18`, TCA9554 `0x20`, AXP2101 `0x34`, ES7210 mic ADC `0x40`,
+PCF85063 RTC `0x51`, CST9217 touch `0x5A`, QMI8658 IMU `0x6B`.
+
+### CO5300 display protocol [verified in vendor source; unverified on this board]
+
+- **SPI setup:** mode 0, 40 MHz in every Waveshare demo. The datasheet maximum write clock is reportedly 50 MHz.
+- **Register write:** opcode `0x02` plus 24-bit address `0x00RR00`. Parameters go out on one line.
+- **Pixel write:** first a RAMWR (`0x2C`) register write, then opcode `0x32` plus address
+  `0x003C00` (memory-write-continue) with the data on 4 lines. Pixels are RGB565, high byte first.
+- **Window:** the 466 columns sit at RAM columns **6..=471** (x offset 6, y offset 0).
+- **Alignment:** windows must start on even coordinates and have even width and height.
+  `orbit_gfx::align_even` enforces this.
+- **Init:** `firmware/src/co5300.rs` uses Waveshare's ESP-IDF BSP list. It sends `36 00`, `3A 55`,
+  then page-`0x20` vendor writes (`FE 20`, `19 10`, `1C A0`), then `FE 00`, `C4 80`, `3A 55`, `35 00`,
+  `53 20`, `51 FF`, `63 FF`, CASET `00 06 01 D7`, RASET `00 00 01 D1`, `11`, a 120 ms wait,
+  and finally `29`.
+- **Fallback init:** Waveshare's Arduino_GFX uses a shorter list: `11`, a 120 ms wait,
+  `FE 00`, `C4 80`, `3A 55`, `53 20`, `63 FF`, `29`, `51 D0`, `58 00`, `20`, `36 00`.
+- **Reset:** low for 10 ms, then high, then wait 150 ms.
+- **Transport template:** github.com/okhsunrog/claudial (`firmware/src/co5300.rs`). It runs
+  on the AMOLED-2.16, which has the same CO5300 and the same LCD/touch/I2C pins. It uses manual
+  CS and 40 MHz with esp-hal 1.2 DMA. Its MADCTL `0xA0` is specific to the 2.16, so don't copy it.
+- **No vsync/tearing sync yet:** claudial found the 2.16's TE line grounded. On the 1.75 it
+  reaches GPIO13, so syncing to TE may be possible **[unverified]**.
+
+### CST9217 touch [verified in vendor source; unverified on this board]
+
+- **Crate:** `cst92xx` 0.2.4 with `default-features = false, features = ["blocking"]`.
+  Use `CST92xx::new(i2c, delay).with_reset(gpio40).init()`, then `touches()`, which
+  returns `[Option<Point>; N]` in raw panel coordinates.
+- **Orientation:** Waveshare's BSP mirrors both axes for this board (`x = 465 - x`,
+  `y = 465 - y`). The firmware's `TOUCH_MIRROR_X/Y` constants do this.
+- **Pin caution:** the crate's own example uses TP_RST = GPIO2, which is the 1.75C pin.
+
+## 4. Toolchain and crate set [verified: builds and links]
+
+| Crate | Version / features |
+|---|---|
+| esp-hal | `~1.2.2`, `["esp32s3", "log-04", "unstable"]` (`unstable` gates DMA, PSRAM, `with_sio*`, half-duplex) |
+| esp-bootloader-esp-idf | 0.6.0 |
+| esp-alloc | 0.11.0 (the chip feature is mandatory on all of these) |
+| esp-println | 0.18.0 |
+| esp-backtrace | 0.20.0 `["panic-handler", "println"]` |
+| bevy | `0.19`, `default-features = false, features = ["default_no_std"]` |
+
+- Bevy 0.19.1 is the latest stable. 0.20 is at rc.2.
+- The esp-hal 1.2 crate set must not be mixed with the older set (esp-alloc 0.10 and so on).
+- esp-hal 1.2 has **no `psram` feature**. PSRAM is a runtime `PsramConfig`, and the default
+  `Auto` mode tries octal, then quad. The firmware uses `Auto` so the same code runs in QEMU,
+  which only emulates quad PSRAM.
+- `esp_bootloader_esp_idf::esp_app_desc!()` is required. espflash 4.x refuses images without it.
+- Project files: `rust-toolchain.toml` sets `channel = "esp"`. `.cargo/config.toml` sets target
+  `xtensa-esp32s3-none-elf`, `build-std = ["alloc","core"]`, rustflag `-C link-arg=-nostartfiles`,
+  and runner `espflash flash --monitor --chip esp32s3`. `build.rs` emits `-Tlinkall.x`.
+- Always build `--release`. PSRAM needs it, and unoptimized Bevy is far too slow.
+- Every link prints a harmless warning: "LOAD segment with RWX permissions".
+- Logging needs `[env] ESP_LOG = "info"` in `.cargo/config.toml`. esp-println filters at
+  compile time, so without it every `info!` silently disappears.
+
+## 5. Bevy without std [verified]
+
+- **What the umbrella crate gives you:** `bevy` with `default_no_std` (libm, critical-section,
+  bevy_color, bevy_state) gives app, ecs, state, time, math, transform, input, reflect, and
+  platform. Input kinds (touch, keyboard, gamepad) are opt-in features.
+- **Unavailable:** `bevy_render`, `bevy_asset`, `bevy_log`, `bevy_audio`, `multi_threaded`,
+  `async_executor`, `std`, and `default_app`. Everything is single-threaded.
+- **The clock hook (mandatory):** the platform must call
+  `unsafe { bevy::platform::time::Instant::set_elapsed(fn() -> Duration) }` **before**
+  `TimePlugin` is added, because `Time<Real>::default()` calls `Instant::now()`. Without the hook
+  on Xtensa, that call panics. The firmware feeds it esp-hal's microsecond timer. Tests and the
+  desktop use std time; `testing::headless_app` uses `TimeUpdateStrategy::ManualDuration`, one
+  60 Hz step per `update()`.
+- **Float math:** `f32::sin`, `sqrt`, `atan2` and `rem_euclid` are std-only. Use
+  `bevy::math::ops::*`. `to_degrees`, `abs`, `clamp`, `min` and `max` are fine in core.
+  glam's `Vec2` methods work, backed by libm.
+- **Atomics:** the S3 has 32-bit compare-and-swap. portable-atomic handles 64-bit by itself;
+  nothing to configure.
+- **Infallible draw results:** write `let Ok(()) = canvas.clear(c);`.
+- **No `inventory`-style auto registration:** `.init_array` isn't run.
+- **Prior art:** georgik/esp32-conways-game-of-life-rs (bevy_ecs on S3 boards, PSRAM heap),
+  OS-Mote/Bevy-ESP32, and bushrat011899/bevy_mod_gba (custom runner and time pattern).
+  Bevy 0.17.0–0.17.2 panicked on first spawn on 32-bit targets; this is fixed in 0.17.3+.
+
+## 6. Rendering budget and rules
+
+- **Link speed:** 40 MHz × 4 lines moves 20 MB/s. A full 466x466 frame is 434,312 B, so it takes
+  **about 22 ms** on the wire. Full-screen animation therefore tops out around 30 fps before
+  render time is counted.
+- **Typical Orbit frame:** about 25 KB, roughly 1.3 ms of link time.
+- **Render CPU time on device:** unmeasured. The firmware logs average and worst frame time
+  every 2 s.
+- **Dirty-rect rules:**
+  - Static content costs nothing after the first frame.
+  - Anything that changes repaints its whole bounding box, plus every shape that overlaps it.
+  - `Shape::bounds()` must be tight and conservative. Arc bounds are computed by hand,
+    because embedded-graphics reports an arc's whole circle.
+  - Shapes are compared with `PartialEq` every frame. Keep shape payloads small: refer to big
+    data by id, not by value.
+- **Bands:** 8 rows × 466 px = 7,456 B, one DMA transfer each. The CO5300 driver keeps two
+  7,680 B DMA buffers. It copies the next chunk while the previous one transmits, and returns
+  with the last chunk still in flight, so the next band renders in parallel.
+- **SPI transaction limit:** 32,736 B per DMA transaction (esp-hal `MAX_DMA_SIZE`).
+- **Round glass:** pixels outside radius 233 are invisible. Pure black means the AMOLED pixel
+  is off, which is free and power-saving.
+
+## 7. Memory: the binding constraint
+
+Measured **[verified]**, Orbit on 32-bit: about 202 KB after build, about 211 KB steady,
+**262 KB peak** during the first `update()`. The peak is transient, from schedule graph builds.
+Most of it is Bevy itself:
+- `App::new()` alone is about 100 KB (64-bit host).
+- `TimePlugin` adds about 90 KB.
+- Each schedule, resource table (`Column::with_capacity`), and message type adds KB.
+
+Reflection is negligible (28 types).
+
+**Why it has to fit in internal SRAM:** on the ESP32-S3, atomic read-modify-write
+(`S32C1I`) doesn't work on PSRAM (esp-alloc's own warning). Bevy keeps `Arc` counts and
+spinlocks on the heap.
+
+Firmware layout **[verified in QEMU]**:
+
+| Region | Size |
+|---|---|
+| reclaimed heap | 73,744 B |
+| `INTERNAL_HEAP_BYTES` | 212 KB |
+| internal heap total | **284 KB** |
+| `.stack` | about 74 KB (whatever DRAM remains) |
+| PSRAM | 8 MB, registered **last** as a safety net |
+
+At boot the firmware logs whether Bevy spilled into PSRAM. In QEMU it doesn't (0 B).
+
+**Headroom at peak is about 14 KB** (`tools/heap32/run.sh`). Any bigger game will exceed it.
+Options, in order of preference:
+1. **Test PSRAM atomics on the real board first** (§9). georgik's Espressif demos run
+   bevy_ecs entirely from a PSRAM heap on S3 hardware. If RMW atomics on PSRAM really work, or
+   at least don't hang, the 8 MB is open and this whole section relaxes.
+2. **Trade stack for heap.** Bevy ran fine in QEMU with about 74 KB of stack. Don't go below
+   about 48 KB without testing in QEMU.
+3. **Trim Bevy:**
+   - fewer `OnEnter`/`OnExit` schedules (each schedule is several KB);
+   - fewer message types and resources;
+   - individual crates (`bevy_ecs`, `bevy_app`, `bevy_time`, `bevy_state`, `bevy_math`,
+     `bevy_platform`) instead of the umbrella, which drops bevy_reflect.
+4. **Big plain data never goes on the Bevy heap.** Sprites and audio live in flash
+   (`include_bytes!`, zero RAM). Large scratch buffers go in PSRAM explicitly with esp-alloc's
+   `ExternalMemory` allocator (needs `allocator-api2`).
+
+Other memory facts:
+- esp-alloc allows at most 3 regions and is first-fit in registration order.
+- A large `static` (20 KB) in the LTO'd firmware broke linking with "dangerous relocation:
+  l32r: literal target out of range". Size memory through `heap_allocator!`, not big statics.
+
+## 8. Verifying without a board
+
+- **Host tests:**
+  - `crates/orbit_game/tests/orbit.rs`: gameplay, headless at a fixed 60 Hz.
+  - `orbit_gfx` unit tests:
+    - arc bounds contain every drawn pixel;
+    - banded render equals full render;
+    - **panel RAM always equals a full render of the latest frame** across 40 frames of motion;
+    - writes are even-aligned.
+- **Simulator:** the window title shows fps, KB per frame, and the estimated QSPI ms.
+  `snapshot` mode writes PNGs headlessly. Use it to look at visuals; it works even while the
+  Mac is locked, because it doesn't capture the screen.
+- **`tools/heap32/run.sh`:**
+  - builds the game for wasm32, which has 4-byte pointers like Xtensa;
+  - counts allocations through build, 20 s of play, and 10 s idle;
+  - compares the peak plus the render band against the budget parsed from `firmware/src/main.rs`;
+  - exits nonzero when over budget.
+- **`tools/qemu-smoke/run.sh`:**
+  - **Setup it handles:** downloads Espressif QEMU `esp-develop-9.2.2-20260417`
+    (`-machine esp32s3`, needs `brew install libgcrypt`).
+  - **What it runs:** a copy of the firmware runtime with a byte-counting panel and scripted
+    touch. The heap layout matches, and the two `.stack` sizes are printed.
+  - **Pass criteria:** two or more starts, one or more losses, and 0 B in PSRAM.
+  - **Emulator-only workarounds, all applied automatically:**
+    1. esp-hal's `bbpll_cal_done` wait is patched out of a private esp-hal copy in
+       `.patched/`, because QEMU never sets the bit.
+    2. The FPU is enabled by hand, because QEMU boots with CPENABLE=0 (espressif/qemu#154,
+       open). Without that, the first hardware-float instruction double-faults.
+    3. esp-println uses the `uart` feature, because QEMU doesn't connect USB-JTAG.
+  - **Debugging a hang in QEMU:** run with `-d in_asm,int -D tb.log`, then pass the last
+    translated PCs to `xtensa-esp32s3-elf-addr2line -f -C -e <elf>`. QEMU's xtensa interrupt
+    numbers are 11 = user exception and 12 = double exception.
+- **What none of this proves:** the CO5300 init and offset, touch orientation, real timing,
+  and PSRAM-atomics behaviour.
+
+## 9. When the board arrives
+
+First flash (`cd firmware && . ~/export-esp.sh && cargo run --release`). Watch the serial log:
+1. **`display ready`, then the title on the glass.**
+   - Black screen: try the Arduino init list (§3).
+   - Shifted image: adjust `COLUMN_OFFSET`.
+2. **`bevy app built entirely in internal SRAM`.**
+3. **Tap and the paddle follows the finger.** If it goes the wrong way, flip
+   `TOUCH_MIRROR_X/Y`. If the log shows `CST9217 touch init failed`, check that this isn't a 1.75C.
+4. **The 2 s stats line:** frame time (average and worst), bytes per frame, heap.
+
+Then run these experiments, in this order:
+- **PSRAM atomics:** allocate an `AtomicU32` (and an `Arc`) in PSRAM via `ExternalMemory`, run
+  `fetch_add`/`compare_exchange` a million times, and check the results. That decides §7.1.
+- **Real render cost:** frame-time stats for a full-screen redraw versus gameplay frames.
+- **TE sync on GPIO13:** see whether waiting for the tearing pulse before large writes
+  removes tearing.
+- **Audio bring-up** (§10.2).
+
+## 10. Extending: pixel art, sound, input
+
+### 10.1 Pixel-art sprites (plan; nothing built yet)
+- **Assets:** PNG → (host build step) → raw big-endian RGB565 plus a transparent key color, or
+  8-bit indexed plus palette → `include_bytes!`. Data stays in flash at zero RAM cost; there
+  are 16 MB, read through the cache.
+- **New shape:** add `Shape::Sprite { id: SpriteId, frame: u16, top_left: Point, scale: u8, flip_x: bool }`.
+  - Look up `id` in a static atlas table. Comparing ids keeps the per-frame `PartialEq` diff cheap.
+  - `bounds()` is `size × scale`.
+  - `draw` writes the clipped rows straight into the `Canvas` byte buffer, skips the key
+    color, and repeats each source pixel `scale` times. Don't push per-pixel
+    embedded-graphics `Pixel`s.
+  - The existing `Scaled` adapter in `shape.rs` shows how integer scaling was done for text.
+- **Chunky look:** author at 155x155 and draw at ×3, or 233x233 at ×2. Output cost is per
+  screen pixel either way.
+- **Budget:**
+  - A static full-screen background is free after the first frame.
+  - A moving 32x32 sprite at ×3 repaints about 2×(96×96) px, about 37 KB, about 2 ms of link time.
+  - Whole-screen animation (scrolling water) costs 22 ms+ per frame. Animate small regions
+    (ripples, the bobber) instead.
+- **Simulator:** shows sprites unchanged, because it uses the same renderer.
+
+### 10.2 Sound
+See the audio findings below (added from the hardware research).
+
+### 10.3 Input beyond touch
+- QMI8658 6-axis IMU at `0x6B` on the shared I2C bus, interrupt on GPIO21. Good for
+  flick-to-cast or tilt.
+- The BOOT button (GPIO0) and PWR button (via TCA9554 P4) are usable as buttons.
+- Put the I2C bus behind a shared-bus wrapper (e.g. `embedded-hal-bus` `RefCellDevice`) once
+  more than one driver needs it. Touch currently owns the bus outright.
+
+## 11. Gotchas (all hit or confirmed during bring-up)
+
+- **The touch crate's example uses the 1.75C reset pin** (GPIO2). This board uses GPIO40.
+- **embedded-graphics' `Arc::bounding_box()` is the whole circle.** Using it would redraw the
+  full screen every frame.
+- **`cargo new` inside the repo can create a nested `.git`.** Delete it before committing.
+- **A device build that logs nothing may still be running.** Check `ESP_LOG` before
+  suspecting a hang. QEMU's `-d in_asm` trace shows where execution actually is.
+- **`cargo clippy` doesn't relink.** Run `cargo build` before reading section sizes with
+  `xtensa-esp32s3-elf-size -A`.
+- **`Rgb565::BLACK`/`WHITE` need the `RgbColor` trait in scope.** `orbit_gfx` re-exports it.
+- **`Touch::just_pressed` is edge-detected** against the previous frame. A `Last` system copies
+  current to previous. Platforms only call `set`.
+- **Paddle reach is the half-span plus the ball's angular radius** (about 24.6°). Tests that
+  probe the edge must stay inside it.
+- **esp-generate templates and older answers predate esp-hal 1.1–1.2.** The `psram` feature,
+  `ESP_HAL_CONFIG_PSRAM_MODE` and `SpiDmaBus` are gone, and the buffer-taking SPI methods are
+  now `*_buffer`.
+
+## 12. Sources
+
+- Waveshare: github.com/waveshareteam/ESP32-S3-Touch-AMOLED-1.75 (and `-1.75C`),
+  docs.waveshare.com/ESP32-S3-Touch-AMOLED-1.75
+- espressif/esp_lcd_co5300 2.2.0 (CO5300 opcodes); SensorLib `TouchDrvCST92xx`
+- github.com/okhsunrog/claudial (esp-hal 1.2 CO5300 transport); crates `cst92xx` 0.2.4
+- esp-hal v1.2.2: CHANGELOG, MIGRATING-1.0.0/1.1.0, `qa-test/src/bin/qspi_flash.rs`, esp-alloc `macros.rs`
+- Bevy v0.19.1 `bevy_platform/src/time/fallback.rs`, `examples/no_std`
+- espressif/qemu releases and issue #154

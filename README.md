@@ -93,7 +93,17 @@ read-modify-write does not work on PSRAM, and Bevy keeps `Arc` counts and
 spinlocks on the heap. So keep Bevy's working set internal. Put big plain
 buffers (sprites, framebuffers) in PSRAM explicitly with `esp_alloc::ExternalMemory`.
 
-### Emulator smoke test (no board needed)
+### Checking a change without the board
+
+- `tools/heap32/run.sh` measures the game's heap on a 32-bit target and checks it
+  against the firmware's internal-SRAM budget. Run it after adding Bevy plugins,
+  systems or resources.
+- `tools/qemu-smoke/run.sh` boots the firmware runtime in Espressif's QEMU and prints
+  `SMOKE PASS`/`SMOKE FAIL`.
+
+The full platform handbook is `docs/ESP32_PLATFORM.md`.
+
+### Emulator smoke test notes
 
 Espressif's QEMU (`esp-develop-9.2.2-20260417`, `-machine esp32s3`) was used to boot this
 firmware's memory layout, with a stub panel and scripted touch, through

@@ -1,0 +1,4 @@
+.patched
+.qemu
+*.log
+*.bin

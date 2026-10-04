@@ -1,0 +1,18 @@
+[package]
+name = "orbit_heap32"
+version = "0.1.0"
+edition = "2024"
+license = "MIT OR Apache-2.0"
+
+# Measures the game's heap on a 32-bit target (wasm32, run under node) as a
+# stand-in for the ESP32-S3: pointer-heavy Bevy internals shrink a lot vs a
+# 64-bit host. Run via run.sh.
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+bevy = { version = "0.19", default-features = false, features = ["default_no_std"] }
+orbit_game = { path = "../../crates/orbit_game" }
+
+[profile.release]
+opt-level = "s"
