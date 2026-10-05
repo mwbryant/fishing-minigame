@@ -6,11 +6,14 @@ use embedded_graphics::{
     mono_font::{MonoTextStyle, ascii::FONT_10X20},
     pixelcolor::Rgb565,
     prelude::*,
-    primitives::{Arc, Circle, PrimitiveStyle, Rectangle},
+    primitives::{Arc, Circle, Line, PrimitiveStyle, Rectangle},
     text::{Baseline, Text},
 };
 
-use crate::Canvas;
+use crate::{
+    Canvas,
+    sprite::{SpriteRef, draw_sprite, sprite_rect},
+};
 
 const GLYPH_WIDTH: u32 = 10;
 const GLYPH_HEIGHT: u32 = 20;
@@ -45,6 +48,22 @@ pub enum Shape {
         scale: u32,
         color: Rgb565,
     },
+    Rect {
+        area: Rectangle,
+        color: Rgb565,
+    },
+    Line {
+        from: Point,
+        to: Point,
+        width: u32,
+        color: Rgb565,
+    },
+    Sprite {
+        sprite: SpriteRef,
+        top_left: Point,
+        scale: u32,
+        flip_x: bool,
+    },
 }
 
 impl Shape {
@@ -72,6 +91,22 @@ impl Shape {
                 scale,
                 ..
             } => label_rect(*center, text, *scale),
+            Shape::Rect { area, .. } => *area,
+            Shape::Line {
+                from, to, width, ..
+            } => {
+                let pad = (*width / 2 + 1) as i32;
+                Rectangle::with_corners(
+                    Point::new(from.x.min(to.x) - pad, from.y.min(to.y) - pad),
+                    Point::new(from.x.max(to.x) + pad, from.y.max(to.y) + pad),
+                )
+            }
+            Shape::Sprite {
+                sprite,
+                top_left,
+                scale,
+                ..
+            } => sprite_rect(sprite.0, *top_left, *scale),
         }
     }
 
@@ -108,6 +143,21 @@ impl Shape {
                 scale,
                 color,
             } => draw_label(canvas, *center, text, *scale, *color),
+            Shape::Rect { area, color } => canvas.fill_solid(area, *color),
+            Shape::Line {
+                from,
+                to,
+                width,
+                color,
+            } => Line::new(*from, *to)
+                .into_styled(PrimitiveStyle::with_stroke(*color, *width))
+                .draw(canvas),
+            Shape::Sprite {
+                sprite,
+                top_left,
+                scale,
+                flip_x,
+            } => draw_sprite(canvas, sprite.0, *top_left, *scale, *flip_x),
         };
     }
 }
@@ -261,6 +311,11 @@ mod tests {
             .collect()
     }
 
+    static TEST_SPRITE: crate::Sprite = crate::Sprite {
+        rows: &["..YY", "YYYY", "Y..Y"],
+        palette: &[(b'Y', Rgb565::YELLOW)],
+    };
+
     fn arc(start_deg: f32, sweep_deg: f32) -> Shape {
         Shape::Arc {
             center: SCREEN_CENTER,
@@ -306,6 +361,28 @@ mod tests {
                 text: "SCORE 42".into(),
                 scale: 3,
                 color: Rgb565::GREEN,
+            },
+            Shape::Rect {
+                area: Rectangle::new(Point::new(40, 300), Size::new(70, 9)),
+                color: Rgb565::CYAN,
+            },
+            Shape::Line {
+                from: Point::new(300, 120),
+                to: Point::new(90, 260),
+                width: 3,
+                color: Rgb565::WHITE,
+            },
+            Shape::Line {
+                from: Point::new(100, 100),
+                to: Point::new(101, 400),
+                width: 5,
+                color: Rgb565::WHITE,
+            },
+            Shape::Sprite {
+                sprite: SpriteRef(&TEST_SPRITE),
+                top_left: Point::new(250, 60),
+                scale: 4,
+                flip_x: true,
             },
         ];
         for shape in &shapes {
@@ -356,6 +433,18 @@ mod tests {
                 text: "ORBIT".into(),
                 scale: 4,
                 color: Rgb565::YELLOW,
+            },
+            Shape::Sprite {
+                sprite: SpriteRef(&TEST_SPRITE),
+                top_left: Point::new(200, 150),
+                scale: 7,
+                flip_x: false,
+            },
+            Shape::Line {
+                from: Point::new(20, 230),
+                to: Point::new(440, 100),
+                width: 2,
+                color: Rgb565::WHITE,
             },
         ];
         let whole = full_screen(&shapes);

@@ -11,11 +11,14 @@ license = "MIT OR Apache-2.0"
 [workspace.dependencies]
 orbit_gfx = { path = "crates/orbit_gfx" }
 orbit_game = { path = "crates/orbit_game" }
+orbit_motion = { path = "crates/orbit_motion" }
+orbit_save = { path = "crates/orbit_save" }
 # no_std-capable subset: ECS, app, states, time, math. No renderer, no
 # windowing; frames are rasterized by orbit_gfx on whichever platform runs.
 bevy = { version = "0.19", default-features = false, features = ["default_no_std"] }
 embedded-graphics = "0.8"
 libm = "0.2"
+embedded-storage = "0.3"
 
 [workspace.lints.clippy]
 type_complexity = "allow"

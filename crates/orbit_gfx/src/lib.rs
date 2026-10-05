@@ -13,6 +13,7 @@ mod canvas;
 mod dirty;
 mod present;
 mod shape;
+mod sprite;
 
 pub use canvas::Canvas;
 pub use dirty::{FrameDiff, align_even, bands};
@@ -23,6 +24,7 @@ pub use embedded_graphics::{
 };
 pub use present::{Panel, Presenter};
 pub use shape::{Shape, render};
+pub use sprite::{Sprite, SpriteRef};
 
 pub const SCREEN_SIZE: u32 = 466;
 pub const SCREEN_CENTER: Point = Point::new(SCREEN_SIZE as i32 / 2, SCREEN_SIZE as i32 / 2);
