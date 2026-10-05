@@ -25,7 +25,8 @@ cargo run -p orbit_desktop -- angler                 # play Angler (the default)
 cargo run -p orbit_desktop -- orbit                  # ... or Orbit
 cargo run -p orbit_desktop -- angler snapshot screenshots   # headless PNGs of each screen
 #   desktop controls: mouse = finger, Space = action (PWR), Z = zero (BOOT),
-#   arrows = turn/lean the virtual device, C = straighten it, Esc = quit.
+#   left/right = turn the virtual device (it stays turned), hold up/down = lean it
+#   15 degrees (it springs back level when released), C = straighten, Esc = quit.
 #   Desktop saves live in ~/.logic-orbit/<game>.flash (device flash format).
 
 # device firmware (separate crate, Xtensa toolchain; one binary per game)
@@ -565,10 +566,20 @@ flight and reel physics run in `FixedUpdate` at 60 Hz.
   22°, 1100 px/s², damping 2.5.
 - **Fish movement:** each species' `Temper` (agility spring, max speed, retarget interval,
   darts per second, depth bias) drives it.
-- **Progress:** starts at 0.35, fills at 0.30/s inside the zone, and drains at
-  0.18 + 0.04 × tier per second outside.
-- **Tested with simulated players:** a skilled PD player lands every species ≥ 90%; an idle
-  player lands < 15% overall; a sluggish player finds pike harder than minnows.
+- **Hooking:** like Stardew, the fish starts *inside* the zone at the bottom of the bar and
+  holds still for `HOOK_SETTLE_SECS` (1 s). Then it makes a run for the far half, and after
+  that it moves by its temper.
+- **Progress:** starts at 0.3, fills at 0.30/s inside the zone, and drains at
+  0.15 + 0.05 × tier per second outside.
+- **Pacing history:** the first tuning lost fish in 1.2–1.9 s untouched, and the user found
+  that far too quick. It was retuned against simulated players (`reel.rs` tests):
+  - **untouched:** no fish escapes in its first 3 s;
+  - **hesitant** (reacting 0.25 s late with a soft hand): lands tier 0–1 fish ≥ 75% of the
+    time, and trophies sometimes but not always;
+  - **skilled:** lands every species ≥ 90%;
+  - **idle:** lands < 15% overall;
+  - **sluggish:** finds pike harder than minnows.
+  Retune the constants at the top of `reel.rs` against these tests.
 
 **Fish** (`species.rs`):
 - Eight species in tiers 0–3: minnow, bluegill, perch, trout, bass, catfish, pike, golden koi.

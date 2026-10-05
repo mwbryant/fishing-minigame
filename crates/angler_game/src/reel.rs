@@ -16,8 +16,15 @@ pub const TRACK_WIDTH: f32 = 44.0;
 pub const ZONE_HEIGHT: f32 = 96.0;
 pub const FISH_HALF: f32 = 8.0;
 
-pub const START_PROGRESS: f32 = 0.35;
+pub const START_PROGRESS: f32 = 0.3;
 pub const FILL_PER_SEC: f32 = 0.30;
+/// The meter drains at this plus `DRAIN_PER_TIER` per species tier while the
+/// fish is outside the zone.
+pub const DRAIN_PER_SEC: f32 = 0.15;
+pub const DRAIN_PER_TIER: f32 = 0.05;
+/// Seconds a freshly hooked fish holds still inside the zone, so the player
+/// has time to get a feel for the lean before it starts running.
+pub const HOOK_SETTLE_SECS: f32 = 1.0;
 pub const LEAN_DEAD_ZONE_DEG: f32 = 2.0;
 /// Lean (degrees past the dead zone) that gives full push.
 pub const LEAN_FULL_DEG: f32 = 20.0;
@@ -41,25 +48,30 @@ pub struct Reel {
     pub progress: f32,
     target: f32,
     retarget_in: f32,
+    settle_secs: f32,
     temper: Temper,
+    fill_per_sec: f32,
     drain_per_sec: f32,
 }
 
 impl Reel {
+    /// Like Stardew, the fish and the zone start together near the bottom.
     pub fn new(species: &Species, rng: &mut Rng) -> Self {
-        let mut reel = Self {
-            zone_y: TRACK_HEIGHT - ZONE_HEIGHT / 2.0,
+        let start = TRACK_HEIGHT - ZONE_HEIGHT / 2.0;
+        let (min, max) = species.temper.retarget_secs;
+        Self {
+            zone_y: start,
             zone_v: 0.0,
-            fish_y: TRACK_HEIGHT / 2.0,
+            fish_y: start,
             fish_v: 0.0,
             progress: START_PROGRESS,
-            target: TRACK_HEIGHT / 2.0,
-            retarget_in: 0.0,
+            target: start,
+            retarget_in: min + (max - min) * rng.next_f32(),
+            settle_secs: HOOK_SETTLE_SECS,
             temper: species.temper,
-            drain_per_sec: 0.18 + 0.04 * f32::from(species.tier),
-        };
-        reel.retarget(rng);
-        reel
+            fill_per_sec: FILL_PER_SEC,
+            drain_per_sec: DRAIN_PER_SEC + DRAIN_PER_TIER * f32::from(species.tier),
+        }
     }
 
     pub fn fish_in_zone(&self) -> bool {
@@ -70,7 +82,7 @@ impl Reel {
         self.move_zone(lean_deg, dt);
         self.move_fish(dt, rng);
         let rate = if self.fish_in_zone() {
-            FILL_PER_SEC
+            self.fill_per_sec
         } else {
             -self.drain_per_sec
         };
@@ -98,18 +110,19 @@ impl Reel {
     }
 
     fn move_fish(&mut self, dt: f32, rng: &mut Rng) {
+        if self.settle_secs > 0.0 {
+            self.settle_secs -= dt;
+            if self.settle_secs <= 0.0 {
+                self.run_for_it(rng);
+            }
+            return;
+        }
         self.retarget_in -= dt;
         if self.retarget_in <= 0.0 {
             self.retarget(rng);
         }
         if rng.next_f32() < self.temper.darts_per_sec * dt {
-            let far = 0.75 + 0.2 * rng.next_f32();
-            let share = if self.fish_y < TRACK_HEIGHT / 2.0 {
-                far
-            } else {
-                1.0 - far
-            };
-            self.target = travel(share);
+            self.run_for_it(rng);
         }
         let k = self.temper.agility;
         let damping = 1.6 * ops::sqrt(k);
@@ -122,6 +135,18 @@ impl Reel {
             self.fish_y = self.fish_y.clamp(FISH_HALF, TRACK_HEIGHT - FISH_HALF);
             self.fish_v = 0.0;
         }
+    }
+
+    /// Dashes for the far end of the bar: the run right after the hook
+    /// settles, and every dart after that.
+    fn run_for_it(&mut self, rng: &mut Rng) {
+        let far = 0.75 + 0.2 * rng.next_f32();
+        let share = if self.fish_y < TRACK_HEIGHT / 2.0 {
+            far
+        } else {
+            1.0 - far
+        };
+        self.target = travel(share);
     }
 
     fn retarget(&mut self, rng: &mut Rng) {
@@ -229,6 +254,75 @@ mod tests {
             .map(|species| land_rate(species, 0.0, true))
             .sum();
         assert!(total / (SPECIES.len() as f32) < 0.15, "{total}");
+    }
+
+    /// A player reacting `lag_secs` late with a soft hand: the realistic case
+    /// of tilting a device by feel.
+    fn hesitant_fight(species: usize, seed: u32, lag_secs: f32) -> ReelOutcome {
+        let mut rng = Rng::new(seed);
+        let mut reel = Reel::new(&SPECIES[species], &mut rng);
+        let lag = (lag_secs / DT) as usize;
+        let mut seen = alloc::collections::VecDeque::from(alloc::vec![
+            (reel.zone_y, reel.zone_v, reel.fish_y);
+            lag + 1
+        ]);
+        for _ in 0..(60.0 / DT) as usize {
+            seen.push_back((reel.zone_y, reel.zone_v, reel.fish_y));
+            let (zone_y, zone_v, fish_y) = seen.pop_front().unwrap();
+            let push = (12.0 * (zone_y - fish_y) + 1.5 * zone_v) / LEAN_ACCEL;
+            if let Some(outcome) = reel.step(lean_for(push), DT, &mut rng) {
+                return outcome;
+            }
+        }
+        panic!("fight never ended");
+    }
+
+    #[test]
+    fn a_hooked_fish_starts_inside_the_catch_zone() {
+        for species in &SPECIES {
+            for seed in 1..=20 {
+                let reel = Reel::new(species, &mut Rng::new(seed));
+                assert!(reel.fish_in_zone(), "{} seed {seed}", species.name);
+            }
+        }
+    }
+
+    #[test]
+    fn no_fish_gets_away_in_the_first_three_seconds_even_untouched() {
+        for (index, species) in SPECIES.iter().enumerate() {
+            for seed in 1..=20 {
+                let mut rng = Rng::new(seed);
+                let mut reel = Reel::new(&SPECIES[index], &mut rng);
+                for step in 0..(3.0 / DT) as usize {
+                    let outcome = reel.step(0.0, DT, &mut rng);
+                    assert_ne!(
+                        outcome,
+                        Some(ReelOutcome::Escaped),
+                        "{} seed {seed} escaped after {:.2}s",
+                        species.name,
+                        step as f32 * DT
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn a_hesitant_player_still_lands_most_common_fish() {
+        for (index, species) in SPECIES.iter().enumerate().filter(|(_, s)| s.tier <= 1) {
+            let landed = (1..=20)
+                .filter(|&seed| hesitant_fight(index, seed, 0.25) == ReelOutcome::Landed)
+                .count();
+            assert!(landed >= 15, "{}: {landed}/20", species.name);
+        }
+    }
+
+    #[test]
+    fn a_hesitant_player_lands_trophies_sometimes_but_not_always() {
+        let landed = (1..=20)
+            .filter(|&seed| hesitant_fight(6, seed, 0.25) == ReelOutcome::Landed)
+            .count();
+        assert!((2..=17).contains(&landed), "pike: {landed}/20");
     }
 
     #[test]

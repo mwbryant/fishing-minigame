@@ -57,7 +57,8 @@ Controls:
 - **Mouse:** finger.
 - **Space:** the action button (PWR).
 - **Z:** the zero button (BOOT).
-- **Arrow keys:** ←/→ turn the virtual device like a wheel, ↑/↓ lean it.
+- **Arrow keys:** ←/→ turn the virtual device like a wheel; it stays turned. Hold ↑/↓ to
+  lean it; it springs back level when you let go.
 - **C:** straighten the device.
 
 The arrow keys feed a virtual IMU through the same motion filter the board uses.

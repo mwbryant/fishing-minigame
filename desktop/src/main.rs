@@ -33,7 +33,7 @@ use crate::{
 pub const BAND_BYTES: usize = SIZE * 2 * 8;
 /// What the real link moves: 40 MHz QSPI clock, four data lines.
 const QSPI_BYTES_PER_SEC: f64 = 40e6 * 4.0 / 8.0;
-/// How fast the arrow keys turn and tip the virtual device.
+/// How fast ←/→ turn the virtual device.
 const TURN_DEG_PER_SEC: f32 = 60.0;
 
 #[derive(Clone, Copy)]
@@ -70,7 +70,7 @@ fn main() {
 fn play(game: Game) {
     println!(
         "{}: mouse = finger | Space = action (PWR) | Z = zero (BOOT) | \
-         arrows = turn/lean the device | C = straighten | Esc = quit",
+         left/right = turn the device | hold up/down = lean | C = straighten | Esc = quit",
         game.name()
     );
     let mut window =
@@ -137,11 +137,10 @@ fn feed_inputs(window: &Window, world: &mut World, device: &mut VirtualDevice, d
             device.straighten();
         }
         let axis = |plus: Key, minus: Key| {
-            (f32::from(u8::from(window.is_key_down(plus)))
-                - f32::from(u8::from(window.is_key_down(minus))))
-                * TURN_DEG_PER_SEC
+            f32::from(u8::from(window.is_key_down(plus)))
+                - f32::from(u8::from(window.is_key_down(minus)))
         };
-        let steer = axis(Key::Right, Key::Left);
+        let steer = axis(Key::Right, Key::Left) * TURN_DEG_PER_SEC;
         let lean = axis(Key::Up, Key::Down);
         feed.push(device.sample(steer, lean, dt));
     }
