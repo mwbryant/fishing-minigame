@@ -1,0 +1,12 @@
+[project]
+name = "logic-orbit-case"
+version = "0.1.0"
+description = "Fly-reel case for the Waveshare ESP32-S3-Touch-AMOLED-1.75, parametric in build123d"
+requires-python = ">=3.11,<3.13"
+dependencies = ["build123d>=0.13,<0.14", "pyvista>=0.49"]
+
+[tool.uv]
+package = false
+
+[tool.ruff]
+line-length = 100

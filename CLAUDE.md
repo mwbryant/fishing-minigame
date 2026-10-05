@@ -11,6 +11,9 @@ and memory budgets, the verification tools, and what is still unverified on real
 `docs/reference/es8311_audio.rs` is the original researched speaker driver; the live
 version is `firmware/src/speaker.rs`. Sound clips are 16 kHz mono s16le PCM
 (`orbit_audio::SAMPLE_RATE`).
+`case/` is the printable enclosure: parametric Python (build123d via uv), separate from the
+Rust workspace. Tunables are in `case/params.py`; after changing them run `uv run check.py`,
+which fit-tests the parts against Waveshare's STEP model of the board (`case/README.md`).
 
 Rules that bite:
 - Every crate under `crates/` stays `#![no_std]`. Use `bevy::math::ops`

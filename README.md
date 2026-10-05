@@ -32,6 +32,7 @@ crates/orbit_game    Orbit
 crates/angler_game   Angler
 desktop/             minifb simulator for either game + headless PNG snapshots (std)
 firmware/            ESP32-S3: board support lib + one binary per game
+case/                3D-printable fly-reel case (Python/build123d), see case/README.md
 ```
 
 ## How a frame gets to the glass
