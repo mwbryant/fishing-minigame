@@ -3,7 +3,8 @@
 Everything learned bringing `no_std` Bevy games to this board, written so a
 fresh session can keep going without re-deriving it. There are two games:
 **Orbit** (circular pong, touch) and **Angler** (fishing: tilt-aimed cast,
-hold-to-charge, lean-to-reel, persistent fish log; see section 10.4). Facts are marked
+hold-to-charge, lean-to-reel, persistent fish log, gold and a hat shop; see section 10.4).
+Facts are marked
 **[verified]** (built, tested, read in source, or run in the emulator) or
 **[unverified]** (from vendor sources or inference; not yet seen on hardware).
 
@@ -302,10 +303,11 @@ Measured **[verified]** with `tools/heap32/run.sh`:
 | Game | After build | During play | Peak | Headroom in 284 KB (with the 7 KB band) |
 |---|---|---|---|---|
 | Orbit | 197 KB | 206 KB | 265 KB | **11 KB** |
-| Angler | 185 KB | 189 KB | 189 KB | **87 KB** |
+| Angler | 194 KB | 197 KB | 198 KB | **79 KB** |
 
-Angler is 76 KB leaner at peak because it uses **one phase-machine resource and four systems
-instead of Bevy states**. `StatesPlugin`, the `StateTransition` schedule, and every
+Angler is 67 KB leaner at peak because it uses **one phase-machine resource and four systems
+instead of Bevy states**. The hat shop (one `Inventory` resource, a `Phase::Shop`, no new
+systems) cost it 3 KB. `StatesPlugin`, the `StateTransition` schedule, and every
 `OnEnter`/`OnExit` schedule cost KB each.
 
 Opt-in plugins matter too. Moving buttons and IMU into `ControlsPlugin` saved Orbit 12 KB.
@@ -379,8 +381,9 @@ Other memory facts:
     scripted input. The two `.stack` sizes are printed; keep them within about 1 KB.
   - **Pass criteria:**
     - Orbit: two or more starts, one or more losses, and 0 B in PSRAM.
-    - Angler: two fish landed by a scripted steady-hand player, the fish log written through
-      `esp-storage` into emulated flash at 0x9000 and read back equal, and 0 B in PSRAM.
+    - Angler: two fish landed by a scripted steady-hand player, their gold spent in the hat
+      shop (MENU from aiming, then SHOP and BUY), the log, settings and inventory written
+      through `esp-storage` into emulated flash at 0x9000 and read back equal, and 0 B in PSRAM.
   - **Scripting rule:** emulated frames are much shorter than real ones (about 170 fps of game
     time), so drive scripts by **game time**, never frame counts. That covers charge-until-power,
     waiting out the result guard, and bounding fights by seconds.
@@ -419,8 +422,8 @@ For Angler (`cargo run --release --bin angler`), also check:
    the `PWR key unavailable` log (TCA9554 at 0x20).
 8. **Reel:** leaning forward pushes the green zone up. Swap the sign in `imu_to_screen`'s y/z
    if it's inverted.
-9. **Saves:** catch a fish, power-cycle, and the title's "CAUGHT n" should persist. The boot
-   log prints `save storage: found a save`.
+9. **Saves:** catch a fish, power-cycle, and the title's "CAUGHT n" and "GOLD n" (and the
+   angler's hat) should persist. The boot log prints `save storage: found a save`.
 
 Then run these experiments, in this order:
 - **PSRAM atomics:** allocate an `AtomicU32` (and an `Arc`) in PSRAM via `ExternalMemory`, run
@@ -558,9 +561,11 @@ codec.init(22_050, &mut amp)?;   // after I2S so MCLK is already running; raises
 ### 10.4 Angler, the fishing game (built)
 
 **Flow:** `crates/angler_game/src/session.rs` holds one `Phase` enum resource:
-Title → Log | Aim → Flight → Waiting → Bite → Reel → Caught | Escaped, plus Notice messages
-("ON THE DOCK!", "NOTHING BITES", "REELED IN", "LET GO!"). `Update` handles input-driven steps;
-flight and reel physics run in `FixedUpdate` at 60 Hz.
+Title → Log | Shop | Settings | Aim → Flight → Waiting → Bite → Reel → Caught | Escaped, plus
+Notice messages ("ON THE DOCK!", "NOTHING BITES", "REELED IN", "LET GO!"). Every result
+returns to Aim; the MENU button on the aiming screen (shown until the charge starts) is the
+only way back to the title without a reboot. `Update` handles input-driven steps; flight and
+reel physics run in `FixedUpdate` at 60 Hz.
 
 **Cast** (`cast.rs`, Angry Birds-style side view):
 - **Aim:** `elevation = clamp(40 - steer, 10, 80)`. Counterclockwise raises the rod. While
@@ -624,8 +629,27 @@ flight and reel physics run in `FixedUpdate` at 60 Hz.
 **Tuning knobs:** all constants are at the top of `cast.rs`, `reel.rs` and `species.rs`. The
 tests check behaviour, not values, so retune freely and rerun `cargo test -p angler_game`.
 
+**Gold and hats** (`shop.rs`):
+- **Earning:** every landed fish pays `Species::gold` (minnow 2, bluegill 3, perch 5, trout 8,
+  bass 12, catfish 15, pike 30, golden koi 80), scaled up to double for a fish at the top of
+  its length range (`Catch::gold`). The catch screen shows "+n GOLD"; the title shows the
+  purse. A typical cast (accuracy 0.7, distance 0.6) averages about 11 gold.
+- **Hats:** `HATS`, cheapest first: STRAW HAT (free, always owned), BEANIE 15, BALL CAP 30,
+  BUCKET HAT 50, COWBOY HAT 90, TOP HAT 150, FISH HAT 250, CROWN 500. A test pins the pacing:
+  the first hat within 3 typical catches, the crown 40 or more, the whole shelf within 150
+  (about 100 today).
+- **Art:** hats are text sprites in `sprites.rs` on the angler's 14-column grid (face in
+  columns 4-8). `ANGLER` is bareheaded with a hair row on top, and `draw::angler` draws the
+  hat with its bottom row over that hair row. Moving the body's top-left down by the two
+  removed rows kept `HANDS`, and so the rod and every cast, at the same pixel.
+- **Shop screen:** < > browse with the angler in a "mirror" trying the hat on. BUY (which also
+  puts it on) and WEAR share one spot, so one tap does whichever applies; a hat you can't
+  afford shows "NEED n MORE" instead. BUY and WEAR save, browsing doesn't. PWR or BACK leaves.
+- **`Inventory`:** gold (u32, saturating), owned hats as a u32 bitmask (a const assert caps
+  the shelf at 32), and the worn hat, which is always an owned one.
+
 **Home screen and settings:**
-- **Title buttons:** LOG and SETTINGS are on-screen touch buttons (`ui.rs` holds the
+- **Title buttons:** LOG, SHOP and SETTINGS are on-screen touch buttons (`ui.rs` holds the
   rectangles shared by drawing and hit tests). Taps elsewhere on the title do nothing;
   PWR still starts fishing.
 - **Difficulty:** `settings.rs`, EASY / NORMAL / HARD, stepped with the < > buttons. Each
@@ -640,8 +664,12 @@ tests check behaviour, not values, so retune freely and rerun `cargo test -p ang
   - Fish speed is a time-warp: spring × s², top speed and dart rate × s, retarget pauses ÷ s.
   - NORMAL is the tuning the reel tests pin.
   - A test checks that the same hesitant player lands more on EASY and fewer on HARD.
-- **Save format** (`save.rs`): `FLOG` version 2 = the fish log plus a difficulty byte. Version-1
-  saves still load, at NORMAL. Every difficulty change saves.
+- **Save format** (`save.rs`): `FLOG` version 3 = the fish log, a difficulty byte, gold (u32),
+  the owned-hat bitmask (u32) and the worn hat (u8). Version-1 saves load at NORMAL, and
+  version-1 and -2 saves load with no gold and the straw hat. Owned bits for hats a build
+  lacks are dropped, and a worn hat that isn't owned falls back to the straw hat. Every
+  difficulty change, catch, purchase and hat change saves (never during a fight: a sector
+  erase stalls the frame loop for tens of ms).
 
 **GUTEN easter egg** (a riff on the user's logic-fish toy):
 - Lives in the settings menu.

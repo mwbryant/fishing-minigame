@@ -9,9 +9,14 @@
     top of the sweeping meter to land exactly on it; release early and you come up short.
   - **Fight:** lean the device forward and back to keep the fish inside the catch zone, as in
     Stardew Valley.
-  - **Keep:** every catch is shown with its length and weight and saved to flash.
+  - **Keep:** every catch is shown with its length and weight and saved to flash, and pays
+    gold by species and size.
+  - **Shop:** spend the gold on hats for the angler (beanie, ball cap, cowboy hat, top hat,
+    a fish, a crown...). Try them on in the shop's mirror; the one you wear shows on the dock.
+    Gold and hats are saved.
   - **Re-level:** BOOT re-zeroes the IMU at any time.
-  - **Menus:** the title has LOG and SETTINGS touch buttons. Settings has EASY / NORMAL / HARD
+  - **Menus:** the title has LOG, SHOP and SETTINGS touch buttons, and MENU on the aiming
+    screen goes back to it. Settings has EASY / NORMAL / HARD
     difficulty (saved) and **GUTEN**, a riff on logic-fish: a rainbow trout spins to "Guten
     Morgen, Sonnenschein" for 15 s through the board's speaker.
 - **Orbit**, circular pong: drag anywhere to swing the paddle around the rim.
@@ -20,7 +25,7 @@ The same Bevy apps run in a desktop simulator and on the board, and both draw
 through the same software renderer, so the simulator shows the exact pixels the
 panel will get.
 
-![Angler aiming](screenshots/angler_aim.png) ![Angler fight](screenshots/angler_reel.png) ![Angler catch](screenshots/angler_caught.png)
+![Angler aiming](screenshots/angler_aim.png) ![Angler fight](screenshots/angler_reel.png) ![Angler catch](screenshots/angler_caught.png) ![Angler hat shop](screenshots/angler_shop.png)
 
 ```
 crates/orbit_gfx     no_std rasterizer (embedded-graphics + pixel-art sprites), dirty rects, bands
@@ -120,7 +125,7 @@ GPIO40). The 1.75C variant uses GPIO1 and GPIO2 for those two resets.
 
 Bevy's own bookkeeping (schedules, per-resource tables) dominates. Measured
 with a counting allocator on a 32-bit target, peak heap is 265 KB for Orbit and
-189 KB for Angler. Angler is leaner because it uses one phase resource instead
+198 KB for Angler. Angler is leaner because it uses one phase resource instead
 of Bevy states.
 The firmware gives Bevy about 284 KB of internal SRAM (`INTERNAL_HEAP_BYTES` plus
 the 72 KB reclaimed region) and keeps about 74 KB of stack. PSRAM is
@@ -136,7 +141,8 @@ buffers (sprites, framebuffers) in PSRAM explicitly with `esp_alloc::ExternalMem
   systems or resources.
 - `tools/qemu-smoke/run.sh` boots each game's firmware runtime in Espressif's QEMU
   with scripted input and prints `SMOKE PASS`/`SMOKE FAIL`. The Angler run lands
-  two fish and round-trips the fish log through emulated flash.
+  two fish, spends the gold in the hat shop, and round-trips the log, settings and
+  inventory through emulated flash.
 
 The full platform handbook is `docs/ESP32_PLATFORM.md`.
 
