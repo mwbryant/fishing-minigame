@@ -1,13 +1,13 @@
 use core::{f32::consts::FRAC_PI_2, time::Duration};
 
 use bevy::{prelude::*, time::TimeUpdateStrategy};
-use orbit_core::{Buttons, CorePlugin, ImuFeed, ImuSample, SaveBlob, Tilt};
+use orbit_core::{Buttons, ControlsPlugin, CorePlugin, ImuFeed, ImuSample, SaveBlob, Tilt};
 
 const DT: f32 = 1.0 / 60.0;
 
 fn app() -> App {
     let mut app = App::new();
-    app.add_plugins(CorePlugin)
+    app.add_plugins((CorePlugin, ControlsPlugin))
         .insert_resource(TimeUpdateStrategy::ManualDuration(Duration::from_secs_f32(
             DT,
         )));

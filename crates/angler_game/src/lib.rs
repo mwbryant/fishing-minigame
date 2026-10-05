@@ -20,7 +20,7 @@ pub mod sprites;
 pub mod testing;
 
 use bevy::prelude::*;
-use orbit_core::CorePlugin;
+use orbit_core::{ControlsPlugin, CorePlugin};
 
 pub use draw::{BACKGROUND, length_text, weight_text};
 pub use log::{FishLog, Milestones};
@@ -33,6 +33,9 @@ impl Plugin for AnglerPlugin {
     fn build(&self, app: &mut App) {
         if !app.is_plugin_added::<CorePlugin>() {
             app.add_plugins(CorePlugin);
+        }
+        if !app.is_plugin_added::<ControlsPlugin>() {
+            app.add_plugins(ControlsPlugin);
         }
         app.add_plugins((session::plugin, draw::plugin));
     }

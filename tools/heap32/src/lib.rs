@@ -2,6 +2,11 @@ use std::alloc::{GlobalAlloc, Layout, System};
 use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering::Relaxed};
 use std::time::Duration;
 
+use angler_game::{
+    Phase, Session,
+    cast::{self, Flight},
+    testing as angler,
+};
 use bevy::{math::ops, platform::time::Instant, prelude::*};
 use orbit_game::{
     arena::SCREEN_CENTER,
@@ -37,12 +42,26 @@ fn fake_clock() -> Duration {
 
 static mut REPORT: [u32; 3] = [0; 3];
 
-/// Builds the app, plays 20 s of scripted input, idles 10 s, and returns a
-/// pointer to `[bytes after build, bytes at end, peak bytes]`.
-#[unsafe(no_mangle)]
-pub extern "C" fn measure() -> *const u32 {
-    // SAFETY: called once, before anything reads Bevy's clock.
+fn report(app: App, built: usize) -> *const u32 {
+    let live = CURRENT.load(Relaxed);
+    drop(app);
+    // SAFETY: single-threaded wasm; the host reads REPORT after we return.
+    unsafe {
+        REPORT = [built as u32, live as u32, PEAK.load(Relaxed) as u32];
+        (&raw const REPORT).cast()
+    }
+}
+
+fn start_clock() {
+    // SAFETY: called once per run, before anything reads Bevy's clock.
     unsafe { Instant::set_elapsed(fake_clock) };
+}
+
+/// Orbit: builds the app, plays 20 s of scripted input, idles 10 s. Returns
+/// a pointer to `[bytes after build, bytes live at the end, peak bytes]`.
+#[unsafe(no_mangle)]
+pub extern "C" fn measure_orbit() -> *const u32 {
+    start_clock();
     let mut app = headless_app();
     let built = CURRENT.load(Relaxed);
     tap(&mut app, SCREEN_CENTER);
@@ -52,13 +71,35 @@ pub extern "C" fn measure() -> *const u32 {
         press(&mut app, Some(finger));
     }
     tick(&mut app, 600);
-    // SAFETY: single-threaded wasm; the host reads REPORT after we return.
-    unsafe {
-        REPORT = [
-            built as u32,
-            CURRENT.load(Relaxed) as u32,
-            PEAK.load(Relaxed) as u32,
-        ];
-        (&raw const REPORT).cast()
+    report(app, built)
+}
+
+/// Angler: three full cast, bite, fight and catch cycles plus the fish log.
+#[unsafe(no_mangle)]
+pub extern "C" fn measure_angler() -> *const u32 {
+    start_clock();
+    let mut app = angler::headless_app();
+    let built = CURRENT.load(Relaxed);
+    angler::tap(&mut app, Vec2::splat(233.0));
+    angler::tap(&mut app, Vec2::splat(233.0));
+    angler::click_action(&mut app);
+    for _ in 0..3 {
+        let lands = Flight::launch(cast::elevation_deg(0.0), 0.7).landing_x();
+        app.world_mut().resource_mut::<Session>().spot_x = lands;
+        angler::hold_action(&mut app, (0.7 * cast::CHARGE_SECS * 60.0) as u32 + 1);
+        angler::release_action(&mut app);
+        angler::run_until(&mut app, 60 * 15, |p| matches!(p, Phase::Reel { .. }));
+        for _ in 0..60 * 60 {
+            let Phase::Reel { reel, .. } = angler::phase(&app) else {
+                break;
+            };
+            let push = (((reel.zone_y - reel.fish_y) * 30.0 + reel.zone_v * 3.6) / 1100.0)
+                .clamp(-1.0, 1.0);
+            angler::set_tilt(&mut app, 0.0, push.signum() * (2.0 + push.abs() * 20.0));
+            app.update();
+        }
+        angler::tick(&mut app, 60);
+        angler::click_action(&mut app);
     }
+    report(app, built)
 }

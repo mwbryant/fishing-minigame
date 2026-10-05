@@ -13,6 +13,7 @@ crate-type = ["cdylib"]
 [dependencies]
 bevy = { version = "0.19", default-features = false, features = ["default_no_std"] }
 orbit_game = { path = "../../crates/orbit_game" }
+angler_game = { path = "../../crates/angler_game" }
 
 [profile.release]
 opt-level = "s"

@@ -31,6 +31,7 @@ pub struct Frame {
     pub shapes: Vec<Shape>,
 }
 
+/// Frame, touch, rng and save plumbing every game needs.
 pub struct CorePlugin;
 
 impl Plugin for CorePlugin {
@@ -41,6 +42,17 @@ impl Plugin for CorePlugin {
         app.init_resource::<Frame>()
             .init_resource::<Rng>()
             .init_resource::<SaveBlob>()
-            .add_plugins((touch::plugin, buttons::plugin, motion::plugin));
+            .add_plugins(touch::plugin);
+    }
+}
+
+/// The physical buttons and IMU tilt (with the zero button re-levelling it).
+/// Opt-in: every resource and system costs device heap, so games that only
+/// use touch leave it out, and platforms feed these only when present.
+pub struct ControlsPlugin;
+
+impl Plugin for ControlsPlugin {
+    fn build(&self, app: &mut App) {
+        app.add_plugins((buttons::plugin, motion::plugin));
     }
 }
