@@ -360,7 +360,7 @@ Other memory facts:
 - **`tools/heap32/run.sh`:**
   - builds the game for wasm32, which has 4-byte pointers like Xtensa;
   - counts allocations through build, 20 s of play, and 10 s idle;
-  - compares the peak plus the render band against the budget parsed from `firmware/src/main.rs`;
+  - compares the peak plus the render band against the budget parsed from `firmware/src/lib.rs`;
   - exits nonzero when over budget.
 - **`tools/qemu-smoke/run.sh`:**
   - **Setup it handles:** downloads Espressif QEMU `esp-develop-9.2.2-20260417`
@@ -537,10 +537,19 @@ Title → Log | Aim → Flight → Waiting → Bite → Reel → Caught | Escape
 flight and reel physics run in `FixedUpdate` at 60 Hz.
 
 **Cast** (`cast.rs`, Angry Birds-style side view):
-- **Aim:** `elevation = clamp(40 - steer, 10, 80)`. Counterclockwise raises the rod.
-- **Power:** while the action button is held, power ping-pongs 0→1→0 over `CHARGE_SECS`
-  (1.1 s) per sweep, so power is a timing skill. Releasing casts. Below 0.08 is a slip;
-  past `MAX_CHARGE_SECS` (4.4 s) the charge cancels.
+- **Aim:** `elevation = clamp(40 - steer, 10, 80)`. Counterclockwise raises the rod. While
+  aiming (before and during the charge) a dotted path shows the **full-power** cast for the
+  current angle, ending on the water exactly where it would land. Aiming means putting the end
+  of the dots on the fishing spot; a high lob and a low line can both reach it.
+- **Power** (the user's rule): power only decides whether the cast reaches the dots.
+  - While the action button is held, the meter ping-pongs 0→1→0 over `CHARGE_SECS` (1.1 s)
+    per sweep.
+  - Releasing at or above `PERFECT_POWER` (0.95, about 0.1 s around the peak) throws at
+    exactly full power, landing on the end of the dots and flashing "PERFECT!".
+  - Anything lower comes up short.
+  - The gauge marks the window with a gold tip, and its fill turns gold inside it.
+  - Below 0.08 is a slip; past `MAX_CHARGE_SECS` (4.4 s) the charge cancels.
+- **The dots disappear on release.** There is no trail behind the bobber either.
 - **Physics:** an exact projectile with `GRAVITY` 420 px/s² and `MAX_CAST_SPEED` 310 px/s.
 - **Tested guarantees:**
   - full power reaches about x 428;

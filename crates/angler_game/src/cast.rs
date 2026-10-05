@@ -35,6 +35,9 @@ pub const ELEVATION_RANGE_DEG: (f32, f32) = (10.0, 80.0);
 pub const CHARGE_SECS: f32 = 1.1;
 /// Releasing below this is treated as a slip, not a cast.
 pub const MIN_CAST_POWER: f32 = 0.08;
+/// Releasing with the meter at or above this throws at full power, landing
+/// exactly where the dotted path ends: about 0.1 s around the meter's peak.
+pub const PERFECT_POWER: f32 = 0.95;
 /// Charging gives up after two full sweeps. On the device the action button
 /// is PWR, and the power chip switches the board off after a long hold (the
 /// firmware stretches that to its 10 s maximum), so the game never rewards one.
@@ -54,6 +57,13 @@ pub fn rod_tip(elevation_deg: f32) -> Vec2 {
 pub fn charge_power(held_secs: f32) -> f32 {
     let phase = ops::rem_euclid(held_secs / CHARGE_SECS, 2.0);
     if phase <= 1.0 { phase } else { 2.0 - phase }
+}
+
+/// What a release after `held_secs` throws with: the meter's reading, or
+/// exactly full power inside the window at the top.
+pub fn release_power(held_secs: f32) -> f32 {
+    let power = charge_power(held_secs);
+    if power >= PERFECT_POWER { 1.0 } else { power }
 }
 
 fn direction(elevation_deg: f32) -> Vec2 {
@@ -143,6 +153,15 @@ mod tests {
         assert!((charge_power(CHARGE_SECS) - 1.0).abs() < 1e-5);
         assert!((charge_power(CHARGE_SECS * 1.5) - 0.5).abs() < 1e-5);
         assert!(charge_power(CHARGE_SECS * 2.0) < 1e-5);
+    }
+
+    #[test]
+    fn releasing_near_the_top_of_the_meter_counts_as_full_power() {
+        assert_eq!(release_power(CHARGE_SECS), 1.0);
+        assert_eq!(release_power(CHARGE_SECS * 0.97), 1.0);
+        assert_eq!(release_power(CHARGE_SECS * 1.03), 1.0);
+        assert!((release_power(CHARGE_SECS * 0.5) - 0.5).abs() < 1e-5);
+        assert!(release_power(CHARGE_SECS * (PERFECT_POWER - 0.01)) < 1.0);
     }
 
     #[test]

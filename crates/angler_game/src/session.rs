@@ -1,8 +1,6 @@
 //! The whole game flow as one phase machine resource (no Bevy states: every
 //! state schedule costs heap the ESP32 doesn't have).
 
-use alloc::vec::Vec;
-
 use bevy::prelude::*;
 use orbit_core::{Buttons, Rng, SaveBlob, Tilt, Touch};
 
@@ -21,8 +19,6 @@ pub const BITE_SHOW_SECS: f32 = 0.7;
 pub const NOTHING_BITES_SECS: f32 = 9.0;
 pub const NOTICE_SECS: f32 = 1.4;
 pub const TOAST_SECS: f32 = 1.2;
-/// Fixed steps between trail dots.
-const TRAIL_EVERY: u32 = 4;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Phase {
@@ -32,14 +28,13 @@ pub enum Phase {
     Aim {
         charging_secs: Option<f32>,
     },
+    /// `perfect` when released inside the window at the top of the meter.
     Flight {
         flight: Flight,
-        trail: Vec<Vec2>,
-        steps: u32,
+        perfect: bool,
     },
     Waiting {
         bobber_x: f32,
-        trail: Vec<Vec2>,
         bite_in: Option<f32>,
         accuracy: f32,
         distance: f32,
@@ -156,11 +151,10 @@ fn play(
             }
             Some(secs) => {
                 *charging_secs = None;
-                let power = cast::charge_power(secs);
+                let power = cast::release_power(secs);
                 (power >= cast::MIN_CAST_POWER).then(|| Phase::Flight {
                     flight: Flight::launch(cast::elevation_deg(tilt.steer_deg), power),
-                    trail: Vec::new(),
-                    steps: 0,
+                    perfect: power == 1.0,
                 })
             }
             None => None,
@@ -216,29 +210,18 @@ fn simulate(
     let dt = time.delta_secs();
     let spot_x = session.spot_x;
     let next = match &mut session.phase {
-        Phase::Flight {
-            flight,
-            trail,
-            steps,
-        } => {
-            *steps += 1;
-            if *steps % TRAIL_EVERY == 0 {
-                trail.push(flight.pos);
+        Phase::Flight { flight, .. } => flight.step(dt).map(|land_x| {
+            if land_x < SHORE_X {
+                return Phase::Notice("ON THE DOCK!");
             }
-            flight.step(dt).map(|land_x| {
-                if land_x < SHORE_X {
-                    return Phase::Notice("ON THE DOCK!");
-                }
-                let accuracy = cast::accuracy(land_x, spot_x);
-                Phase::Waiting {
-                    bobber_x: land_x,
-                    trail: core::mem::take(trail),
-                    bite_in: cast::bite_delay(&mut rng, accuracy),
-                    accuracy,
-                    distance: cast::distance(land_x),
-                }
-            })
-        }
+            let accuracy = cast::accuracy(land_x, spot_x);
+            Phase::Waiting {
+                bobber_x: land_x,
+                bite_in: cast::bite_delay(&mut rng, accuracy),
+                accuracy,
+                distance: cast::distance(land_x),
+            }
+        }),
         Phase::Reel { reel, catch } => {
             reel.step(tilt.lean_deg, dt, &mut rng)
                 .map(|outcome| match outcome {

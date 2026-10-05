@@ -1,13 +1,13 @@
 use angler_game::{
     FishLog, Phase, Session,
-    cast::{self, CHARGE_SECS, Flight},
+    cast::{self, CHARGE_SECS, Flight, scene::WATER_Y},
     reel::{LEAN_DEAD_ZONE_DEG, LEAN_FULL_DEG},
     session::{ESCAPED_SECS, NOTICE_SECS, RESULT_GUARD_SECS},
     testing::*,
 };
 use bevy::prelude::*;
 use orbit_core::{Frame, SaveBlob};
-use orbit_gfx::{Shape, SpriteRef};
+use orbit_gfx::{Point, Shape, SpriteRef};
 
 const SCREEN_CENTER: Vec2 = Vec2::splat(233.0);
 
@@ -135,18 +135,106 @@ fn holding_charges_power_and_releasing_casts_at_the_aimed_angle() {
     assert!(flight.vel.y < 0.0);
 }
 
+fn preview_dots(app: &App) -> Vec<Point> {
+    app.world()
+        .resource::<Frame>()
+        .shapes
+        .iter()
+        .filter_map(|shape| match shape {
+            Shape::Disc { center, color, .. } if *color == angler_game::PREVIEW_DOT => {
+                Some(*center)
+            }
+            _ => None,
+        })
+        .collect()
+}
+
+fn full_power_landing(steer: f32) -> f32 {
+    Flight::launch(cast::elevation_deg(steer), 1.0).landing_x()
+}
+
 #[test]
-fn charging_shows_the_power_gauge_and_dotted_path() {
+fn the_full_power_path_is_dotted_while_aiming_before_any_press() {
     let mut app = headless_app();
     start_aiming(&mut app);
-    hold_action(&mut app, frames_for(0.6));
-    let shapes = &app.world().resource::<Frame>().shapes;
-    assert!(shapes.iter().any(|s| matches!(s, Shape::Arc { .. })));
-    let dots = shapes
+    set_tilt(&mut app, -10.0, 0.0);
+    app.update();
+    let dots = preview_dots(&app);
+    assert!(dots.len() >= 8, "{} dots", dots.len());
+    let end = *dots.last().unwrap();
+    assert!(
+        (end.x as f32 - full_power_landing(-10.0)).abs() <= 1.0,
+        "{end:?}"
+    );
+    assert!((end.y as f32 - WATER_Y).abs() <= 1.0, "{end:?}");
+}
+
+#[test]
+fn the_dotted_path_stays_put_while_power_charges() {
+    let mut app = headless_app();
+    start_aiming(&mut app);
+    let before = preview_dots(&app);
+    hold_action(&mut app, frames_for(0.4));
+    assert_eq!(preview_dots(&app), before);
+    let gauge = app
+        .world()
+        .resource::<Frame>()
+        .shapes
         .iter()
-        .filter(|s| matches!(s, Shape::Disc { radius: 2, .. }))
-        .count();
-    assert!(dots >= 5, "{dots} preview dots");
+        .any(|s| matches!(s, Shape::Arc { .. }));
+    assert!(gauge);
+}
+
+#[test]
+fn releasing_at_the_top_of_the_meter_lands_exactly_where_the_dots_end() {
+    let mut app = headless_app();
+    start_aiming(&mut app);
+    let end = *preview_dots(&app).last().unwrap();
+    hold_action(&mut app, frames_for(1.0));
+    release_action(&mut app);
+    let Phase::Flight { flight, perfect } = phase(&app) else {
+        panic!("expected a cast, got {:?}", phase(&app));
+    };
+    assert!(perfect);
+    assert!((flight.landing_x() - end.x as f32).abs() <= 1.0);
+    assert!(shows(&app, "PERFECT!"));
+}
+
+#[test]
+fn releasing_early_comes_up_short_of_the_dots() {
+    let mut app = headless_app();
+    start_aiming(&mut app);
+    let end = *preview_dots(&app).last().unwrap();
+    hold_action(&mut app, frames_for(0.6));
+    release_action(&mut app);
+    let Phase::Flight { flight, perfect } = phase(&app) else {
+        panic!("expected a cast, got {:?}", phase(&app));
+    };
+    assert!(!perfect);
+    assert!(flight.landing_x() < end.x as f32 - 40.0);
+    assert!(!shows(&app, "PERFECT!"));
+}
+
+#[test]
+fn no_dots_remain_once_the_bobber_is_cast() {
+    let mut app = headless_app();
+    start_aiming(&mut app);
+    hold_action(&mut app, frames_for(1.0));
+    release_action(&mut app);
+    tick(&mut app, 20);
+    assert!(preview_dots(&app).is_empty());
+    assert!(run_until(&mut app, 600, |p| matches!(
+        p,
+        Phase::Waiting { .. }
+    )));
+    tick(&mut app, 40);
+    let any_dots = app
+        .world()
+        .resource::<Frame>()
+        .shapes
+        .iter()
+        .any(|s| matches!(s, Shape::Disc { radius: 2, .. }));
+    assert!(!any_dots, "dots left on screen while waiting");
 }
 
 #[test]

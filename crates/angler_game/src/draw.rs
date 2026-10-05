@@ -33,12 +33,15 @@ const PLANK_EDGE: Rgb565 = rgb(90, 60, 35);
 const POST: Rgb565 = rgb(100, 70, 40);
 const ROD: Rgb565 = rgb(120, 80, 40);
 const LINE: Rgb565 = rgb(225, 225, 225);
-const TRAIL: Rgb565 = rgb(235, 235, 235);
+/// The full-power path drawn while aiming.
+pub const PREVIEW_DOT: Rgb565 = rgb(240, 240, 240);
 const DEEP: Rgb565 = rgb(12, 34, 58);
 const TRACK: Rgb565 = rgb(24, 26, 36);
 const ZONE: Rgb565 = rgb(80, 190, 90);
 const ZONE_HOT: Rgb565 = rgb(130, 235, 120);
 const GAUGE_BACK: Rgb565 = rgb(40, 40, 52);
+const GAUGE_FILL: Rgb565 = rgb(150, 210, 240);
+const GAUGE_PERFECT_ZONE: Rgb565 = rgb(150, 120, 40);
 const TEXT: Rgb565 = rgb(255, 255, 255);
 const HINT: Rgb565 = rgb(200, 215, 230);
 const GOLD: Rgb565 = rgb(255, 215, 70);
@@ -66,25 +69,21 @@ fn draw_frame(session: Res<Session>, tilt: Res<Tilt>, log: Res<FishLog>, mut fra
         Phase::Aim { charging_secs } => {
             lake(shapes, &session, elevation, true);
             shapes.push(label(52, &format!("ANGLE {}", elevation as i32), 1, TEXT));
+            preview(shapes, &Flight::launch(elevation, 1.0));
             match charging_secs {
-                Some(secs) => {
-                    let power = cast::charge_power(*secs);
-                    power_gauge(shapes, power);
-                    preview(shapes, &Flight::launch(elevation, power));
-                }
+                Some(secs) => power_gauge(shapes, cast::charge_power(*secs)),
                 None => shapes.push(label(76, "HOLD BUTTON TO CAST", 1, HINT)),
             }
         }
-        Phase::Flight { flight, trail, .. } => {
+        Phase::Flight { flight, perfect } => {
             lake(shapes, &session, elevation, true);
-            dots(shapes, trail, 2, TRAIL);
             bobber(shapes, flight.pos, 0);
+            if *perfect {
+                shapes.push(label(76, "PERFECT!", 2, GOLD));
+            }
         }
-        Phase::Waiting {
-            bobber_x, trail, ..
-        } => {
+        Phase::Waiting { bobber_x, .. } => {
             lake(shapes, &session, elevation, true);
-            dots(shapes, trail, 2, TRAIL);
             let bob = (ops::sin(session.clock * 3.0) * 1.5) as i32;
             floating(shapes, elevation, *bobber_x, bob);
             if t < 0.5 {
@@ -221,26 +220,25 @@ fn splash(shapes: &mut Vec<Shape>, x: f32, t: f32) {
     }
 }
 
-fn dots(shapes: &mut Vec<Shape>, points: &[Vec2], radius: u32, color: Rgb565) {
-    for p in points {
+/// Angry Birds-style dotted path of a full-power cast, ending exactly where
+/// the bobber would land. Charging only decides whether a cast reaches it.
+fn preview(shapes: &mut Vec<Shape>, flight: &Flight) {
+    let landing = Vec2::new(flight.landing_x(), WATER_Y);
+    let path = (1..)
+        .map(|i| flight.at(i as f32 * 0.09))
+        .take_while(|p| p.y < WATER_Y && p.distance(landing) > 8.0)
+        .chain([landing]);
+    for p in path {
         shapes.push(Shape::Disc {
-            center: point(*p),
-            radius,
-            color,
+            center: point(p),
+            radius: 2,
+            color: PREVIEW_DOT,
         });
     }
 }
 
-/// Angry Birds-style dotted path for the cast being charged.
-fn preview(shapes: &mut Vec<Shape>, flight: &Flight) {
-    let path: Vec<Vec2> = (1..16)
-        .map(|i| flight.at(i as f32 * 0.09))
-        .take_while(|p| p.y < WATER_Y)
-        .collect();
-    dots(shapes, &path, 2, TEXT);
-}
-
-/// Fills along the lower-left rim, green to red as power rises.
+/// Fills along the lower-left rim. The gold tip is the window that throws at
+/// full power; the fill turns gold while the meter is inside it.
 fn power_gauge(shapes: &mut Vec<Shape>, power: f32) {
     let arc = |sweep: f32, color| Shape::Arc {
         center: SCREEN_CENTER,
@@ -251,12 +249,18 @@ fn power_gauge(shapes: &mut Vec<Shape>, power: f32) {
         color,
     };
     shapes.push(arc(70.0, GAUGE_BACK));
-    let color = if power < 0.5 {
-        rgb(110, 220, 90)
-    } else if power < 0.85 {
-        rgb(250, 210, 60)
+    shapes.push(Shape::Arc {
+        center: SCREEN_CENTER,
+        radius: 212,
+        width: 12,
+        start_deg: 100.0 + 70.0 * cast::PERFECT_POWER,
+        sweep_deg: 70.0 * (1.0 - cast::PERFECT_POWER),
+        color: GAUGE_PERFECT_ZONE,
+    });
+    let color = if power >= cast::PERFECT_POWER {
+        GOLD
     } else {
-        rgb(240, 80, 50)
+        GAUGE_FILL
     };
     shapes.push(arc(70.0 * power.max(0.02), color));
 }

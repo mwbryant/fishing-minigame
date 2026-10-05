@@ -8,7 +8,7 @@ const { instance } = await WebAssembly.instantiate(wasm, {});
 const ptr = instance.exports[`measure_${game}`]();
 const [built, end, peak] = new Uint32Array(instance.exports.memory.buffer, ptr, 3);
 
-const main = readFileSync(`${here}../../firmware/src/main.rs`, 'utf8');
+const main = readFileSync(`${here}../../firmware/src/lib.rs`, 'utf8');
 const kb = (name) => Number(main.match(new RegExp(`const ${name}: usize = (\\d+) \\* 1024;`))[1]) * 1024;
 const reclaimed = Number(main.match(/ram\(reclaimed\)\] size: (\d+)/)[1]);
 const band = 466 * 2 * Number(main.match(/const BAND_ROWS: usize = (\d+);/)[1]);

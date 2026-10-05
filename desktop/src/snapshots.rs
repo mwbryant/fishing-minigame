@@ -69,13 +69,12 @@ fn angler(camera: &mut Camera) {
 
     angler::click_action(&mut app);
     angler::set_tilt(&mut app, -12.0, 0.0);
-    let power = 0.72;
-    let lands = Flight::launch(cast::elevation_deg(-12.0), power).landing_x();
-    app.world_mut().resource_mut::<Session>().spot_x = lands + 6.0;
-    angler::hold_action(&mut app, (power * CHARGE_SECS * 60.0) as u32 + 1);
+    let dots_end = Flight::launch(cast::elevation_deg(-12.0), 1.0).landing_x();
+    app.world_mut().resource_mut::<Session>().spot_x = dots_end;
+    angler::hold_action(&mut app, (CHARGE_SECS * 60.0) as u32 + 1);
     camera.shoot(&app, "angler_aim");
     angler::release_action(&mut app);
-    angler::tick(&mut app, 30);
+    angler::tick(&mut app, 20);
     camera.shoot(&app, "angler_cast");
     angler::run_until(&mut app, 600, |p| matches!(p, Phase::Waiting { .. }));
     angler::tick(&mut app, 12);

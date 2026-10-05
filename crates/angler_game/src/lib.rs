@@ -22,7 +22,7 @@ pub mod testing;
 use bevy::prelude::*;
 use orbit_core::{ControlsPlugin, CorePlugin};
 
-pub use draw::{BACKGROUND, length_text, weight_text};
+pub use draw::{BACKGROUND, PREVIEW_DOT, length_text, weight_text};
 pub use log::{FishLog, Milestones};
 pub use session::{Phase, Session};
 pub use species::{Catch, SPECIES};

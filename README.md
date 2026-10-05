@@ -5,7 +5,8 @@
 
 - **Angler**, a fishing game:
   - **Aim:** turn the device like a steering wheel.
-  - **Cast:** hold PWR to charge (the power meter sweeps up and down), then release.
+  - **Cast:** a dotted line shows where a full-power cast lands. Hold PWR and release at the
+    top of the sweeping meter to land exactly on it; release early and you come up short.
   - **Fight:** lean the device forward and back to keep the fish inside the catch zone, as in
     Stardew Valley.
   - **Keep:** every catch is shown with its length and weight and saved to flash.
@@ -97,7 +98,7 @@ sources plus an emulator run. Watch the serial log:
    spilled into PSRAM, see Memory below.
 4. **Tap the screen and the paddle jumps to your finger.** If it jumps to the
    opposite side or a mirrored spot, flip `TOUCH_MIRROR_X` / `TOUCH_MIRROR_Y` in
-   `firmware/src/main.rs`. If the log says `CST9217 touch init failed`, check
+   `firmware/src/lib.rs`. If the log says `CST9217 touch init failed`, check
    the touch reset pin (below).
 5. Every 2 s the log prints frame count, average and worst frame time, bytes
    per frame, and heap use.
