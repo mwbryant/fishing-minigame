@@ -17,7 +17,7 @@
   - **Re-level:** BOOT re-zeroes the IMU at any time.
   - **Menus:** the title has LOG, SHOP and SETTINGS touch buttons, and MENU on the aiming
     screen goes back to it. Settings has EASY / NORMAL / HARD
-    difficulty (saved) and **GUTEN**, a riff on logic-fish: a rainbow trout spins to "Guten
+    difficulty (saved), RESET (erases the log, gold and hats after a confirm) and **GUTEN**, a riff on logic-fish: a rainbow trout spins to "Guten
     Morgen, Sonnenschein" for 15 s through the board's speaker.
 - **Orbit**, circular pong: drag anywhere to swing the paddle around the rim.
 

@@ -97,6 +97,9 @@ fn angler(camera: &mut Camera) {
     angler::tap(&mut app, Vec2::splat(233.0));
     angler::tap(&mut app, ui::SETTINGS.center());
     camera.shoot(&app, "angler_settings");
+    angler::tap(&mut app, ui::RESET.center());
+    camera.shoot(&app, "angler_reset");
+    angler::tap(&mut app, ui::KEEP.center());
     angler::tap(&mut app, ui::GUTEN.center());
     angler::tick(&mut app, 8);
     camera.shoot(&app, "angler_guten");

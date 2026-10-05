@@ -50,6 +50,7 @@ const TEXT: Rgb565 = rgb(255, 255, 255);
 const HINT: Rgb565 = rgb(200, 215, 230);
 const GOLD: Rgb565 = rgb(255, 215, 70);
 const TOAST: Rgb565 = rgb(120, 230, 255);
+const DANGER: Rgb565 = rgb(240, 80, 60);
 const MIRROR: Rgb565 = rgb(26, 56, 90);
 const MIRROR_SCALE: u32 = 5;
 const MIRROR_TOP: i32 = 138;
@@ -87,6 +88,7 @@ fn draw_frame(
         }
         Phase::Log => fish_log(shapes, &log),
         Phase::Settings => settings_menu(shapes, &settings),
+        Phase::ConfirmReset => confirm_reset(shapes),
         Phase::Shop { hat } => shop(shapes, &inventory, *hat),
         Phase::Guten => guten(shapes, t),
         Phase::Aim { charging_secs } => {
@@ -435,7 +437,18 @@ fn settings_menu(shapes: &mut Vec<Shape>, settings: &Settings) {
         }
     }
     button(shapes, &ui::GUTEN);
+    button(shapes, &ui::RESET);
     button(shapes, &ui::BACK);
+}
+
+fn confirm_reset(shapes: &mut Vec<Shape>) {
+    shapes.push(rect(0, 0, 466, 466, DEEP));
+    shapes.push(label(140, "RESET PROGRESS?", 2, TEXT));
+    shapes.push(label(196, "ERASES THE FISH LOG,", 1, HINT));
+    shapes.push(label(220, "ALL GOLD AND EVERY HAT", 1, HINT));
+    shapes.push(label(256, "DIFFICULTY IS KEPT", 1, HINT));
+    framed_button(shapes, &ui::ERASE, DANGER);
+    button(shapes, &ui::KEEP);
 }
 
 /// The browsed hat on the angler in a mirror, its price or status, and BUY
@@ -501,8 +514,12 @@ fn guten(shapes: &mut Vec<Shape>, t: f32) {
 }
 
 fn button(shapes: &mut Vec<Shape>, button: &Button) {
+    framed_button(shapes, button, HINT);
+}
+
+fn framed_button(shapes: &mut Vec<Shape>, button: &Button, frame: Rgb565) {
     let area = button.area;
-    shapes.push(Shape::Rect { area, color: HINT });
+    shapes.push(Shape::Rect { area, color: frame });
     shapes.push(Shape::Rect {
         area: area.offset(-2),
         color: DEEP,

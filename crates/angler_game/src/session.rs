@@ -30,6 +30,8 @@ pub enum Phase {
     Title,
     Log,
     Settings,
+    /// Asks before erasing the fish log, gold and hats.
+    ConfirmReset,
     /// Browsing the hat shelf; `hat` is the one in the mirror.
     Shop {
         hat: usize,
@@ -138,7 +140,7 @@ fn play(
     buttons: Res<Buttons>,
     tilt: Res<Tilt>,
     touch: Res<Touch>,
-    log: Res<FishLog>,
+    mut log: ResMut<FishLog>,
     mut settings: ResMut<Settings>,
     mut inventory: ResMut<Inventory>,
     mut rng: ResMut<Rng>,
@@ -164,6 +166,7 @@ fn play(
     let mut new_spot = false;
     let mut difficulty_change = None;
     let mut inventory_changed = false;
+    let mut erase = false;
     let next = match &mut session.phase {
         Phase::Title if action.pressed() => Some(aim()),
         Phase::Title if tapped(&ui::LOG) => Some(Phase::Log),
@@ -184,7 +187,13 @@ fn play(
             sound.play(&GUTEN_MORGEN);
             Some(Phase::Guten)
         }
+        Phase::Settings if tapped(&ui::RESET) => Some(Phase::ConfirmReset),
         Phase::Settings if tapped(&ui::BACK) || action.pressed() => Some(Phase::Title),
+        Phase::ConfirmReset if tapped(&ui::ERASE) => {
+            erase = true;
+            Some(Phase::Settings)
+        }
+        Phase::ConfirmReset if tapped(&ui::KEEP) || action.pressed() => Some(Phase::Settings),
         Phase::Shop { hat } if tapped(&ui::NEXT_HAT) => {
             *hat = (*hat + 1) % HATS.len();
             None
@@ -268,7 +277,11 @@ fn play(
     if let Some(difficulty) = difficulty_change {
         settings.difficulty = difficulty;
     }
-    if difficulty_change.is_some() || inventory_changed {
+    if erase {
+        *log = FishLog::default();
+        *inventory = Inventory::default();
+    }
+    if difficulty_change.is_some() || inventory_changed || erase {
         blob.request_save(save::encode(&log, &settings, &inventory));
     }
     if let Some(phase) = next {

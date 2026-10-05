@@ -74,7 +74,7 @@ pub extern "C" fn measure_orbit() -> *const u32 {
     report(app, built)
 }
 
-/// Angler: the log, settings, GUTEN and hat shop screens (buying a hat),
+/// Angler: the log, settings, reset-confirm, GUTEN and hat shop screens (buying a hat),
 /// MENU back from aiming, then three full cast, bite, fight and catch cycles.
 #[unsafe(no_mangle)]
 pub extern "C" fn measure_angler() -> *const u32 {
@@ -85,6 +85,8 @@ pub extern "C" fn measure_angler() -> *const u32 {
     angler::tap(&mut app, Vec2::splat(233.0));
     angler::tap(&mut app, ui::SETTINGS.center());
     angler::tap(&mut app, ui::HARDER.center());
+    angler::tap(&mut app, ui::RESET.center());
+    angler::tap(&mut app, ui::KEEP.center());
     angler::tap(&mut app, ui::GUTEN.center());
     angler::tick(&mut app, 120);
     angler::tap(&mut app, Vec2::splat(233.0));

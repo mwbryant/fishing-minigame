@@ -671,6 +671,10 @@ tests check behaviour, not values, so retune freely and rerun `cargo test -p ang
   difficulty change, catch, purchase and hat change saves (never during a fight: a sector
   erase stalls the frame loop for tens of ms).
 
+**Reset progress:** RESET in settings opens "RESET PROGRESS?" (`Phase::ConfirmReset`).
+ERASE clears the fish log, gold and hats (back to the straw hat) and saves; difficulty is kept.
+KEEP sits exactly where RESET was, so a reflexive double tap cancels; PWR cancels too.
+
 **GUTEN easter egg** (a riff on the user's logic-fish toy):
 - Lives in the settings menu.
 - Plays "Guten Morgen, Sonnenschein" (`assets/guten_morgen.pcm`, converted from

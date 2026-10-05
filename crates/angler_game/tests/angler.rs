@@ -1,5 +1,5 @@
 use angler_game::{
-    Difficulty, FishLog, GUTEN_MORGEN, HATS, Inventory, Phase, Session, Settings,
+    Catch, Difficulty, FishLog, GUTEN_MORGEN, HATS, Inventory, Phase, Session, Settings,
     cast::{self, CHARGE_SECS, Flight, scene::WATER_Y},
     reel::{LEAN_DEAD_ZONE_DEG, LEAN_FULL_DEG},
     save,
@@ -736,4 +736,74 @@ fn the_menu_button_hides_while_charging_and_a_tap_there_keeps_the_cast() {
             charging_secs: Some(_)
         }
     ));
+}
+
+/// Boots from a save with a fish in the log, gold, a bought hat and HARD.
+fn app_with_progress() -> App {
+    let mut log = FishLog::default();
+    log.record(&Catch {
+        species: 4,
+        length_mm: 400,
+        weight_g: 900,
+    });
+    let mut inventory = Inventory::default();
+    inventory.earn(HATS[BEANIE].price + 30);
+    inventory.buy(BEANIE);
+    let settings = Settings {
+        difficulty: Difficulty::Hard,
+    };
+    headless_app_with_save(Some(save::encode(&log, &settings, &inventory)))
+}
+
+fn open_reset(app: &mut App) {
+    open_settings(app);
+    assert!(shows(app, "RESET"));
+    tap(app, ui::RESET.center());
+    assert_eq!(phase(app), Phase::ConfirmReset);
+    assert!(shows(app, "RESET PROGRESS?"));
+}
+
+#[test]
+fn reset_asks_first_and_keep_or_the_action_button_changes_nothing() {
+    let mut app = app_with_progress();
+    let before = (app.world().resource::<FishLog>().clone(), inventory(&app));
+    open_reset(&mut app);
+    tap(&mut app, ui::KEEP.center());
+    assert_eq!(phase(&app), Phase::Settings);
+    tap(&mut app, ui::RESET.center());
+    click_action(&mut app);
+    assert_eq!(phase(&app), Phase::Settings);
+    let after = (app.world().resource::<FishLog>().clone(), inventory(&app));
+    assert_eq!(after, before);
+    assert_eq!(saved_inventory(&mut app), None, "nothing to save");
+}
+
+#[test]
+fn erasing_clears_the_log_gold_and_hats_keeps_the_difficulty_and_saves() {
+    let mut app = app_with_progress();
+    assert!(shows(&app, "CAUGHT 1"));
+    open_reset(&mut app);
+    tap(&mut app, ui::ERASE.center());
+    assert_eq!(phase(&app), Phase::Settings);
+    assert_eq!(*app.world().resource::<FishLog>(), FishLog::default());
+    assert_eq!(inventory(&app), Inventory::default());
+    assert_eq!(difficulty(&app), Difficulty::Hard);
+    let saved = app.world_mut().resource_mut::<SaveBlob>().take_pending();
+    let rebooted = headless_app_with_save(saved);
+    assert_eq!(*rebooted.world().resource::<FishLog>(), FishLog::default());
+    assert_eq!(inventory(&rebooted), Inventory::default());
+    assert_eq!(difficulty(&rebooted), Difficulty::Hard);
+    assert!(shows(&rebooted, "CAUGHT 0") && shows(&rebooted, "GOLD 0"));
+    assert!(sprite_drawn(&rebooted, HATS[0].sprite));
+}
+
+#[test]
+fn a_double_tap_on_reset_lands_on_keep_not_erase() {
+    let mut app = app_with_progress();
+    open_settings(&mut app);
+    tap(&mut app, ui::RESET.center());
+    tap(&mut app, ui::RESET.center());
+    assert_eq!(phase(&app), Phase::Settings);
+    assert_eq!(app.world().resource::<FishLog>().total, 1);
+    assert!(inventory(&app).owns(BEANIE));
 }
