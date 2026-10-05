@@ -11,6 +11,8 @@ license = "MIT OR Apache-2.0"
 [workspace.dependencies]
 orbit_gfx = { path = "crates/orbit_gfx" }
 orbit_game = { path = "crates/orbit_game" }
+orbit_core = { path = "crates/orbit_core" }
+angler_game = { path = "crates/angler_game" }
 orbit_motion = { path = "crates/orbit_motion" }
 orbit_save = { path = "crates/orbit_save" }
 # no_std-capable subset: ECS, app, states, time, math. No renderer, no

@@ -155,7 +155,7 @@ impl RamFlash {
 
     fn check(&self, offset: u32, len: usize, unit: usize) -> Result<usize, RamFlashError> {
         let offset = offset as usize;
-        if offset % unit != 0 || len % unit != 0 {
+        if !offset.is_multiple_of(unit) || !len.is_multiple_of(unit) {
             return Err(RamFlashError(NorFlashErrorKind::NotAligned));
         }
         if offset + len > self.bytes.len() {

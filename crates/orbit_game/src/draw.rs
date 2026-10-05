@@ -1,9 +1,9 @@
-use alloc::{format, vec::Vec};
+use alloc::format;
 
 use bevy::prelude::*;
 use orbit_gfx::{Point, Rgb565, RgbColor, SCREEN_CENTER, Shape};
 
-use crate::{Ball, Paddle, Score, Screen, arena::*};
+use crate::{Ball, Frame, Paddle, Score, Screen, arena::*};
 
 /// Pure black: AMOLED pixels are off, so the round panel's edge disappears.
 pub const BACKGROUND: Rgb565 = Rgb565::BLACK;
@@ -14,15 +14,8 @@ const SCORE_BEHIND_PLAY: Rgb565 = Rgb565::new(5, 11, 8);
 const TEXT: Rgb565 = Rgb565::WHITE;
 const HINT: Rgb565 = Rgb565::new(15, 30, 16);
 
-/// This frame's display list, back to front.
-#[derive(Resource, Default, Debug)]
-pub struct Frame {
-    pub shapes: Vec<Shape>,
-}
-
 pub(crate) fn plugin(app: &mut App) {
-    app.init_resource::<Frame>()
-        .add_systems(PostUpdate, draw_frame);
+    app.add_systems(PostUpdate, draw_frame);
 }
 
 fn draw_frame(

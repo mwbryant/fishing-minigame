@@ -7,6 +7,7 @@ license.workspace = true
 [dependencies]
 bevy.workspace = true
 orbit_gfx.workspace = true
+orbit_core.workspace = true
 
 [lints]
 workspace = true

@@ -9,30 +9,28 @@
 extern crate alloc;
 
 mod draw;
-mod input;
 mod play;
-mod rng;
 mod screens;
 pub mod testing;
 
-use bevy::{prelude::*, state::app::StatesPlugin, time::TimePlugin};
+use bevy::{prelude::*, state::app::StatesPlugin};
+use orbit_core::CorePlugin;
 
-pub use draw::{BACKGROUND, Frame};
-pub use input::Touch;
+pub use draw::BACKGROUND;
+pub use orbit_core::{Frame, Rng, Touch};
 pub use play::{Ball, Paddle, Score, arena};
-pub use rng::Rng;
 pub use screens::Screen;
 
 pub struct OrbitPlugin;
 
 impl Plugin for OrbitPlugin {
     fn build(&self, app: &mut App) {
-        if !app.is_plugin_added::<TimePlugin>() {
-            app.add_plugins(TimePlugin);
+        if !app.is_plugin_added::<CorePlugin>() {
+            app.add_plugins(CorePlugin);
         }
         if !app.is_plugin_added::<StatesPlugin>() {
             app.add_plugins(StatesPlugin);
         }
-        app.add_plugins((input::plugin, screens::plugin, play::plugin, draw::plugin));
+        app.add_plugins((screens::plugin, play::plugin, draw::plugin));
     }
 }

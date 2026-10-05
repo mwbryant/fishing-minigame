@@ -1344,6 +1344,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "orbit_core"
+version = "0.1.0"
+dependencies = [
+ "bevy",
+ "orbit_gfx",
+ "orbit_motion",
+]
+
+[[package]]
 name = "orbit_desktop"
 version = "0.1.0"
 dependencies = [
@@ -1359,6 +1368,7 @@ name = "orbit_game"
 version = "0.1.0"
 dependencies = [
  "bevy",
+ "orbit_core",
  "orbit_gfx",
 ]
 

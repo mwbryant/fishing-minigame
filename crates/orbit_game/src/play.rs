@@ -59,7 +59,6 @@ pub struct Score {
 pub(crate) fn plugin(app: &mut App) {
     app.init_resource::<Paddle>()
         .init_resource::<Score>()
-        .init_resource::<Rng>()
         .add_systems(Update, steer_paddle)
         .add_systems(OnEnter(Screen::Playing), serve)
         .add_systems(OnExit(Screen::Playing), clear_balls)

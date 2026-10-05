@@ -1,0 +1,46 @@
+//! Platform plumbing every game on the round board shares, as `no_std` Bevy
+//! resources. Platforms (desktop simulator, ESP32 firmware) write the inputs
+//! each frame before `app.update()`, then rasterize [`Frame`] and persist
+//! [`SaveBlob::take_pending`]; games read the inputs and fill the outputs.
+
+#![no_std]
+
+extern crate alloc;
+
+mod buttons;
+mod motion;
+mod rng;
+mod save;
+mod touch;
+
+use alloc::vec::Vec;
+
+use bevy::{prelude::*, time::TimePlugin};
+use orbit_gfx::Shape;
+
+pub use buttons::{ButtonState, Buttons};
+pub use motion::{ImuFeed, Tilt};
+pub use orbit_motion::ImuSample;
+pub use rng::Rng;
+pub use save::SaveBlob;
+pub use touch::Touch;
+
+/// This frame's display list, back to front.
+#[derive(Resource, Default, Debug)]
+pub struct Frame {
+    pub shapes: Vec<Shape>,
+}
+
+pub struct CorePlugin;
+
+impl Plugin for CorePlugin {
+    fn build(&self, app: &mut App) {
+        if !app.is_plugin_added::<TimePlugin>() {
+            app.add_plugins(TimePlugin);
+        }
+        app.init_resource::<Frame>()
+            .init_resource::<Rng>()
+            .init_resource::<SaveBlob>()
+            .add_plugins((touch::plugin, buttons::plugin, motion::plugin));
+    }
+}
