@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Boots the firmware's runtime (heap layout, Bevy, game, presenter) in
 # Espressif's QEMU and waits for SMOKE PASS / SMOKE FAIL. No board needed.
-# Usage: tools/qemu-smoke/run.sh [timeout_secs]
+# Usage: tools/qemu-smoke/run.sh [timeout_secs] ["orbit angler"]
 set -euo pipefail
 
 here="$(cd "$(dirname "$0")" && pwd)"
@@ -47,26 +47,30 @@ EOF
 fi
 
 cd "$here"
-cargo build --release -q
-elf="target/xtensa-esp32s3-none-elf/release/orbit_qemu_smoke"
-fw_elf="$firmware/target/xtensa-esp32s3-none-elf/release/orbit_firmware"
-if [ -f "$fw_elf" ]; then
-    echo "stack: firmware $(xtensa-esp32s3-elf-size -A "$fw_elf" | awk '/^\.stack/ {print $2}') B, smoke $(xtensa-esp32s3-elf-size -A "$elf" | awk '/^\.stack/ {print $2}') B"
-fi
-espflash save-image --chip esp32s3 --merge --flash-size 16mb "$elf" flash.bin > /dev/null
-
-rm -f smoke.log
-"$qemu" -nographic -machine esp32s3 -m 8M \
-    -drive file=flash.bin,if=mtd,format=raw -serial file:smoke.log > /dev/null 2>&1 &
-qemu_pid=$!
-trap 'kill -9 "$qemu_pid" 2> /dev/null || true' EXIT
-
-for _ in $(seq "$timeout_secs"); do
-    if grep -aq "SMOKE PASS\|SMOKE FAIL\|PANIC\|Exception" smoke.log 2> /dev/null; then
-        break
+status=0
+for game in ${2:-orbit angler}; do
+    echo "== $game"
+    cargo build --release -q --bin "$game"
+    elf="target/xtensa-esp32s3-none-elf/release/$game"
+    fw_elf="$firmware/target/xtensa-esp32s3-none-elf/release/$game"
+    if [ -f "$fw_elf" ]; then
+        echo "stack: firmware $(xtensa-esp32s3-elf-size -A "$fw_elf" | awk '/^\.stack/ {print $2}') B, smoke $(xtensa-esp32s3-elf-size -A "$elf" | awk '/^\.stack/ {print $2}') B"
     fi
-    sleep 1
+    espflash save-image --chip esp32s3 --merge --flash-size 16mb "$elf" flash.bin > /dev/null 2>&1
+
+    rm -f smoke.log
+    "$qemu" -nographic -machine esp32s3 -m 8M \
+        -drive file=flash.bin,if=mtd,format=raw -serial file:smoke.log > /dev/null 2>&1 &
+    qemu_pid=$!
+    for _ in $(seq "$timeout_secs"); do
+        if grep -aq "SMOKE PASS\|SMOKE FAIL\|PANIC\|Exception" smoke.log 2> /dev/null; then
+            break
+        fi
+        sleep 1
+    done
+    kill -9 "$qemu_pid" 2> /dev/null || true
+    grep -aE "INFO|WARN|ERROR|PANIC|panicked|Exception" smoke.log \
+        | grep -avE "INFO - (PSRAM|vendor id|dev id|density|good-die|Latency|Readlatency|VCC|SRF|Burst|DriveStrength|chip id|size is)" || true
+    grep -aq "SMOKE PASS" smoke.log || { echo "$game smoke test did not pass (log: $here/smoke.log)" >&2; status=1; }
 done
-grep -aE "INFO|WARN|ERROR|PANIC|panicked|Exception|^(Internal|External) " smoke.log \
-    | grep -avE "INFO - (PSRAM|vendor id|dev id|density|good-die|Latency|Readlatency|VCC|SRF|Burst|DriveStrength|chip id|size is)" || true
-grep -aq "SMOKE PASS" smoke.log || { echo "smoke test did not pass (log: $here/smoke.log)" >&2; exit 1; }
+exit "$status"

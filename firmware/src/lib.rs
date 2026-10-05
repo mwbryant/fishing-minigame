@@ -1,28 +1,30 @@
-//! Orbit on the Waveshare ESP32-S3-Touch-AMOLED-1.75: the same no_std Bevy
-//! app as the desktop simulator, fed by the CST9217 touch controller and
-//! presented to the CO5300 AMOLED over QSPI.
+//! Board support for the Waveshare ESP32-S3-Touch-AMOLED-1.75 and the frame
+//! loop every game binary shares: bring up the display, touch, IMU, buttons
+//! and flash, build the game's `no_std` Bevy app, then each frame feed the
+//! inputs, update, persist saves and present the frame over QSPI.
 
 #![no_std]
-#![no_main]
 
 extern crate alloc;
 
 mod co5300;
+mod power_key;
+mod qmi8658;
 
-use alloc::vec;
-use core::time::Duration;
+use alloc::{boxed::Box, vec};
+use core::{cell::RefCell, time::Duration};
 
 use bevy::{platform::time::Instant, prelude::*};
 use cst92xx::CST92xx;
+use embedded_hal_bus::i2c::RefCellDevice;
 use esp_alloc::MemoryCapability;
-use esp_backtrace as _;
 use esp_hal::{
+    Blocking,
     clock::CpuClock,
     delay::Delay,
     dma_tx_buffer,
-    gpio::{Level, Output, OutputConfig},
+    gpio::{Input, InputConfig, Level, Output, OutputConfig, Pull},
     i2c::master::{Config as I2cConfig, I2c},
-    main,
     rng::Rng as HardwareRng,
     spi::{
         Mode,
@@ -30,13 +32,13 @@ use esp_hal::{
     },
     time::{Instant as HalInstant, Rate},
 };
+use esp_storage::FlashStorage;
 use log::{info, warn};
-use orbit_game::{BACKGROUND, Frame, OrbitPlugin, Rng, Touch};
-use orbit_gfx::{Presenter, SCREEN_SIZE};
+use orbit_core::{Buttons, Frame, ImuFeed, ImuSample, Rng, SaveBlob, Touch};
+use orbit_gfx::{Presenter, Rgb565, SCREEN_SIZE};
+use orbit_save::SlotStore;
 
-use crate::co5300::Co5300;
-
-esp_bootloader_esp_idf::esp_app_desc!();
+use crate::{co5300::Co5300, power_key::PwrKey, qmi8658::Qmi8658};
 
 /// 40 MHz is what every Waveshare demo uses; the CO5300 write clock tops out
 /// at 50 MHz.
@@ -53,10 +55,25 @@ const INTERNAL_HEAP_BYTES: usize = 212 * 1024;
 /// The touch panel reports coordinates rotated 180 degrees from the display.
 const TOUCH_MIRROR_X: bool = true;
 const TOUCH_MIRROR_Y: bool = true;
+/// With the UI upright both buttons sit on the right edge: PWR at about
+/// 2 o'clock, BOOT at about 4 o'clock. Swap these to swap their roles.
+const ACTION_BUTTON: Switch = Switch::Pwr;
+const ZERO_BUTTON: Switch = Switch::Boot;
+/// Two flash sectors in the default partition table's `nvs` region, which
+/// `espflash flash` never rewrites, so saves survive reflashing.
+const SAVE_FLASH_OFFSET: u32 = 0x9000;
 const FRAME_BUDGET: Duration = Duration::from_micros(16_667);
 
-#[main]
-fn main() -> ! {
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Switch {
+    Pwr,
+    Boot,
+}
+
+type Bus = RefCell<I2c<'static, Blocking>>;
+
+/// Brings up the board, builds the app with `add_game`, and runs it forever.
+pub fn run(add_game: impl FnOnce(&mut App), background: Rgb565) -> ! {
     esp_println::logger::init_logger_from_env();
     let peripherals = esp_hal::init(esp_hal::Config::default().with_cpu_clock(CpuClock::max()));
 
@@ -105,16 +122,50 @@ fn main() -> ! {
     .expect("I2C config")
     .with_sda(peripherals.GPIO15)
     .with_scl(peripherals.GPIO14);
+    let bus: &'static Bus = Box::leak(Box::new(RefCell::new(i2c)));
+
     let touch_reset = Output::new(peripherals.GPIO40, Level::High, OutputConfig::default());
-    let mut touch = CST92xx::new(i2c, delay).with_reset(touch_reset);
+    let mut touch = CST92xx::new(RefCellDevice::new(bus), delay).with_reset(touch_reset);
     let touch_ready = touch.init().is_ok();
     if !touch_ready {
-        warn!("CST9217 touch init failed; running without input");
+        warn!("CST9217 touch init failed; running without touch");
     }
 
+    let mut imu = Qmi8658::new(RefCellDevice::new(bus));
+    let imu_ready = match imu.init(&mut delay) {
+        Ok(()) => true,
+        Err(qmi8658::Error::WrongChip(id)) => {
+            warn!("IMU answered WHO_AM_I {id:#04x}, expected 0x05; running without tilt");
+            false
+        }
+        Err(err) => {
+            warn!("QMI8658 init failed ({err:?}); running without tilt");
+            false
+        }
+    };
+    let mut pwr = PwrKey::new(RefCellDevice::new(bus))
+        .inspect_err(|err| warn!("PWR key unavailable: {err:?}"))
+        .ok();
+    let boot = Input::new(
+        peripherals.GPIO0,
+        InputConfig::default().with_pull(Pull::Up),
+    );
+
+    let mut saves = SlotStore::new(FlashStorage::new(peripherals.FLASH), SAVE_FLASH_OFFSET);
+    let saved = saves.load();
+    info!(
+        "save storage: {}",
+        if saved.is_some() {
+            "found a save"
+        } else {
+            "empty"
+        }
+    );
+
     let mut app = App::new();
-    app.add_plugins(OrbitPlugin)
-        .insert_resource(Rng::new(HardwareRng::new().random()));
+    add_game(&mut app);
+    app.insert_resource(Rng::new(HardwareRng::new().random()))
+        .insert_resource(SaveBlob::from_storage(saved));
     app.finish();
     app.cleanup();
     app.update();
@@ -126,10 +177,12 @@ fn main() -> ! {
         ),
     }
 
-    let mut presenter = Presenter::new(vec![0u8; BAND_BYTES], BACKGROUND);
+    let mut presenter = Presenter::new(vec![0u8; BAND_BYTES], background);
     let mut stats = Stats::new();
+    let mut last_imu_read = HalInstant::now();
     loop {
         let frame_start = HalInstant::now();
+        let world = app.world_mut();
 
         let finger = if touch_ready {
             touch
@@ -140,8 +193,41 @@ fn main() -> ! {
         } else {
             None
         };
-        app.world_mut().resource_mut::<Touch>().set(finger);
+        world.resource_mut::<Touch>().set(finger);
+
+        if let Some(mut buttons) = world.get_resource_mut::<Buttons>() {
+            let pwr_held = pwr
+                .as_mut()
+                .is_some_and(|key| key.is_pressed().unwrap_or(false));
+            let held = |switch| match switch {
+                Switch::Pwr => pwr_held,
+                Switch::Boot => boot.is_low(),
+            };
+            buttons.action.set(held(ACTION_BUTTON));
+            buttons.zero.set(held(ZERO_BUTTON));
+        }
+
+        if imu_ready
+            && let Some(mut feed) = world.get_resource_mut::<ImuFeed>()
+            && let Ok((accel, gyro)) = imu.read()
+        {
+            let now = HalInstant::now();
+            let dt = (now - last_imu_read).as_micros() as f32 / 1e6;
+            last_imu_read = now;
+            feed.push(ImuSample {
+                accel: imu_to_screen(accel),
+                gyro: imu_to_screen(gyro) * (core::f32::consts::PI / 180.0),
+                dt,
+            });
+        }
+
         app.update();
+
+        if let Some(bytes) = app.world_mut().resource_mut::<SaveBlob>().take_pending()
+            && let Err(err) = saves.save(&bytes)
+        {
+            warn!("saving failed: {err:?}");
+        }
         let sent = presenter.present(&app.world().resource::<Frame>().shapes, &mut display);
 
         let busy = frame_start.elapsed();
@@ -173,6 +259,13 @@ fn screen_point(x: u16, y: u16) -> Vec2 {
         if TOUCH_MIRROR_X { max - x } else { x },
         if TOUCH_MIRROR_Y { max - y } else { y },
     )
+}
+
+/// QMI8658 axes to the screen frame (x right, y down, z into the screen):
+/// per the PCB's axis marking and Waveshare's tilt demos, screen-right is
+/// +Y, screen-down is -X, and +Z points out of the back.
+fn imu_to_screen(v: [f32; 3]) -> Vec3 {
+    Vec3::new(v[1], -v[0], v[2])
 }
 
 /// Logs frame time and panel traffic every couple of seconds over USB serial.

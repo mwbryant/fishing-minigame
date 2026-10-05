@@ -52,6 +52,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fc7eb209b1518d6bb87b283c20095f5228ecda460da70b44f0802523dea6da04"
 
 [[package]]
+name = "angler_game"
+version = "0.1.0"
+dependencies = [
+ "bevy",
+ "orbit_core",
+ "orbit_gfx",
+]
+
+[[package]]
 name = "arrayvec"
 version = "0.7.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1139,6 +1148,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "embedded-hal-bus"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "513e0b3a8fb7d3013a8ae17a834283f170deaf7d0eeab0a7c1a36ad4dd356d22"
+dependencies = [
+ "critical-section",
+ "embedded-hal 1.0.0",
+]
+
+[[package]]
 name = "embedded-io"
 version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1409,6 +1428,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6ef0e785f54e316f64a1e14a7a2f061a2ea0b038b284902ca71e1e1f5574cf47"
 dependencies = [
  "document-features",
+ "embedded-storage",
  "esp-hal",
  "esp-hal-procmacros",
  "esp-metadata-generated",
@@ -2075,21 +2095,36 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9f7c3e4beb33f85d45ae3e3a1792185706c8e16d043238c593331cc7cd313b50"
 
 [[package]]
+name = "orbit_core"
+version = "0.1.0"
+dependencies = [
+ "bevy",
+ "orbit_gfx",
+ "orbit_motion",
+]
+
+[[package]]
 name = "orbit_firmware"
 version = "0.1.0"
 dependencies = [
+ "angler_game",
  "bevy",
  "critical-section",
  "cst92xx",
  "embedded-hal 1.0.0",
+ "embedded-hal-bus",
+ "embedded-storage",
  "esp-alloc",
  "esp-backtrace",
  "esp-bootloader-esp-idf",
  "esp-hal",
  "esp-println",
+ "esp-storage",
  "log",
+ "orbit_core",
  "orbit_game",
  "orbit_gfx",
+ "orbit_save",
 ]
 
 [[package]]
@@ -2097,6 +2132,7 @@ name = "orbit_game"
 version = "0.1.0"
 dependencies = [
  "bevy",
+ "orbit_core",
  "orbit_gfx",
 ]
 
@@ -2106,6 +2142,20 @@ version = "0.1.0"
 dependencies = [
  "embedded-graphics",
  "libm",
+]
+
+[[package]]
+name = "orbit_motion"
+version = "0.1.0"
+dependencies = [
+ "bevy",
+]
+
+[[package]]
+name = "orbit_save"
+version = "0.1.0"
+dependencies = [
+ "embedded-storage",
 ]
 
 [[package]]

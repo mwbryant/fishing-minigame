@@ -4,9 +4,17 @@ version = "0.1.0"
 edition = "2024"
 license = "MIT OR Apache-2.0"
 
+[lib]
+test = false
+bench = false
+
 [[bin]]
-name = "orbit_qemu_smoke"
-path = "src/main.rs"
+name = "orbit"
+test = false
+bench = false
+
+[[bin]]
+name = "angler"
 test = false
 bench = false
 
@@ -15,6 +23,9 @@ bench = false
 [dependencies]
 orbit_game = { path = "../../crates/orbit_game" }
 orbit_gfx = { path = "../../crates/orbit_gfx" }
+orbit_core = { path = "../../crates/orbit_core" }
+orbit_save = { path = "../../crates/orbit_save" }
+angler_game = { path = "../../crates/angler_game" }
 bevy = { version = "0.19", default-features = false, features = ["default_no_std"] }
 esp-hal = { version = "~1.2.2", features = ["esp32s3", "log-04", "unstable"] }
 esp-bootloader-esp-idf = { version = "0.6.0", features = ["esp32s3", "log-04"] }
@@ -23,6 +34,8 @@ esp-backtrace = { version = "0.20.0", features = ["esp32s3", "panic-handler", "p
 esp-println = { version = "0.18.0", default-features = false, features = ["esp32s3", "log-04", "uart", "critical-section"] }
 critical-section = "1.2"
 log = "0.4"
+embedded-storage = "0.3"
+esp-storage = { version = "0.10.0", features = ["esp32s3", "embedded-storage"] }
 
 [profile.release]
 codegen-units = 1
