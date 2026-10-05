@@ -1,15 +1,18 @@
 # Bevy on the Waveshare ESP32-S3-Touch-AMOLED-1.75: platform handbook
 
-Everything learned bringing a `no_std` Bevy game (Orbit) to this board, written
-so a fresh session can keep going without re-deriving it. Facts are marked
+Everything learned bringing `no_std` Bevy games to this board, written so a
+fresh session can keep going without re-deriving it. There are two games:
+**Orbit** (circular pong, touch) and **Angler** (fishing: tilt-aimed cast,
+hold-to-charge, lean-to-reel, persistent fish log; see section 10.4). Facts are marked
 **[verified]** (built, tested, read in source, or run in the emulator) or
 **[unverified]** (from vendor sources or inference; not yet seen on hardware).
 
-Status as of 2026-10-04: the board has **not arrived**. The game, renderer, and
-simulator are tested on the host. The firmware builds and links for the
-ESP32-S3, and its runtime ran in Espressif's QEMU. Display, touch, and audio
-have never run on real hardware. Audio is researched and compile-checked
-(`docs/reference/es8311_audio.rs`) but not wired into the firmware.
+Status as of 2026-10-05: the board has **not arrived**. Both games, the
+renderer, and the simulator are tested on the host. Both firmware binaries
+build and link for the ESP32-S3, and both ran in Espressif's QEMU (Angler
+including a save round-trip through emulated flash). The display, touch, IMU,
+buttons, flash, and audio have never run on real hardware. Audio is researched
+and compile-checked (`docs/reference/es8311_audio.rs`) but not wired in.
 
 ---
 
@@ -18,17 +21,22 @@ have never run on real hardware. Audio is researched and compile-checked
 ```sh
 # host workspace (game + renderer + simulator)
 cargo test --workspace && cargo clippy --workspace --all-targets && cargo fmt
-cargo run -p orbit_desktop                          # play (hold left mouse = finger)
-cargo run -p orbit_desktop -- snapshot screenshots  # headless PNGs of each screen
+cargo run -p orbit_desktop -- angler                 # play Angler (the default) ...
+cargo run -p orbit_desktop -- orbit                  # ... or Orbit
+cargo run -p orbit_desktop -- angler snapshot screenshots   # headless PNGs of each screen
+#   desktop controls: mouse = finger, Space = action (PWR), Z = zero (BOOT),
+#   arrows = turn/lean the virtual device, C = straighten it, Esc = quit.
+#   Desktop saves live in ~/.logic-orbit/<game>.flash (device flash format).
 
-# device firmware (separate crate, Xtensa toolchain)
+# device firmware (separate crate, Xtensa toolchain; one binary per game)
 cd firmware && . ~/export-esp.sh
-cargo run --release                                 # build, flash over USB-C, serial monitor
+cargo run --release --bin angler                     # build, flash over USB-C, serial monitor
+cargo run --release --bin orbit
 cargo clippy --release && cargo fmt
 
 # verification without a board
-tools/heap32/run.sh          # game heap on a 32-bit target vs the firmware's SRAM budget
-tools/qemu-smoke/run.sh      # firmware runtime in Espressif QEMU; prints SMOKE PASS/FAIL
+tools/heap32/run.sh [orbit|angler]          # 32-bit heap vs the firmware's SRAM budget
+tools/qemu-smoke/run.sh [secs] ["orbit angler"]   # runtime in Espressif QEMU; SMOKE PASS/FAIL
 ```
 
 Installed on the dev Mac: `espup` 0.18, `espflash` 4.6, the `esp` Rust toolchain
@@ -38,23 +46,40 @@ Installed on the dev Mac: `espup` 0.18, `espflash` 4.6, the `esp` Rust toolchain
 ## 2. Repo map and data flow
 
 ```
-crates/orbit_game   #![no_std] Bevy plugin. Owns all game logic. Emits a `Frame` shape list.
-crates/orbit_gfx    #![no_std] rasterizer + dirty-rect diff + band Presenter + `Panel` trait.
-desktop/            std simulator (minifb window, RAM model of the panel, PNG snapshots).
-firmware/           ESP32-S3 binary. Excluded from the workspace (own toolchain + Cargo.lock).
-tools/heap32/       wasm32 heap measurement (excluded from workspace).
-tools/qemu-smoke/   QEMU runtime smoke test (excluded from workspace).
+crates/orbit_gfx     #![no_std] rasterizer (disc/ring/arc/label/rect/line/sprite), dirty-rect
+                     diff, band Presenter, `Panel` trait. No Bevy.
+crates/orbit_motion  #![no_std] Mahony IMU filter + zeroing -> steer/lean degrees. Bevy math only.
+crates/orbit_save    #![no_std] power-fail-safe two-sector record store over embedded-storage NOR
+                     flash, plus `RamFlash` (tests, desktop).
+crates/orbit_core    #![no_std] shared Bevy plumbing. `CorePlugin`: Frame, Touch, Rng, SaveBlob.
+                     `ControlsPlugin` (opt-in): Buttons {action, zero}, ImuFeed -> Tilt,
+                     zero button re-levels the IMU from any screen.
+crates/orbit_game    #![no_std] Orbit (circular pong, touch only; uses Bevy states).
+crates/angler_game   #![no_std] Angler (fishing; one phase-machine resource, no Bevy states).
+desktop/             std simulator for either game (minifb window, RAM model of the panel,
+                     virtual IMU, file-backed save flash, PNG snapshots).
+firmware/            ESP32-S3: lib (board bring-up + shared frame loop + drivers) and one
+                     binary per game (src/bin/{orbit,angler}.rs). Excluded from the workspace.
+tools/heap32/        wasm32 heap measurement of either game (excluded from workspace).
+tools/qemu-smoke/    QEMU runtime smoke test of either game (excluded from workspace).
+docs/reference/      researched, compile-checked code not wired in yet (ES8311 audio).
 ```
 
 The frame loop is the same on both platforms:
 
-1. The platform polls touch and calls `Touch::set(Option<Vec2>)` in screen pixels.
+1. The platform writes inputs:
+   - touch via `Touch::set(Option<Vec2>)`, in screen pixels;
+   - if the game added `ControlsPlugin`, the held state of each button via `Buttons.{action,zero}.set`;
+   - IMU readings via `ImuFeed::push(ImuSample)`, in the screen frame.
 2. It calls `app.update()`. Game systems run, and `draw_frame` (PostUpdate) refills `Frame { shapes }`.
 3. It calls `Presenter::present(&shapes, &mut panel)`, which:
    - diffs the shapes against the previous frame (`FrameDiff`);
    - takes the bounds of each shape that appeared or vanished, even-aligned and merged;
    - renders each dirty rect in full-width bands into a small buffer (`render`);
    - calls `Panel::write(area, bytes)`. The bytes are big-endian RGB565, which is the panel's wire format.
+
+4. It writes `SaveBlob::take_pending()` (if any) to storage. At boot, it passes
+   storage's bytes in through `SaveBlob::from_storage`.
 
 The desktop `Panel` copies into a 466x466 RAM model. The firmware `Panel` is the
 CO5300 driver (QSPI + DMA). The simulator therefore shows exactly the pixels
@@ -136,6 +161,60 @@ PCF85063 RTC `0x51`, CST9217 touch `0x5A`, QMI8658 IMU `0x6B`.
   `y = 465 - y`). The firmware's `TOUCH_MIRROR_X/Y` constants do this.
 - **Pin caution:** the crate's own example uses TP_RST = GPIO2, which is the 1.75C pin.
 
+### Buttons, IMU, PMIC, flash [verified in schematic/datasheets/vendor code; unverified on hardware]
+
+**Physical layout** (front view, UI upright as drawn with MADCTL 0x00): USB-C is at 9 o'clock.
+Both buttons are on the right edge, **PWR at about 2 o'clock and BOOT at about 4 o'clock**
+(the lower one). The TF slot sits between them.
+
+**Button roles:** the user's spec is "the bottom button re-zeroes the IMU", so **BOOT = zero**
+and **PWR = action** (hold to charge a cast). They are swapped by the `ACTION_BUTTON` /
+`ZERO_BUTTON` constants in `firmware/src/lib.rs`.
+
+**BOOT:** GPIO0, active low, with an external 10k pull-up and a 100 nF debounce cap.
+
+**PWR:**
+- Its live level is TCA9554 (0x20) pin P4, `SYS_OUT`, **high while pressed**. Make P4 an input
+  by setting bit 4 of register 0x03, then read bit 4 of register 0x00.
+- The AXP2101 (0x34) powers the board off when PWR is held. Register 0x27 bits 3:2 set the
+  hold time (4/6/8/10 s, **default 6 s**). The firmware sets 10 s every boot (the PMIC forgets
+  it when it loses power).
+- Angler also cancels any charge held past 4.4 s (`MAX_CHARGE_SECS`).
+- 0x22 bit 1 would disable hold-to-off entirely; it isn't touched.
+- Don't use XPowersLib's `setIrqLevel`/`setOffLevel`; their bit masks are wrong.
+
+**QMI8658 IMU** (0x6B), driver at `firmware/src/qmi8658.rs`:
+- **Boot and checks:** reset with `0x60 = 0xB0`, then poll `0x4D == 0x80`. WHO_AM_I (0x00)
+  must read 0x05.
+- **Configuration:**
+  - CTRL1 = 0x60: auto-increment, little-endian decode as both vendor drivers do. If the data
+    reads as garbage, try 0x40.
+  - CTRL2 = 0x13: ±4 g, 8192 LSB/g.
+  - CTRL3 = 0x53: ±512 dps, 64 LSB/dps.
+  - CTRL5 = 0x33: both low-pass filters.
+  - CTRL7 = 0x03: accel and gyro on.
+- **Reading:** one 12-byte burst from 0x35.
+- **Bug in Waveshare's ESP-IDF qmi8658 component:** its gyro range table is off by one.
+
+**IMU axes in the screen frame** (x right, y down, z into the screen):
+`screen = (imu.y, -imu.x, imu.z)`. Sources: the PCB axis marking next to U3 and three Waveshare
+tilt demos. Expected at rest:
+- face-up, the accel reads z ≈ −1 g;
+- upright with USB on the left, x_imu ≈ +1;
+- button edge up, y_imu ≈ +1.
+
+**Flash** (`esp-storage` 0.10, features `["esp32s3", "embedded-storage"]`):
+- `FlashStorage::new(peripherals.FLASH)` implements `NorFlash` (write 4, erase 4096) and
+  `ReadNorFlash` (read 4).
+- **Trap:** `FlashStorage` has *inherent* `read`/`write` methods (read-modify-write with an
+  automatic erase) that shadow the trait methods. Generic code over `F: NorFlash` (like
+  `orbit_save`) is fine; concrete calls must use `NorFlash::write(..)`.
+- Saves live at **0x9000 and 0xA000**, in the default partition table's `nvs` region.
+  `espflash flash` only writes 0x0, 0x8000 and 0x10000, so saves survive reflashing (but not
+  `erase-flash` or `--erase-parts`).
+- The factory image leaves old NVS bytes there; `orbit_save`'s magic and CRC ignore them.
+- A sector erase blocks everything for tens of ms, so saves happen only on the catch screen.
+
 ## 4. Toolchain and crate set [verified: builds and links]
 
 | Crate | Version / features |
@@ -209,8 +288,20 @@ PCF85063 RTC `0x51`, CST9217 touch `0x5A`, QMI8658 IMU `0x6B`.
 
 ## 7. Memory: the binding constraint
 
-Measured **[verified]**, Orbit on 32-bit: about 202 KB after build, about 211 KB steady,
-**262 KB peak** during the first `update()`. The peak is transient, from schedule graph builds.
+Measured **[verified]** with `tools/heap32/run.sh`:
+
+| Game | After build | During play | Peak | Headroom in 284 KB (with the 7 KB band) |
+|---|---|---|---|---|
+| Orbit | 197 KB | 206 KB | 265 KB | **11 KB** |
+| Angler | 185 KB | 189 KB | 189 KB | **87 KB** |
+
+Angler is 76 KB leaner at peak because it uses **one phase-machine resource and four systems
+instead of Bevy states**. `StatesPlugin`, the `StateTransition` schedule, and every
+`OnEnter`/`OnExit` schedule cost KB each.
+
+Opt-in plugins matter too. Moving buttons and IMU into `ControlsPlugin` saved Orbit 12 KB.
+New games should follow Angler's pattern. The peak is transient, from schedule graph builds
+during the first `update()`.
 Most of it is Bevy itself:
 - `App::new()` alone is about 100 KB (64-bit host).
 - `TimePlugin` adds about 90 KB.
@@ -234,8 +325,7 @@ Firmware layout **[verified in QEMU]**:
 
 At boot the firmware logs whether Bevy spilled into PSRAM. In QEMU it doesn't (0 B).
 
-**Headroom at peak is about 14 KB** (`tools/heap32/run.sh`). Any bigger game will exceed it.
-Options, in order of preference:
+If a game outgrows the budget, the options, in order of preference:
 1. **Test PSRAM atomics on the real board first** (§9). georgik's Espressif demos run
    bevy_ecs entirely from a PSRAM heap on S3 hardware. If RMW atomics on PSRAM really work, or
    at least don't hang, the 8 MB is open and this whole section relaxes.
@@ -275,9 +365,16 @@ Other memory facts:
 - **`tools/qemu-smoke/run.sh`:**
   - **Setup it handles:** downloads Espressif QEMU `esp-develop-9.2.2-20260417`
     (`-machine esp32s3`, needs `brew install libgcrypt`).
-  - **What it runs:** a copy of the firmware runtime with a byte-counting panel and scripted
-    touch. The heap layout matches, and the two `.stack` sizes are printed.
-  - **Pass criteria:** two or more starts, one or more losses, and 0 B in PSRAM.
+  - **What it runs:** one binary per game (`src/bin/{orbit,angler}.rs`) over a shared
+    `Smoke` harness (`src/lib.rs`): the firmware's heap layout, a byte-counting panel, and
+    scripted input. The two `.stack` sizes are printed; keep them within about 1 KB.
+  - **Pass criteria:**
+    - Orbit: two or more starts, one or more losses, and 0 B in PSRAM.
+    - Angler: two fish landed by a scripted steady-hand player, the fish log written through
+      `esp-storage` into emulated flash at 0x9000 and read back equal, and 0 B in PSRAM.
+  - **Scripting rule:** emulated frames are much shorter than real ones (about 170 fps of game
+    time), so drive scripts by **game time**, never frame counts. That covers charge-until-power,
+    waiting out the result guard, and bounding fights by seconds.
   - **Emulator-only workarounds, all applied automatically:**
     1. esp-hal's `bbpll_cal_done` wait is patched out of a private esp-hal copy in
        `.patched/`, because QEMU never sets the bit.
@@ -292,7 +389,7 @@ Other memory facts:
 
 ## 9. When the board arrives
 
-First flash (`cd firmware && . ~/export-esp.sh && cargo run --release`). Watch the serial log:
+First flash (`cd firmware && . ~/export-esp.sh && cargo run --release --bin orbit`, the simpler game, then `--bin angler`). Watch the serial log:
 1. **`display ready`, then the title on the glass.**
    - Black screen: try the Arduino init list (§3).
    - Shifted image: adjust `COLUMN_OFFSET`.
@@ -300,6 +397,21 @@ First flash (`cd firmware && . ~/export-esp.sh && cargo run --release`). Watch t
 3. **Tap and the paddle follows the finger.** If it goes the wrong way, flip
    `TOUCH_MIRROR_X/Y`. If the log shows `CST9217 touch init failed`, check that this isn't a 1.75C.
 4. **The 2 s stats line:** frame time (average and worst), bytes per frame, heap.
+
+For Angler (`cargo run --release --bin angler`), also check:
+5. **IMU:** the title screen has a bubble level (a dot in a ring). Turn the device like a
+   wheel: the dot should move sideways. Tip the top away: it should move up. Press BOOT:
+   "LEVEL SET" appears and the dot recentres. If the axes are wrong, fix `imu_to_screen` in
+   `firmware/src/lib.rs`. If the log says `IMU answered WHO_AM_I`, the address or chip is wrong.
+6. **Aim:** turning counterclockwise should raise the rod (the "ANGLE" readout goes up).
+   If it's backwards, the steer sign is wrong; fix it in `imu_to_screen`, not in the game.
+7. **PWR:** holding PWR fills the rim power gauge, and releasing it casts. A 2 s hold must not
+   power off; the boot code sets the PMIC's hold-to-off to 10 s. If PWR does nothing, check
+   the `PWR key unavailable` log (TCA9554 at 0x20).
+8. **Reel:** leaning forward pushes the green zone up. Swap the sign in `imu_to_screen`'s y/z
+   if it's inverted.
+9. **Saves:** catch a fish, power-cycle, and the title's "CAUGHT n" should persist. The boot
+   log prints `save storage: found a save`.
 
 Then run these experiments, in this order:
 - **PSRAM atomics:** allocate an `AtomicU32` (and an `Arc`) in PSRAM via `ExternalMemory`, run
@@ -311,7 +423,12 @@ Then run these experiments, in this order:
 
 ## 10. Extending: pixel art, sound, input
 
-### 10.1 Pixel-art sprites (plan; nothing built yet)
+### 10.1 Pixel-art sprites (built: `orbit_gfx::Sprite`)
+
+What shipped: sprites are text rows plus a `(u8, Rgb565)` palette, with `.` transparent
+(`crates/angler_game/src/sprites.rs`). `Shape::Sprite { sprite: SpriteRef(&STATIC), top_left,
+scale, flip_x }` compares by pointer, draws only the rows inside the band, and has a tested
+tight `bounds()`. The original plan notes follow.
 - **Assets:** PNG → (host build step) → raw big-endian RGB565 plus a transparent key color, or
   8-bit indexed plus palette → `include_bytes!`. Data stays in flash at zero RAM cost; there
   are 16 MB, read through the cache.
@@ -401,7 +518,7 @@ codec.init(22_050, &mut amp)?;   // after I2S so MCLK is already running; raises
   `links` conflict.
 - Mixing 22 k samples/s is negligible CPU.
 
-### 10.3 Input beyond touch
+### 10.3 Input beyond touch (built: buttons and IMU; see section 3 and `orbit_core::ControlsPlugin`)
 - QMI8658 6-axis IMU at `0x6B` on the shared I2C bus, interrupt on GPIO21. Good for
   flick-to-cast or tilt.
   - The crate `ph-qmi8658` 0.1.1 is **async-only** (embedded-hal-async). Use
@@ -412,31 +529,71 @@ codec.init(22_050, &mut amp)?;   // after I2S so MCLK is already running; raises
 - Put the I2C bus behind a shared-bus wrapper (e.g. `embedded-hal-bus` `RefCellDevice`) once
   more than one driver needs it. Touch currently owns the bus outright.
 
-### 10.4 Next game idea: fishing (feasibility notes, nothing built)
+### 10.4 Angler, the fishing game (built)
 
-Everything a fishing minigame needs fits the platform:
-- **Cast:** flick or drag-release on the touch screen (use release velocity), optionally an
-  accelerometer flick.
-- **Reel:** circle the finger around the rim like a crank. The angle delta per frame comes
-  from the same `atan2` the Orbit paddle uses, which suits the round glass.
-- **Tension:** an arc gauge around the rim (`Shape::Arc`, already cheap).
-- **Visuals:** pixel-art sprites (10.1) for the bobber, fish, and splash over a static lake
-  background, which costs nothing after the first frame.
-- **Sound:** sfx through the mixer (10.2): plop, splash, reel clicks, catch jingle.
+**Flow:** `crates/angler_game/src/session.rs` holds one `Phase` enum resource:
+Title → Log | Aim → Flight → Waiting → Bite → Reel → Caught | Escaped, plus Notice messages
+("ON THE DOCK!", "NOTHING BITES", "REELED IN", "LET GO!"). `Update` handles input-driven steps;
+flight and reel physics run in `FixedUpdate` at 60 Hz.
 
-The risk is **heap**, not CPU or the link:
-- Orbit leaves about 14 KB of headroom at peak.
-- More states and screens (`OnEnter`/`OnExit` schedules), systems, resources, and message
-  types each cost KB.
-- Run `tools/heap32/run.sh` after every feature and resolve §7 first (ideally by running the
-  PSRAM-atomics experiment on the board).
-- Prefer one state machine resource over many Bevy states, the way logic-rails' `TurnEngine`
-  does. Keep asset data out of the ECS: put sprite ids, not pixel data, in components.
+**Cast** (`cast.rs`, Angry Birds-style side view):
+- **Aim:** `elevation = clamp(40 - steer, 10, 80)`. Counterclockwise raises the rod.
+- **Power:** while the action button is held, power ping-pongs 0→1→0 over `CHARGE_SECS`
+  (1.1 s) per sweep, so power is a timing skill. Releasing casts. Below 0.08 is a slip;
+  past `MAX_CHARGE_SECS` (4.4 s) the charge cancels.
+- **Physics:** an exact projectile with `GRAVITY` 420 px/s² and `MAX_CAST_SPEED` 310 px/s.
+- **Tested guarantees:**
+  - full power reaches about x 428;
+  - every arc at any angle stays inside the round glass;
+  - the dotted preview equals the stepped flight.
+- **The fishing spot** (rippling marks) sits at `spot_x` in 180–410 and moves after each
+  catch or escape. `accuracy` (landing distance to the spot) shortens the wait for a bite.
+  `distance` (how far out) and accuracy together favor rarer tiers and longer fish.
+
+**Fight** (`reel.rs`, Stardew-style):
+- **Layout:** a vertical track (326 px) with a 96 px catch zone.
+- **Control:** leaning forward pushes the zone up, with inertia: 2° dead zone, full push at
+  22°, 1100 px/s², damping 2.5.
+- **Fish movement:** each species' `Temper` (agility spring, max speed, retarget interval,
+  darts per second, depth bias) drives it.
+- **Progress:** starts at 0.35, fills at 0.30/s inside the zone, and drains at
+  0.18 + 0.04 × tier per second outside.
+- **Tested with simulated players:** a skilled PD player lands every species ≥ 90%; an idle
+  player lands < 15% overall; a sluggish player finds pike harder than minnows.
+
+**Fish** (`species.rs`):
+- Eight species in tiers 0–3: minnow, bluegill, perch, trout, bass, catfish, pike, golden koi.
+- Length is uniform within the species range, skewed long by accuracy.
+- Weight in grams = `girth × cm³`, the fisheries length-weight rule.
+- `sprites.rs` has the art; the catch screen scales the fish to about 280 px wide.
+
+**Log** (`log.rs`):
+- `FishLog { total, species: [{caught, best_length_mm, best_weight_g}; 8] }`.
+- Encoded as `FLOG | v1 | count | total | 8-byte records`. Saves from builds with fewer
+  species still load.
+- `Milestones` (new species, longest, heaviest) drive the "NEW SPECIES!" / "NEW RECORD!"
+  banners.
+- Saved through `SaveBlob` → `orbit_save` (device flash at 0x9000, desktop
+  `~/.logic-orbit/angler.flash`).
+
+**Tuning knobs:** all constants are at the top of `cast.rs`, `reel.rs` and `species.rs`. The
+tests check behaviour, not values, so retune freely and rerun `cargo test -p angler_game`.
+
+**Not built yet:** sound (section 10.2 has the full plan and a compiled driver), and a reel
+crank by circling a finger on the rim (touch is wired and unused in fights).
 
 ## 11. Gotchas (all hit or confirmed during bring-up)
 
 - **The touch crate's example uses the 1.75C reset pin** (GPIO2). This board uses GPIO40.
 - **Old I2S answers are wrong for esp-hal 1.2:** `write_dma_circular` was removed. See §10.2.
+- **Button and touch edges (`pressed`, `released`, `just_pressed`) only exist during an update.**
+  `Last` clears them. Tests must observe them from a system or through their effects, not by
+  reading the resource after `app.update()`.
+- **Bevy states are heap-expensive on this chip** (§7). Prefer a phase enum resource.
+- **Holding PWR long switches the board off** (the PMIC, not the firmware). Never design a
+  mechanic that holds PWR for more than a few seconds.
+- **In QEMU, script by game time, not frame count** (§8).
+- **`FlashStorage`'s inherent `read`/`write` shadow the `NorFlash` trait methods** (§3).
 - **embedded-graphics' `Arc::bounding_box()` is the whole circle.** Using it would redraw the
   full screen every frame.
 - **`cargo new` inside the repo can create a nested `.git`.** Delete it before committing.

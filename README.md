@@ -1,19 +1,32 @@
-# Orbit
+# Orbit board games
 
-Circular pong for the Waveshare **ESP32-S3-Touch-AMOLED-1.75** (466x466 round
-AMOLED, CO5300 over QSPI, CST9217 touch), written as a `no_std` **Bevy 0.19**
-app. Drag anywhere to swing the paddle around the rim and keep the ball inside.
-Every return speeds it up.
+`no_std` **Bevy 0.19** games for the Waveshare **ESP32-S3-Touch-AMOLED-1.75**
+(466x466 round AMOLED, CO5300 over QSPI, CST9217 touch, QMI8658 IMU, two buttons):
 
-The same Bevy app runs in a desktop simulator and on the board, and both draw
+- **Angler**, a fishing game:
+  - **Aim:** turn the device like a steering wheel.
+  - **Cast:** hold PWR to charge (the power meter sweeps up and down), then release.
+  - **Fight:** lean the device forward and back to keep the fish inside the catch zone, as in
+    Stardew Valley.
+  - **Keep:** every catch is shown with its length and weight and saved to flash.
+  - **Re-level:** BOOT re-zeroes the IMU at any time.
+- **Orbit**, circular pong: drag anywhere to swing the paddle around the rim.
+
+The same Bevy apps run in a desktop simulator and on the board, and both draw
 through the same software renderer, so the simulator shows the exact pixels the
 panel will get.
 
+![Angler aiming](screenshots/angler_aim.png) ![Angler fight](screenshots/angler_reel.png) ![Angler catch](screenshots/angler_caught.png)
+
 ```
-crates/orbit_game   no_std Bevy plugin: states, touch, FixedUpdate physics, emits a Frame shape list
-crates/orbit_gfx    no_std rasterizer (embedded-graphics), dirty-rect diffing, band Presenter
-desktop/            minifb simulator + headless PNG snapshots (std)
-firmware/           ESP32-S3 binary: CO5300 QSPI/DMA driver, CST9217 touch, heap/clock glue
+crates/orbit_gfx     no_std rasterizer (embedded-graphics + pixel-art sprites), dirty rects, bands
+crates/orbit_motion  no_std IMU fusion (Mahony) with zeroing -> steer/lean
+crates/orbit_save    no_std power-fail-safe flash records
+crates/orbit_core    shared Bevy plumbing: frame, touch, rng, saves; opt-in buttons + tilt
+crates/orbit_game    Orbit
+crates/angler_game   Angler
+desktop/             minifb simulator for either game + headless PNG snapshots (std)
+firmware/            ESP32-S3: board support lib + one binary per game
 ```
 
 ## How a frame gets to the glass
@@ -33,11 +46,21 @@ dirty-rect path never leaves stale pixels.
 ## Desktop
 
 ```sh
-cargo run -p orbit_desktop                         # play: hold left mouse = finger
-cargo run -p orbit_desktop -- snapshot screenshots # title/playing/game_over PNGs, headless
+cargo run -p orbit_desktop -- angler                    # or: -- orbit
+cargo run -p orbit_desktop -- angler snapshot screenshots   # every screen as a PNG, headless
 cargo test --workspace
 cargo clippy --workspace --all-targets && cargo fmt
 ```
+
+Controls:
+- **Mouse:** finger.
+- **Space:** the action button (PWR).
+- **Z:** the zero button (BOOT).
+- **Arrow keys:** ←/→ turn the virtual device like a wheel, ↑/↓ lean it.
+- **C:** straighten the device.
+
+The arrow keys feed a virtual IMU through the same motion filter the board uses.
+Desktop saves go to `~/.logic-orbit/<game>.flash`.
 
 The window title shows fps, KB pushed per frame, and the estimated time that
 traffic would take on the real link.
@@ -49,8 +72,9 @@ then `espup install --targets esp32s3`.
 
 ```sh
 cd firmware
-. ~/export-esp.sh            # every new shell: puts the Xtensa linker on PATH
-cargo run --release          # build, flash over USB-C, open the serial monitor
+. ~/export-esp.sh                # every new shell: puts the Xtensa linker on PATH
+cargo run --release --bin angler # build, flash over USB-C, open the serial monitor
+cargo run --release --bin orbit
 cargo clippy --release && cargo fmt
 ```
 
@@ -78,14 +102,19 @@ sources plus an emulator run. Watch the serial log:
 5. Every 2 s the log prints frame count, average and worst frame time, bytes
    per frame, and heap use.
 
+Angler adds checks for the IMU direction, the PWR hold, the lean direction, and
+saves. See section 9 of `docs/ESP32_PLATFORM.md`. All the fixes are one-line
+constants or a mapping function in `firmware/src/lib.rs`.
+
 **1.75 vs 1.75C:** this targets the plain 1.75 (LCD reset GPIO39, touch reset
 GPIO40). The 1.75C variant uses GPIO1 and GPIO2 for those two resets.
 
 ### Memory
 
-Bevy's own bookkeeping (schedules, per-resource tables) dominates: about
-216 KB steady and 270 KB at peak while schedules build on the first update.
-Those figures were measured with a counting allocator on a 32-bit target.
+Bevy's own bookkeeping (schedules, per-resource tables) dominates. Measured
+with a counting allocator on a 32-bit target, peak heap is 265 KB for Orbit and
+189 KB for Angler. Angler is leaner because it uses one phase resource instead
+of Bevy states.
 The firmware gives Bevy about 284 KB of internal SRAM (`INTERNAL_HEAP_BYTES` plus
 the 72 KB reclaimed region) and keeps about 74 KB of stack. PSRAM is
 registered last, only as a safety net. On the ESP32-S3, atomic
@@ -98,8 +127,9 @@ buffers (sprites, framebuffers) in PSRAM explicitly with `esp_alloc::ExternalMem
 - `tools/heap32/run.sh` measures the game's heap on a 32-bit target and checks it
   against the firmware's internal-SRAM budget. Run it after adding Bevy plugins,
   systems or resources.
-- `tools/qemu-smoke/run.sh` boots the firmware runtime in Espressif's QEMU and prints
-  `SMOKE PASS`/`SMOKE FAIL`.
+- `tools/qemu-smoke/run.sh` boots each game's firmware runtime in Espressif's QEMU
+  with scripted input and prints `SMOKE PASS`/`SMOKE FAIL`. The Angler run lands
+  two fish and round-trips the fish log through emulated flash.
 
 The full platform handbook is `docs/ESP32_PLATFORM.md`.
 
