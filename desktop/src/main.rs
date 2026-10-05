@@ -1,68 +1,111 @@
-//! Desktop stand-in for the ESP32-S3-Touch-AMOLED-1.75: same Bevy app, same
-//! dirty-region/band presenter, pixels land in a RAM model of the CO5300.
+//! Desktop stand-in for the ESP32-S3-Touch-AMOLED-1.75: the same Bevy games,
+//! the same dirty-region/band presenter, pixels land in a RAM model of the
+//! CO5300, and the IMU is a virtual device driven from the keyboard.
 //!
-//! `cargo run -p orbit_desktop` plays it (hold the left mouse button = finger).
-//! `cargo run -p orbit_desktop -- snapshot <dir>` writes scripted PNGs headlessly.
+//! ```text
+//! cargo run -p orbit_desktop -- [angler|orbit]                 play (default angler)
+//! cargo run -p orbit_desktop -- [angler|orbit] snapshot <dir>  scripted PNGs, headless
+//! ```
+
+mod device;
+mod panel;
+mod snapshots;
 
 use std::{
     env,
-    fs::{self, File},
-    io::BufWriter,
     path::Path,
     time::{Instant, SystemTime, UNIX_EPOCH},
 };
 
+use angler_game::AnglerPlugin;
 use bevy::prelude::*;
 use minifb::{Key, MouseButton, MouseMode, Window, WindowOptions};
-use orbit_game::{
-    BACKGROUND, Frame, OrbitPlugin, Rng, Screen, Touch,
-    arena::SCREEN_CENTER,
-    testing::{headless_app, press, tap, tick},
-};
-use orbit_gfx::{Panel, Presenter, Rectangle, SCREEN_SIZE};
+use orbit_core::{Buttons, Frame, ImuFeed, Rng, SaveBlob, Touch};
+use orbit_game::OrbitPlugin;
+use orbit_gfx::Presenter;
 
-const SIZE: usize = SCREEN_SIZE as usize;
+use crate::{
+    device::{SaveFile, VirtualDevice},
+    panel::{RamPanel, SIZE},
+};
+
 /// Matches the firmware's internal-RAM band buffer.
-const BAND_BYTES: usize = SIZE * 2 * 32;
+pub const BAND_BYTES: usize = SIZE * 2 * 8;
 /// What the real link moves: 40 MHz QSPI clock, four data lines.
 const QSPI_BYTES_PER_SEC: f64 = 40e6 * 4.0 / 8.0;
-/// Shown outside the round glass so the simulator reads as a watch face.
-const BEZEL: u32 = 0x1a1a1a;
+/// How fast the arrow keys turn and tip the virtual device.
+const TURN_DEG_PER_SEC: f32 = 60.0;
 
-fn main() {
-    let args: Vec<String> = env::args().collect();
-    match args.get(1).map(String::as_str) {
-        Some("snapshot") => snapshot(Path::new(args.get(2).map_or("screenshots", String::as_str))),
-        _ => play(),
+#[derive(Clone, Copy)]
+pub enum Game {
+    Orbit,
+    Angler,
+}
+
+impl Game {
+    fn name(self) -> &'static str {
+        match self {
+            Game::Orbit => "orbit",
+            Game::Angler => "angler",
+        }
     }
 }
 
-fn play() {
+fn main() {
+    let args: Vec<String> = env::args().skip(1).collect();
+    let (game, rest) = match args.first().map(String::as_str) {
+        Some("orbit") => (Game::Orbit, &args[1..]),
+        Some("angler") => (Game::Angler, &args[1..]),
+        _ => (Game::Angler, &args[..]),
+    };
+    match rest.first().map(String::as_str) {
+        Some("snapshot") => snapshots::run(
+            game,
+            Path::new(rest.get(1).map_or("screenshots", String::as_str)),
+        ),
+        _ => play(game),
+    }
+}
+
+fn play(game: Game) {
+    println!(
+        "{}: mouse = finger | Space = action (PWR) | Z = zero (BOOT) | \
+         arrows = turn/lean the device | C = straighten | Esc = quit",
+        game.name()
+    );
     let mut window =
-        Window::new("Orbit", SIZE, SIZE, WindowOptions::default()).expect("open window");
+        Window::new("Orbit board", SIZE, SIZE, WindowOptions::default()).expect("open window");
     window.set_target_fps(60);
 
     let seed = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map_or(1, |d| d.subsec_nanos());
+    let mut save = SaveFile::open(game.name());
     let mut app = App::new();
-    app.add_plugins(OrbitPlugin).insert_resource(Rng::new(seed));
+    match game {
+        Game::Orbit => app.add_plugins(OrbitPlugin),
+        Game::Angler => app.add_plugins(AnglerPlugin),
+    };
+    app.insert_resource(Rng::new(seed))
+        .insert_resource(SaveBlob::from_storage(save.load()));
     app.finish();
     app.cleanup();
 
     let mut panel = RamPanel::new();
-    let mut presenter = Presenter::new(vec![0u8; BAND_BYTES], BACKGROUND);
+    let mut presenter = Presenter::new(vec![0u8; BAND_BYTES], game.background());
     let mut pixels = vec![0u32; SIZE * SIZE];
     let mut stats = Stats::default();
+    let mut device = VirtualDevice::upright();
+    let mut last_frame = Instant::now();
 
     while window.is_open() && !window.is_key_down(Key::Escape) {
-        let finger = window
-            .get_mouse_down(MouseButton::Left)
-            .then(|| window.get_mouse_pos(MouseMode::Discard))
-            .flatten()
-            .map(|(x, y)| Vec2::new(x, y));
-        app.world_mut().resource_mut::<Touch>().set(finger);
+        let dt = last_frame.elapsed().as_secs_f32();
+        last_frame = Instant::now();
+        feed_inputs(&window, app.world_mut(), &mut device, dt);
         app.update();
+        if let Some(bytes) = app.world_mut().resource_mut::<SaveBlob>().take_pending() {
+            save.save(&bytes);
+        }
 
         let sent = presenter.present(&app.world().resource::<Frame>().shapes, &mut panel);
         if let Some(title) = stats.record(sent) {
@@ -75,98 +118,33 @@ fn play() {
     }
 }
 
-/// Plays a scripted round headlessly and saves one PNG per screen.
-fn snapshot(dir: &Path) {
-    fs::create_dir_all(dir).expect("create snapshot dir");
-    let mut app = headless_app();
-    let mut panel = RamPanel::new();
-    let mut presenter = Presenter::new(vec![0u8; BAND_BYTES], BACKGROUND);
-    let mut shoot = |app: &mut App, name: &str| {
-        presenter.present(&app.world().resource::<Frame>().shapes, &mut panel);
-        let path = dir.join(format!("{name}.png"));
-        panel.save_png(&path);
-        println!("wrote {}", path.display());
-    };
+/// Mouse as the finger, keys as the buttons and the device's motion. Button
+/// and IMU resources only exist for games that use them.
+fn feed_inputs(window: &Window, world: &mut World, device: &mut VirtualDevice, dt: f32) {
+    let finger = window
+        .get_mouse_down(MouseButton::Left)
+        .then(|| window.get_mouse_pos(MouseMode::Discard))
+        .flatten()
+        .map(|(x, y)| Vec2::new(x, y));
+    world.resource_mut::<Touch>().set(finger);
 
-    shoot(&mut app, "title");
-    tap(&mut app, SCREEN_CENTER);
-    press(&mut app, Some(SCREEN_CENTER + Vec2::new(-60.0, 90.0)));
-    tick(&mut app, 70);
-    shoot(&mut app, "playing");
-    press(&mut app, None);
-    while *app.world().resource::<State<Screen>>().get() != Screen::GameOver {
-        tick(&mut app, 1);
+    if let Some(mut buttons) = world.get_resource_mut::<Buttons>() {
+        buttons.action.set(window.is_key_down(Key::Space));
+        buttons.zero.set(window.is_key_down(Key::Z));
     }
-    tick(&mut app, 30);
-    shoot(&mut app, "game_over");
-}
-
-/// RAM model of the CO5300's frame memory.
-struct RamPanel {
-    ram: Vec<u8>,
-}
-
-impl RamPanel {
-    fn new() -> Self {
-        Self {
-            ram: vec![0; SIZE * SIZE * 2],
+    if let Some(mut feed) = world.get_resource_mut::<ImuFeed>() {
+        if window.is_key_down(Key::C) {
+            device.straighten();
         }
+        let axis = |plus: Key, minus: Key| {
+            (f32::from(u8::from(window.is_key_down(plus)))
+                - f32::from(u8::from(window.is_key_down(minus))))
+                * TURN_DEG_PER_SEC
+        };
+        let steer = axis(Key::Right, Key::Left);
+        let lean = axis(Key::Up, Key::Down);
+        feed.push(device.sample(steer, lean, dt));
     }
-
-    fn rgb565(&self, x: usize, y: usize) -> u16 {
-        let i = (y * SIZE + x) * 2;
-        u16::from_be_bytes([self.ram[i], self.ram[i + 1]])
-    }
-
-    fn to_argb(&self, out: &mut [u32]) {
-        for (i, px) in out.iter_mut().enumerate() {
-            let (x, y) = (i % SIZE, i / SIZE);
-            *px = if on_glass(x, y) {
-                expand(self.rgb565(x, y))
-            } else {
-                BEZEL
-            };
-        }
-    }
-
-    fn save_png(&self, path: &Path) {
-        let mut argb = vec![0u32; SIZE * SIZE];
-        self.to_argb(&mut argb);
-        let rgb: Vec<u8> = argb
-            .iter()
-            .flat_map(|p| [(p >> 16) as u8, (p >> 8) as u8, *p as u8])
-            .collect();
-        let file = BufWriter::new(File::create(path).expect("create png"));
-        let mut encoder = png::Encoder::new(file, SCREEN_SIZE, SCREEN_SIZE);
-        encoder.set_color(png::ColorType::Rgb);
-        encoder.set_depth(png::BitDepth::Eight);
-        let mut writer = encoder.write_header().expect("png header");
-        writer.write_image_data(&rgb).expect("png data");
-    }
-}
-
-impl Panel for RamPanel {
-    fn write(&mut self, area: Rectangle, bytes: &[u8]) {
-        let row_bytes = area.size.width as usize * 2;
-        for (row, src) in bytes.chunks_exact(row_bytes).enumerate() {
-            let y = area.top_left.y as usize + row;
-            let start = (y * SIZE + area.top_left.x as usize) * 2;
-            self.ram[start..start + row_bytes].copy_from_slice(src);
-        }
-    }
-}
-
-fn on_glass(x: usize, y: usize) -> bool {
-    let r = SIZE as f32 / 2.0;
-    let (dx, dy) = (x as f32 + 0.5 - r, y as f32 + 0.5 - r);
-    dx * dx + dy * dy <= r * r
-}
-
-fn expand(c: u16) -> u32 {
-    let r = ((c >> 11) & 0x1f) as u32;
-    let g = ((c >> 5) & 0x3f) as u32;
-    let b = (c & 0x1f) as u32;
-    (r << 3 | r >> 2) << 16 | (g << 2 | g >> 4) << 8 | (b << 3 | b >> 2)
 }
 
 /// Once a second: frame rate, average bytes pushed per frame, and how long
@@ -197,7 +175,7 @@ impl Stats {
         }
         let per_frame = self.bytes as f64 / self.frames as f64;
         let title = format!(
-            "Orbit | {:.0} fps | {:.1} KB/frame | ~{:.1} ms/frame on QSPI",
+            "Orbit board | {:.0} fps | {:.1} KB/frame | ~{:.1} ms/frame on QSPI",
             self.frames as f64 / secs,
             per_frame / 1024.0,
             per_frame / QSPI_BYTES_PER_SEC * 1000.0,

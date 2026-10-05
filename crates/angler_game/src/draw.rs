@@ -141,7 +141,7 @@ fn lake(shapes: &mut Vec<Shape>, session: &Session, elevation: f32, spot: bool) 
     for (i, color) in SKY.iter().enumerate() {
         shapes.push(rect(0, i as i32 * band, 466, band as u32, *color));
     }
-    shapes.push(disc(330, 92, 20, SUN));
+    shapes.push(disc(382, 165, 18, SUN));
     shapes.push(disc(110, 335, 110, FAR_HILL));
     shapes.push(disc(335, 350, 120, NEAR_HILL));
     shapes.push(rect(0, WATER_Y as i32, 466, 466 - WATER_Y as u32, WATER));

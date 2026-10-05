@@ -7,6 +7,9 @@ license.workspace = true
 [dependencies]
 bevy.workspace = true
 orbit_game.workspace = true
+angler_game.workspace = true
+orbit_core.workspace = true
+orbit_save.workspace = true
 orbit_gfx.workspace = true
 minifb = "0.29"
 png = "0.18"

@@ -42,6 +42,10 @@ impl<F: NorFlash> SlotStore<F> {
         self.flash
     }
 
+    pub fn flash(&self) -> &F {
+        &self.flash
+    }
+
     /// The newest intact record, if any.
     pub fn load(&mut self) -> Option<Vec<u8>> {
         let (slot, _) = self.newest()?;

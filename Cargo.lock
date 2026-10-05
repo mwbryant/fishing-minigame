@@ -1365,10 +1365,13 @@ dependencies = [
 name = "orbit_desktop"
 version = "0.1.0"
 dependencies = [
+ "angler_game",
  "bevy",
  "minifb",
+ "orbit_core",
  "orbit_game",
  "orbit_gfx",
+ "orbit_save",
  "png",
 ]
 
