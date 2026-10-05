@@ -3,7 +3,7 @@ use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering::Relaxed};
 use std::time::Duration;
 
 use angler_game::{
-    Phase, Session,
+    Inventory, Phase, Session,
     cast::{self, Flight},
     testing as angler, ui,
 };
@@ -74,8 +74,8 @@ pub extern "C" fn measure_orbit() -> *const u32 {
     report(app, built)
 }
 
-/// Angler: the log, settings and GUTEN screens, then three full cast, bite,
-/// fight and catch cycles.
+/// Angler: the log, settings, GUTEN and hat shop screens (buying a hat),
+/// MENU back from aiming, then three full cast, bite, fight and catch cycles.
 #[unsafe(no_mangle)]
 pub extern "C" fn measure_angler() -> *const u32 {
     start_clock();
@@ -90,6 +90,14 @@ pub extern "C" fn measure_angler() -> *const u32 {
     angler::tap(&mut app, Vec2::splat(233.0));
     angler::tap(&mut app, ui::EASIER.center());
     angler::tap(&mut app, ui::BACK.center());
+    app.world_mut().resource_mut::<Inventory>().earn(40);
+    angler::tap(&mut app, ui::SHOP.center());
+    angler::tap(&mut app, ui::NEXT_HAT.center());
+    angler::tap(&mut app, ui::BUY.center());
+    angler::tap(&mut app, ui::NEXT_HAT.center());
+    angler::tap(&mut app, ui::BACK.center());
+    angler::click_action(&mut app);
+    angler::tap(&mut app, ui::MENU.center());
     angler::click_action(&mut app);
     for _ in 0..3 {
         let lands = Flight::launch(cast::elevation_deg(0.0), 0.7).landing_x();

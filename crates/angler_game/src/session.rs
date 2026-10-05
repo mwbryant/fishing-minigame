@@ -11,6 +11,7 @@ use crate::{
     reel::{Reel, ReelOutcome},
     save,
     settings::Settings,
+    shop::{HATS, Inventory},
     species::{Catch, roll_catch},
     ui,
 };
@@ -29,6 +30,10 @@ pub enum Phase {
     Title,
     Log,
     Settings,
+    /// Browsing the hat shelf; `hat` is the one in the mirror.
+    Shop {
+        hat: usize,
+    },
     /// The easter egg: the spinning fish and its song.
     Guten,
     /// Aiming by rotation; `charging_secs` counts while the action button is held.
@@ -103,15 +108,23 @@ pub(crate) fn plugin(app: &mut App) {
     app.init_resource::<Session>()
         .init_resource::<FishLog>()
         .init_resource::<Settings>()
-        .add_systems(Startup, (load_log, first_spot))
+        .init_resource::<Inventory>()
+        .add_systems(Startup, (load_save, first_spot))
         .add_systems(Update, play)
         .add_systems(FixedUpdate, simulate);
 }
 
-fn load_log(blob: Res<SaveBlob>, mut log: ResMut<FishLog>, mut settings: ResMut<Settings>) {
-    if let Some((saved_log, saved_settings)) = blob.loaded().and_then(save::decode) {
+fn load_save(
+    blob: Res<SaveBlob>,
+    mut log: ResMut<FishLog>,
+    mut settings: ResMut<Settings>,
+    mut inventory: ResMut<Inventory>,
+) {
+    if let Some((saved_log, saved_settings, saved_inventory)) = blob.loaded().and_then(save::decode)
+    {
         *log = saved_log;
         *settings = saved_settings;
+        *inventory = saved_inventory;
     }
 }
 
@@ -127,6 +140,7 @@ fn play(
     touch: Res<Touch>,
     log: Res<FishLog>,
     mut settings: ResMut<Settings>,
+    mut inventory: ResMut<Inventory>,
     mut rng: ResMut<Rng>,
     mut session: ResMut<Session>,
     mut blob: ResMut<SaveBlob>,
@@ -149,9 +163,13 @@ fn play(
     let tuning = settings.difficulty.tuning();
     let mut new_spot = false;
     let mut difficulty_change = None;
+    let mut inventory_changed = false;
     let next = match &mut session.phase {
         Phase::Title if action.pressed() => Some(aim()),
         Phase::Title if tapped(&ui::LOG) => Some(Phase::Log),
+        Phase::Title if tapped(&ui::SHOP) => Some(Phase::Shop {
+            hat: inventory.worn(),
+        }),
         Phase::Title if tapped(&ui::SETTINGS) => Some(Phase::Settings),
         Phase::Log if action.pressed() || tap => Some(Phase::Title),
         Phase::Settings if tapped(&ui::HARDER) => {
@@ -167,10 +185,28 @@ fn play(
             Some(Phase::Guten)
         }
         Phase::Settings if tapped(&ui::BACK) || action.pressed() => Some(Phase::Title),
+        Phase::Shop { hat } if tapped(&ui::NEXT_HAT) => {
+            *hat = (*hat + 1) % HATS.len();
+            None
+        }
+        Phase::Shop { hat } if tapped(&ui::PREVIOUS_HAT) => {
+            *hat = (*hat + HATS.len() - 1) % HATS.len();
+            None
+        }
+        // BUY and WEAR share a spot: buying puts the hat on, and an owned
+        // hat is just worn.
+        Phase::Shop { hat } if tapped(&ui::BUY) => {
+            inventory_changed = inventory.buy(*hat) || inventory.wear(*hat);
+            None
+        }
+        Phase::Shop { .. } if tapped(&ui::BACK) || action.pressed() => Some(Phase::Title),
         Phase::Guten if elapsed >= GUTEN_MORGEN.duration_secs() || tap || action.pressed() => {
             sound.stop();
             Some(Phase::Settings)
         }
+        Phase::Aim {
+            charging_secs: None,
+        } if tapped(&ui::MENU) => Some(Phase::Title),
         Phase::Aim { charging_secs } => match *charging_secs {
             None if action.pressed() => {
                 *charging_secs = Some(0.0);
@@ -231,13 +267,16 @@ fn play(
     }
     if let Some(difficulty) = difficulty_change {
         settings.difficulty = difficulty;
-        blob.request_save(save::encode(&log, &settings));
+    }
+    if difficulty_change.is_some() || inventory_changed {
+        blob.request_save(save::encode(&log, &settings, &inventory));
     }
     if let Some(phase) = next {
         session.enter(phase);
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn simulate(
     time: Res<Time>,
     tilt: Res<Tilt>,
@@ -245,6 +284,7 @@ fn simulate(
     mut rng: ResMut<Rng>,
     mut session: ResMut<Session>,
     mut log: ResMut<FishLog>,
+    mut inventory: ResMut<Inventory>,
     mut blob: ResMut<SaveBlob>,
 ) {
     let dt = time.delta_secs();
@@ -267,7 +307,8 @@ fn simulate(
                 .map(|outcome| match outcome {
                     ReelOutcome::Landed => {
                         let milestones = log.record(catch);
-                        blob.request_save(save::encode(&log, &settings));
+                        inventory.earn(catch.gold());
+                        blob.request_save(save::encode(&log, &settings, &inventory));
                         Phase::Caught {
                             catch: *catch,
                             milestones,

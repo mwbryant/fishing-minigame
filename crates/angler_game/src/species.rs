@@ -27,6 +27,8 @@ pub struct Species {
     pub girth: f32,
     /// Relative odds within its tier.
     pub odds: f32,
+    /// Gold for the shortest fish of the species; the longest is worth double.
+    pub gold: u32,
     pub temper: Temper,
     pub sprite: &'static Sprite,
 }
@@ -38,6 +40,7 @@ pub const SPECIES: [Species; 8] = [
         length_cm: (5.0, 11.0),
         girth: 0.010,
         odds: 1.0,
+        gold: 2,
         temper: Temper {
             agility: 6.0,
             max_speed: 120.0,
@@ -53,6 +56,7 @@ pub const SPECIES: [Species; 8] = [
         length_cm: (10.0, 24.0),
         girth: 0.018,
         odds: 1.0,
+        gold: 3,
         temper: Temper {
             agility: 7.0,
             max_speed: 150.0,
@@ -68,6 +72,7 @@ pub const SPECIES: [Species; 8] = [
         length_cm: (15.0, 35.0),
         girth: 0.012,
         odds: 1.0,
+        gold: 5,
         temper: Temper {
             agility: 9.0,
             max_speed: 200.0,
@@ -83,6 +88,7 @@ pub const SPECIES: [Species; 8] = [
         length_cm: (25.0, 60.0),
         girth: 0.011,
         odds: 0.8,
+        gold: 8,
         temper: Temper {
             agility: 11.0,
             max_speed: 260.0,
@@ -98,6 +104,7 @@ pub const SPECIES: [Species; 8] = [
         length_cm: (25.0, 60.0),
         girth: 0.014,
         odds: 1.0,
+        gold: 12,
         temper: Temper {
             agility: 12.0,
             max_speed: 280.0,
@@ -113,6 +120,7 @@ pub const SPECIES: [Species; 8] = [
         length_cm: (40.0, 100.0),
         girth: 0.009,
         odds: 0.8,
+        gold: 15,
         temper: Temper {
             agility: 8.0,
             max_speed: 220.0,
@@ -128,6 +136,7 @@ pub const SPECIES: [Species; 8] = [
         length_cm: (50.0, 110.0),
         girth: 0.006,
         odds: 1.0,
+        gold: 30,
         temper: Temper {
             agility: 16.0,
             max_speed: 340.0,
@@ -143,6 +152,7 @@ pub const SPECIES: [Species; 8] = [
         length_cm: (30.0, 70.0),
         girth: 0.020,
         odds: 0.25,
+        gold: 80,
         temper: Temper {
             agility: 18.0,
             max_speed: 360.0,
@@ -165,6 +175,15 @@ pub struct Catch {
 impl Catch {
     pub fn species(&self) -> &'static Species {
         &SPECIES[self.species]
+    }
+
+    /// What the fish sells for: its species' gold, scaled up to double by how
+    /// long it is within the species' range.
+    pub fn gold(&self) -> u32 {
+        let species = self.species();
+        let (min, max) = species.length_cm;
+        let fullness = ((f32::from(self.length_mm) / 10.0 - min) / (max - min)).clamp(0.0, 1.0);
+        ops::round(species.gold as f32 * (1.0 + fullness)) as u32
     }
 }
 
@@ -258,6 +277,34 @@ mod tests {
                 catch.species().name
             );
         }
+    }
+
+    fn catch_of(species: usize, length_cm: f32) -> Catch {
+        Catch {
+            species,
+            length_mm: (length_cm * 10.0) as u16,
+            weight_g: weight_g(&SPECIES[species], length_cm),
+        }
+    }
+
+    #[test]
+    fn a_fish_at_the_top_of_its_range_is_worth_double_one_at_the_bottom() {
+        for (index, species) in SPECIES.iter().enumerate() {
+            let (min, max) = species.length_cm;
+            assert_eq!(catch_of(index, min).gold(), species.gold);
+            assert_eq!(catch_of(index, max).gold(), species.gold * 2);
+            assert!(catch_of(index, (min + max) / 2.0).gold() > species.gold);
+        }
+    }
+
+    #[test]
+    fn rarer_tiers_are_worth_more_gold() {
+        for pair in SPECIES.windows(2) {
+            if pair[1].tier > pair[0].tier {
+                assert!(pair[1].gold > pair[0].gold, "{}", pair[1].name);
+            }
+        }
+        assert!(SPECIES.iter().all(|s| s.gold >= 1));
     }
 
     #[test]

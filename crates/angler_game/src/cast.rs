@@ -12,7 +12,8 @@ pub mod scene {
     pub const SHORE_X: f32 = 128.0;
     pub const DOCK_TOP: i32 = 240;
     pub const ANGLER_SCALE: i32 = 2;
-    pub const ANGLER_TOP_LEFT: (i32, i32) = (62, 202);
+    /// The bareheaded angler; the hat is drawn above, over the hair row.
+    pub const ANGLER_TOP_LEFT: (i32, i32) = (62, 206);
     pub const HANDS: Vec2 = Vec2::new(
         (ANGLER_TOP_LEFT.0 + ANGLER_HANDS.0 * ANGLER_SCALE + 1) as f32,
         (ANGLER_TOP_LEFT.1 + ANGLER_HANDS.1 * ANGLER_SCALE + 1) as f32,

@@ -1,7 +1,8 @@
 //! Angler in QEMU: scripted touch visits settings (saving a difficulty
 //! change) and the GUTEN easter egg, then button and tilt input casts onto the
-//! spot and fights with a steady hand. Every save goes through `esp-storage`
-//! into the emulated flash, and the final log and settings are read back.
+//! spot and fights with a steady hand, and MENU leads to the hat shop to spend
+//! the gold. Every save goes through `esp-storage` into the emulated flash,
+//! and the final log, settings and inventory are read back.
 
 #![no_std]
 #![no_main]
@@ -11,7 +12,8 @@ extern crate alloc;
 use alloc::vec;
 
 use angler_game::{
-    AnglerPlugin, BACKGROUND, Difficulty, FishLog, Phase, Session, Settings, cast, save,
+    AnglerPlugin, BACKGROUND, Difficulty, FishLog, Inventory, Phase, Session, Settings, cast,
+    save,
     session::RESULT_GUARD_SECS,
     testing::{click_action, hold_action, phase, release_action, set_tilt, tap},
     ui,
@@ -90,22 +92,39 @@ fn main() -> ! {
         }
     }
 
+    tap(&mut smoke.app, ui::MENU.center());
+    tap(&mut smoke.app, ui::SHOP.center());
+    tap(&mut smoke.app, ui::NEXT_HAT.center());
+    tap(&mut smoke.app, ui::BUY.center());
+    persist(&mut smoke, &mut saves);
+    tap(&mut smoke.app, ui::BACK.center());
+
     let expected = (
         smoke.app.world().resource::<FishLog>().clone(),
         *smoke.app.world().resource::<Settings>(),
+        *smoke.app.world().resource::<Inventory>(),
     );
     let reloaded = saves.load().and_then(|bytes| save::decode(&bytes));
     info!(
-        "landed {landed}; log total {}; flash holds {:?}",
+        "landed {landed}; log total {}; gold {}, hat {}; flash holds {:?}",
         expected.0.total,
-        reloaded
-            .as_ref()
-            .map(|(log, settings)| (log.total, settings.difficulty))
+        expected.2.gold,
+        expected.2.hat().name,
+        reloaded.as_ref().map(|(log, settings, inventory)| (
+            log.total,
+            settings.difficulty,
+            inventory.gold,
+            inventory.worn()
+        ))
     );
     let failure = if landed < CATCHES {
         Some("could not land the fish")
     } else if expected.1.difficulty != Difficulty::Normal {
         Some("settings taps did not land on the buttons")
+    } else if expected.2.gold == 0 && expected.2.worn() == 0 {
+        Some("the catches earned no gold")
+    } else if phase(&smoke.app) != Phase::Title {
+        Some("shop taps did not land on the buttons")
     } else if reloaded != Some(expected) {
         Some("save did not round-trip through flash")
     } else {

@@ -170,12 +170,11 @@ pub static REEL_FISH: Sprite = Sprite {
     palette: &[OUTLINE, EYE, (b'F', rgb(150, 200, 220))],
 };
 
-/// Faces right; the hands are at column 11, row 8.
+/// Faces right, bareheaded: row 0 is hair, which the worn hat covers. The
+/// hands are at column 11, row 6.
 pub static ANGLER: Sprite = Sprite {
     rows: &[
-        "....HHHHH.....",
-        "...HHHHHHH....",
-        "..HHHHHHHHHH..",
+        "....DDDDD.....",
         "....SSSSS.....",
         "....SSSKS.....",
         "....SSSSS.....",
@@ -194,7 +193,7 @@ pub static ANGLER: Sprite = Sprite {
         "..BBB.BBB.....",
     ],
     palette: &[
-        (b'H', rgb(200, 170, 90)),
+        (b'D', rgb(90, 60, 35)),
         (b'S', rgb(236, 190, 150)),
         (b'K', rgb(30, 30, 30)),
         (b'V', rgb(60, 110, 70)),
@@ -203,7 +202,92 @@ pub static ANGLER: Sprite = Sprite {
     ],
 };
 
-pub const ANGLER_HANDS: (i32, i32) = (11, 8);
+pub const ANGLER_HANDS: (i32, i32) = (11, 6);
+
+// Hats share the angler's columns (the face is columns 4-8) and are drawn
+// with their bottom row over the angler's hair row.
+
+pub static STRAW_HAT: Sprite = Sprite {
+    rows: &["....HHHHH", "...HHHHHHH", "..HHHHHHHHHH"],
+    palette: &[(b'H', rgb(200, 170, 90))],
+};
+
+pub static BEANIE: Sprite = Sprite {
+    rows: &["......W", "....RRRRR", "...RRRRRRR", "...CCCCCCC"],
+    palette: &[
+        (b'W', rgb(240, 240, 240)),
+        (b'R', rgb(205, 55, 55)),
+        (b'C', rgb(150, 35, 45)),
+    ],
+};
+
+/// The bill points the way the angler faces.
+pub static BALL_CAP: Sprite = Sprite {
+    rows: &[".....BBBB", "....BBBBBB", "...BBBBBBBVVV"],
+    palette: &[(b'B', rgb(55, 95, 200)), (b'V', rgb(35, 60, 140))],
+};
+
+pub static BUCKET_HAT: Sprite = Sprite {
+    rows: &["....GGGGG", "....GGGGG", "...DDDDDDD", "..GGGGGGGGG"],
+    palette: &[(b'G', rgb(125, 140, 80)), (b'D', rgb(75, 85, 45))],
+};
+
+pub static COWBOY_HAT: Sprite = Sprite {
+    rows: &["....TT.TT", "....TTTTT", "T...DDDDD...T", "TTTTTTTTTTTTT"],
+    palette: &[(b'T', rgb(165, 110, 55)), (b'D', rgb(95, 60, 30))],
+};
+
+pub static TOP_HAT: Sprite = Sprite {
+    rows: &[
+        "....KSKKK",
+        "....KSKKK",
+        "....KSKKK",
+        "....KKKKK",
+        "....RRRRR",
+        "..KKKKKKKKK",
+    ],
+    palette: &[
+        (b'K', rgb(38, 38, 46)),
+        (b'S', rgb(90, 90, 105)),
+        (b'R', rgb(190, 40, 50)),
+    ],
+};
+
+/// A koi asleep on the angler's head, nose to the front.
+pub static FISH_HAT: Sprite = Sprite {
+    rows: &[
+        "K.....KKKK",
+        "KK..KKOOOOK",
+        "KOKKOOOOOWKK",
+        "KK..KKYYYYK",
+        "K.....KKKK",
+    ],
+    palette: &[
+        OUTLINE,
+        EYE,
+        (b'O', rgb(240, 120, 30)),
+        (b'Y', rgb(250, 200, 50)),
+    ],
+};
+
+pub static CROWN: Sprite = Sprite {
+    rows: &["....Y.Y.Y", "....YYYYY", "....YRYBY", "....YYYYY"],
+    palette: &[
+        (b'Y', rgb(250, 200, 50)),
+        (b'R', rgb(220, 40, 60)),
+        (b'B', rgb(60, 120, 230)),
+    ],
+};
+
+/// A gold coin, shown beside gold amounts.
+pub static COIN: Sprite = Sprite {
+    rows: &[".KKK.", "KYYOK", "KYOOK", "KYOOK", ".KKK."],
+    palette: &[
+        (b'K', rgb(120, 80, 10)),
+        (b'Y', rgb(255, 230, 120)),
+        (b'O', rgb(240, 180, 40)),
+    ],
+};
 
 /// The waterline sits between rows 2 and 3.
 pub static BOBBER: Sprite = Sprite {

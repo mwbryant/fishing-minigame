@@ -11,6 +11,7 @@ use crate::{
     reel::{FISH_HALF, Reel, TRACK_HEIGHT, TRACK_TOP, TRACK_WIDTH},
     session::{Phase, RESULT_GUARD_SECS, Session},
     settings::Settings,
+    shop::{HATS, Hat, Inventory},
     species::{Catch, SPECIES},
     sprites::{self, rgb},
     ui::{self, Button},
@@ -49,6 +50,9 @@ const TEXT: Rgb565 = rgb(255, 255, 255);
 const HINT: Rgb565 = rgb(200, 215, 230);
 const GOLD: Rgb565 = rgb(255, 215, 70);
 const TOAST: Rgb565 = rgb(120, 230, 255);
+const MIRROR: Rgb565 = rgb(26, 56, 90);
+const MIRROR_SCALE: u32 = 5;
+const MIRROR_TOP: i32 = 138;
 
 pub(crate) fn plugin(app: &mut App) {
     app.add_systems(PostUpdate, draw_frame);
@@ -59,27 +63,34 @@ fn draw_frame(
     tilt: Res<Tilt>,
     log: Res<FishLog>,
     settings: Res<Settings>,
+    inventory: Res<Inventory>,
     mut frame: ResMut<Frame>,
 ) {
     let shapes = &mut frame.shapes;
     shapes.clear();
     let elevation = cast::elevation_deg(tilt.steer_deg);
+    let hat = inventory.hat();
     let t = session.phase_secs;
     match &session.phase {
         Phase::Title => {
-            lake(shapes, &session, cast::BASE_ELEVATION_DEG, false);
+            lake(shapes, &session, cast::BASE_ELEVATION_DEG, false, hat);
             shapes.push(label(110, "GONE FISHIN", 3, TEXT));
             shapes.push(label(160, "PRESS BUTTON TO FISH", 1, HINT));
             level(shapes, &tilt);
             button(shapes, &ui::LOG);
+            button(shapes, &ui::SHOP);
             button(shapes, &ui::SETTINGS);
-            shapes.push(label(412, &format!("CAUGHT {}", log.total), 1, TEXT));
+            let caught = format!("CAUGHT {}", log.total);
+            shapes.push(label_at(Point::new(170, 412), &caught, 1, TEXT));
+            let purse = format!("GOLD {}", inventory.gold);
+            gold(shapes, Point::new(302, 412), &purse, 1);
         }
         Phase::Log => fish_log(shapes, &log),
         Phase::Settings => settings_menu(shapes, &settings),
+        Phase::Shop { hat } => shop(shapes, &inventory, *hat),
         Phase::Guten => guten(shapes, t),
         Phase::Aim { charging_secs } => {
-            lake(shapes, &session, elevation, true);
+            lake(shapes, &session, elevation, true, hat);
             shapes.push(label(52, &format!("ANGLE {}", elevation as i32), 1, TEXT));
             preview(shapes, &Flight::launch(elevation, 1.0));
             match charging_secs {
@@ -88,18 +99,21 @@ fn draw_frame(
                     cast::charge_power(*secs),
                     settings.difficulty.tuning().perfect_power,
                 ),
-                None => shapes.push(label(76, "HOLD BUTTON TO CAST", 1, HINT)),
+                None => {
+                    shapes.push(label(76, "HOLD BUTTON TO CAST", 1, HINT));
+                    button(shapes, &ui::MENU);
+                }
             }
         }
         Phase::Flight { flight, perfect } => {
-            lake(shapes, &session, elevation, true);
+            lake(shapes, &session, elevation, true, hat);
             bobber(shapes, flight.pos, 0);
             if *perfect {
                 shapes.push(label(76, "PERFECT!", 2, GOLD));
             }
         }
         Phase::Waiting { bobber_x, .. } => {
-            lake(shapes, &session, elevation, true);
+            lake(shapes, &session, elevation, true, hat);
             let bob = (ops::sin(session.clock * 3.0) * 1.5) as i32;
             floating(shapes, elevation, *bobber_x, bob);
             if t < 0.5 {
@@ -109,7 +123,7 @@ fn draw_frame(
             shapes.push(label(76, "PRESS TO REEL IN", 1, HINT));
         }
         Phase::Bite { bobber_x, .. } => {
-            lake(shapes, &session, elevation, true);
+            lake(shapes, &session, elevation, true, hat);
             floating(shapes, elevation, *bobber_x, 4);
             shapes.push(Shape::Label {
                 center: Point::new(*bobber_x as i32, WATER_Y as i32 - 40),
@@ -119,7 +133,7 @@ fn draw_frame(
             });
         }
         Phase::Notice(text) => {
-            lake(shapes, &session, elevation, true);
+            lake(shapes, &session, elevation, true, hat);
             shapes.push(label(120, text, 2, TEXT));
         }
         Phase::Reel { reel, .. } => reel_bar(shapes, reel),
@@ -136,7 +150,7 @@ fn draw_frame(
                 shapes.push(label(92, banner, 2, GOLD));
             }
             if t >= RESULT_GUARD_SECS {
-                shapes.push(label(400, "PRESS BUTTON", 1, HINT));
+                shapes.push(label(432, "PRESS BUTTON", 1, HINT));
             }
         }
         Phase::Escaped => {
@@ -149,9 +163,9 @@ fn draw_frame(
     }
 }
 
-/// The side-view scene: sky, hills, lake, dock, angler and rod, plus the
-/// rippling fishing spot when `spot` is set.
-fn lake(shapes: &mut Vec<Shape>, session: &Session, elevation: f32, spot: bool) {
+/// The side-view scene: sky, hills, lake, dock, angler (in `hat`) and rod,
+/// plus the rippling fishing spot when `spot` is set.
+fn lake(shapes: &mut Vec<Shape>, session: &Session, elevation: f32, spot: bool, hat: &Hat) {
     let band = WATER_Y as i32 / SKY.len() as i32 + 1;
     for (i, color) in SKY.iter().enumerate() {
         shapes.push(rect(0, i as i32 * band, 466, band as u32, *color));
@@ -177,17 +191,30 @@ fn lake(shapes: &mut Vec<Shape>, session: &Session, elevation: f32, spot: bool) 
     for x in [18, 58, 98] {
         shapes.push(rect(x, DOCK_TOP + 13, 7, 48, POST));
     }
-    shapes.push(Shape::Sprite {
-        sprite: SpriteRef(&sprites::ANGLER),
-        top_left: Point::new(ANGLER_TOP_LEFT.0, ANGLER_TOP_LEFT.1),
-        scale: ANGLER_SCALE as u32,
-        flip_x: false,
-    });
+    let top_left = Point::new(ANGLER_TOP_LEFT.0, ANGLER_TOP_LEFT.1);
+    angler(shapes, top_left, ANGLER_SCALE as u32, hat);
     shapes.push(Shape::Line {
         from: point(HANDS),
         to: point(cast::rod_tip(elevation)),
         width: 2,
         color: ROD,
+    });
+}
+
+/// The angler with `hat` on, its bottom row over the hair row.
+fn angler(shapes: &mut Vec<Shape>, top_left: Point, scale: u32, hat: &Hat) {
+    shapes.push(Shape::Sprite {
+        sprite: SpriteRef(&sprites::ANGLER),
+        top_left,
+        scale,
+        flip_x: false,
+    });
+    let lift = (hat.sprite.size().height as i32 - 1) * scale as i32;
+    shapes.push(Shape::Sprite {
+        sprite: SpriteRef(hat.sprite),
+        top_left: top_left - Point::new(0, lift),
+        scale,
+        flip_x: false,
     });
 }
 
@@ -365,6 +392,8 @@ fn caught(shapes: &mut Vec<Shape>, catch: &Catch) {
     shapes.push(label(272, species.name, 2, TEXT));
     shapes.push(label(314, &length_text(catch.length_mm), 2, TEXT));
     shapes.push(label(354, &weight_text(catch.weight_g), 2, TEXT));
+    let pay = format!("+{} GOLD", catch.gold());
+    gold(shapes, Point::new(233, 394), &pay, 2);
 }
 
 fn fish_log(shapes: &mut Vec<Shape>, log: &FishLog) {
@@ -409,6 +438,45 @@ fn settings_menu(shapes: &mut Vec<Shape>, settings: &Settings) {
     button(shapes, &ui::BACK);
 }
 
+/// The browsed hat on the angler in a mirror, its price or status, and BUY
+/// or WEAR when either applies.
+fn shop(shapes: &mut Vec<Shape>, inventory: &Inventory, browsing: usize) {
+    shapes.push(rect(0, 0, 466, 466, DEEP));
+    shapes.push(label(58, "HAT SHOP", 2, TEXT));
+    gold(
+        shapes,
+        Point::new(233, 96),
+        &format!("GOLD {}", inventory.gold),
+        1,
+    );
+    let hat = &HATS[browsing];
+    let body = sprites::ANGLER.size() * MIRROR_SCALE;
+    shapes.push(disc(233, ui::PREVIOUS_HAT.area.center().y, 64, MIRROR));
+    let top_left = Point::new(233 - body.width as i32 / 2, MIRROR_TOP);
+    angler(shapes, top_left, MIRROR_SCALE, hat);
+    button(shapes, &ui::PREVIOUS_HAT);
+    button(shapes, &ui::NEXT_HAT);
+    shapes.push(label(258, hat.name, 2, TEXT));
+    let owned = inventory.owns(browsing);
+    if owned {
+        shapes.push(label(286, "OWNED", 1, HINT));
+    } else {
+        shapes.push(label(286, &format!("{} GOLD", hat.price), 1, GOLD));
+    }
+    let slot = ui::BUY.area.center().y;
+    if inventory.worn() == browsing {
+        shapes.push(label(slot, "WEARING", 1, GOLD));
+    } else if owned {
+        button(shapes, &ui::WEAR);
+    } else if inventory.gold >= hat.price {
+        button(shapes, &ui::BUY);
+    } else {
+        let short = format!("NEED {} MORE", hat.price - inventory.gold);
+        shapes.push(label(slot, &short, 1, HINT));
+    }
+    button(shapes, &ui::BACK);
+}
+
 /// The easter egg: logic-fish's spinning rainbow trout, faked in 2D by
 /// squashing the sprite's width with the cosine of its turn and mirroring it
 /// for the far side.
@@ -440,6 +508,23 @@ fn button(shapes: &mut Vec<Shape>, button: &Button) {
         color: DEEP,
     });
     shapes.push(label_at(area.center(), button.text, 1, TEXT));
+}
+
+/// Gold-colored text with a coin in front.
+fn gold(shapes: &mut Vec<Shape>, center: Point, text: &str, scale: u32) {
+    let text = label_at(center, text, scale, GOLD);
+    let coin_scale = scale * 2;
+    let coin = sprites::COIN.size() * coin_scale;
+    shapes.push(Shape::Sprite {
+        sprite: SpriteRef(&sprites::COIN),
+        top_left: Point::new(
+            text.bounds().top_left.x - coin.width as i32 - 4 * scale as i32,
+            center.y - coin.height as i32 / 2,
+        ),
+        scale: coin_scale,
+        flip_x: false,
+    });
+    shapes.push(text);
 }
 
 pub fn length_text(length_mm: u16) -> String {

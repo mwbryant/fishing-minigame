@@ -4,7 +4,7 @@
 use std::{fs, path::Path};
 
 use angler_game::{
-    Phase, Session,
+    Inventory, Phase, Session,
     cast::{self, CHARGE_SECS, Flight},
     testing as angler, ui,
 };
@@ -100,6 +100,18 @@ fn angler(camera: &mut Camera) {
     angler::tap(&mut app, ui::GUTEN.center());
     angler::tick(&mut app, 8);
     camera.shoot(&app, "angler_guten");
+
+    angler::tap(&mut app, Vec2::splat(233.0));
+    angler::tap(&mut app, ui::BACK.center());
+    app.world_mut().resource_mut::<Inventory>().earn(120);
+    angler::tap(&mut app, ui::SHOP.center());
+    for _ in 0..4 {
+        angler::tap(&mut app, ui::NEXT_HAT.center());
+    }
+    camera.shoot(&app, "angler_shop");
+    angler::tap(&mut app, ui::BUY.center());
+    angler::tap(&mut app, ui::BACK.center());
+    camera.shoot(&app, "angler_title_hat");
 }
 
 /// Plays the fight with a steady hand for up to `frames` updates.
