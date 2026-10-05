@@ -8,6 +8,7 @@ license.workspace = true
 bevy.workspace = true
 orbit_gfx.workspace = true
 orbit_motion.workspace = true
+orbit_audio.workspace = true
 
 [lints]
 workspace = true

@@ -85,6 +85,39 @@ pub(crate) fn draw_sprite(
     Ok(())
 }
 
+/// Draws the sprite stretched (nearest neighbour) to fill `area`; squashing
+/// the width by `|cos|` and flipping past 90 degrees makes it spin in 3D.
+pub(crate) fn draw_sprite_fit(
+    canvas: &mut Canvas,
+    sprite: &Sprite,
+    area: Rectangle,
+    flip_x: bool,
+) -> Result<(), Infallible> {
+    let size = sprite.size();
+    if area.is_zero_sized() || size.width == 0 || size.height == 0 {
+        return Ok(());
+    }
+    let clip = area.intersection(&canvas.area());
+    let Some(bottom_right) = clip.bottom_right() else {
+        return Ok(());
+    };
+    for y in clip.top_left.y..=bottom_right.y {
+        let source_y = ((y - area.top_left.y) as u32 * size.height / area.size.height) as usize;
+        let row = sprite.rows[source_y].as_bytes();
+        for x in clip.top_left.x..=bottom_right.x {
+            let mut source_x =
+                ((x - area.top_left.x) as u32 * size.width / area.size.width) as usize;
+            if flip_x {
+                source_x = size.width as usize - 1 - source_x;
+            }
+            if let Some(color) = row.get(source_x).and_then(|&key| sprite.color(key)) {
+                canvas.fill_solid(&Rectangle::new(Point::new(x, y), Size::new(1, 1)), color)?;
+            }
+        }
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use alloc::vec;
@@ -143,6 +176,43 @@ mod tests {
         assert_eq!(px[0][2], Some(Rgb565::RED));
         assert_eq!(px[2][0], Some(Rgb565::BLUE));
         assert_eq!(px[0][0], None);
+    }
+
+    fn fitted(area: Rectangle, flip_x: bool) -> [[Option<Rgb565>; 9]; 9] {
+        let mut buf = vec![0u8; 9 * 9 * 2];
+        let mut canvas = Canvas::new(Rectangle::new(Point::zero(), Size::new(9, 9)), &mut buf);
+        draw_sprite_fit(&mut canvas, &ARROW, area, flip_x).unwrap();
+        let mut out = [[None; 9]; 9];
+        for (y, row) in out.iter_mut().enumerate() {
+            for (x, px) in row.iter_mut().enumerate() {
+                *px = canvas
+                    .pixel(Point::new(x as i32, y as i32))
+                    .filter(|&c| c != Rgb565::BLACK);
+            }
+        }
+        out
+    }
+
+    #[test]
+    fn fitting_to_a_box_matches_integer_scaling_when_it_divides_evenly() {
+        let area = Rectangle::new(Point::zero(), Size::new(9, 9));
+        assert_eq!(fitted(area, false), drawn(3, false));
+        assert_eq!(fitted(area, true), drawn(3, true));
+    }
+
+    #[test]
+    fn squashing_the_width_keeps_the_sprite_inside_its_box() {
+        let area = Rectangle::new(Point::new(3, 0), Size::new(3, 9));
+        let px = fitted(area, false);
+        for (y, row) in px.iter().enumerate() {
+            for (x, color) in row.iter().enumerate() {
+                if color.is_some() {
+                    assert!(area.contains(Point::new(x as i32, y as i32)), "({x}, {y})");
+                }
+            }
+        }
+        assert_eq!(px[0][3], Some(Rgb565::RED));
+        assert_eq!(px[8][5], Some(Rgb565::BLUE));
     }
 
     #[test]

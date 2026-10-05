@@ -2,13 +2,17 @@
 //! state schedule costs heap the ESP32 doesn't have).
 
 use bevy::prelude::*;
-use orbit_core::{Buttons, Rng, SaveBlob, Tilt, Touch};
+use orbit_core::{Buttons, Rng, SaveBlob, SoundQueue, Tilt, Touch};
 
 use crate::{
+    audio::GUTEN_MORGEN,
     cast::{self, Flight, scene::*},
     log::{FishLog, Milestones},
     reel::{Reel, ReelOutcome},
+    save,
+    settings::Settings,
     species::{Catch, roll_catch},
+    ui,
 };
 
 /// Results ignore presses this long, so a press meant for the fight doesn't
@@ -24,6 +28,9 @@ pub const TOAST_SECS: f32 = 1.2;
 pub enum Phase {
     Title,
     Log,
+    Settings,
+    /// The easter egg: the spinning fish and its song.
+    Guten,
     /// Aiming by rotation; `charging_secs` counts while the action button is held.
     Aim {
         charging_secs: Option<f32>,
@@ -95,14 +102,16 @@ impl Session {
 pub(crate) fn plugin(app: &mut App) {
     app.init_resource::<Session>()
         .init_resource::<FishLog>()
+        .init_resource::<Settings>()
         .add_systems(Startup, (load_log, first_spot))
         .add_systems(Update, play)
         .add_systems(FixedUpdate, simulate);
 }
 
-fn load_log(blob: Res<SaveBlob>, mut log: ResMut<FishLog>) {
-    if let Some(saved) = blob.loaded().and_then(FishLog::decode) {
-        *log = saved;
+fn load_log(blob: Res<SaveBlob>, mut log: ResMut<FishLog>, mut settings: ResMut<Settings>) {
+    if let Some((saved_log, saved_settings)) = blob.loaded().and_then(save::decode) {
+        *log = saved_log;
+        *settings = saved_settings;
     }
 }
 
@@ -110,13 +119,18 @@ fn first_spot(mut session: ResMut<Session>, mut rng: ResMut<Rng>) {
     session.move_spot(&mut rng);
 }
 
+#[allow(clippy::too_many_arguments)]
 fn play(
     time: Res<Time>,
     buttons: Res<Buttons>,
     tilt: Res<Tilt>,
     touch: Res<Touch>,
+    log: Res<FishLog>,
+    mut settings: ResMut<Settings>,
     mut rng: ResMut<Rng>,
     mut session: ResMut<Session>,
+    mut blob: ResMut<SaveBlob>,
+    mut sound: ResMut<SoundQueue>,
 ) {
     let dt = time.delta_secs();
     session.clock += dt;
@@ -129,13 +143,34 @@ fn play(
 
     let action = buttons.action;
     let tap = touch.just_pressed();
+    let tapped = |button: &ui::Button| tap && touch.position().is_some_and(|at| button.hit(at));
     let elapsed = session.phase_secs;
     let results_open = elapsed >= RESULT_GUARD_SECS;
+    let tuning = settings.difficulty.tuning();
     let mut new_spot = false;
+    let mut difficulty_change = None;
     let next = match &mut session.phase {
         Phase::Title if action.pressed() => Some(aim()),
-        Phase::Title if tap => Some(Phase::Log),
+        Phase::Title if tapped(&ui::LOG) => Some(Phase::Log),
+        Phase::Title if tapped(&ui::SETTINGS) => Some(Phase::Settings),
         Phase::Log if action.pressed() || tap => Some(Phase::Title),
+        Phase::Settings if tapped(&ui::HARDER) => {
+            difficulty_change = Some(settings.difficulty.next());
+            None
+        }
+        Phase::Settings if tapped(&ui::EASIER) => {
+            difficulty_change = Some(settings.difficulty.previous());
+            None
+        }
+        Phase::Settings if tapped(&ui::GUTEN) => {
+            sound.play(&GUTEN_MORGEN);
+            Some(Phase::Guten)
+        }
+        Phase::Settings if tapped(&ui::BACK) || action.pressed() => Some(Phase::Title),
+        Phase::Guten if elapsed >= GUTEN_MORGEN.duration_secs() || tap || action.pressed() => {
+            sound.stop();
+            Some(Phase::Settings)
+        }
         Phase::Aim { charging_secs } => match *charging_secs {
             None if action.pressed() => {
                 *charging_secs = Some(0.0);
@@ -151,7 +186,7 @@ fn play(
             }
             Some(secs) => {
                 *charging_secs = None;
-                let power = cast::release_power(secs);
+                let power = cast::release_power(secs, tuning.perfect_power);
                 (power >= cast::MIN_CAST_POWER).then(|| Phase::Flight {
                     flight: Flight::launch(cast::elevation_deg(tilt.steer_deg), power),
                     perfect: power == 1.0,
@@ -175,7 +210,7 @@ fn play(
             _ => None,
         },
         Phase::Bite { catch, .. } if elapsed >= BITE_SHOW_SECS => Some(Phase::Reel {
-            reel: Reel::new(catch.species(), &mut rng),
+            reel: Reel::with_tuning(catch.species(), &tuning, &mut rng),
             catch: *catch,
         }),
         Phase::Caught { .. } if results_open && (action.pressed() || tap) => {
@@ -194,6 +229,10 @@ fn play(
     if new_spot {
         session.move_spot(&mut rng);
     }
+    if let Some(difficulty) = difficulty_change {
+        settings.difficulty = difficulty;
+        blob.request_save(save::encode(&log, &settings));
+    }
     if let Some(phase) = next {
         session.enter(phase);
     }
@@ -202,6 +241,7 @@ fn play(
 fn simulate(
     time: Res<Time>,
     tilt: Res<Tilt>,
+    settings: Res<Settings>,
     mut rng: ResMut<Rng>,
     mut session: ResMut<Session>,
     mut log: ResMut<FishLog>,
@@ -227,7 +267,7 @@ fn simulate(
                 .map(|outcome| match outcome {
                     ReelOutcome::Landed => {
                         let milestones = log.record(catch);
-                        blob.request_save(log.encode());
+                        blob.request_save(save::encode(&log, &settings));
                         Phase::Caught {
                             catch: *catch,
                             milestones,

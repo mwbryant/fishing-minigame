@@ -5,7 +5,7 @@ use std::time::Duration;
 use angler_game::{
     Phase, Session,
     cast::{self, Flight},
-    testing as angler,
+    testing as angler, ui,
 };
 use bevy::{math::ops, platform::time::Instant, prelude::*};
 use orbit_game::{
@@ -74,14 +74,22 @@ pub extern "C" fn measure_orbit() -> *const u32 {
     report(app, built)
 }
 
-/// Angler: three full cast, bite, fight and catch cycles plus the fish log.
+/// Angler: the log, settings and GUTEN screens, then three full cast, bite,
+/// fight and catch cycles.
 #[unsafe(no_mangle)]
 pub extern "C" fn measure_angler() -> *const u32 {
     start_clock();
     let mut app = angler::headless_app();
     let built = CURRENT.load(Relaxed);
+    angler::tap(&mut app, ui::LOG.center());
     angler::tap(&mut app, Vec2::splat(233.0));
+    angler::tap(&mut app, ui::SETTINGS.center());
+    angler::tap(&mut app, ui::HARDER.center());
+    angler::tap(&mut app, ui::GUTEN.center());
+    angler::tick(&mut app, 120);
     angler::tap(&mut app, Vec2::splat(233.0));
+    angler::tap(&mut app, ui::EASIER.center());
+    angler::tap(&mut app, ui::BACK.center());
     angler::click_action(&mut app);
     for _ in 0..3 {
         let lands = Flight::launch(cast::elevation_deg(0.0), 0.7).landing_x();

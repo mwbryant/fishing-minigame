@@ -10,21 +10,27 @@
 
 extern crate alloc;
 
+mod audio;
 pub mod cast;
 mod draw;
 pub mod log;
 pub mod reel;
+pub mod save;
 pub mod session;
+pub mod settings;
 pub mod species;
 pub mod sprites;
 pub mod testing;
+pub mod ui;
 
 use bevy::prelude::*;
-use orbit_core::{ControlsPlugin, CorePlugin};
+use orbit_core::{ControlsPlugin, CorePlugin, SoundPlugin};
 
+pub use audio::{GUTEN_MORGEN, GUTEN_SPIN_SECS};
 pub use draw::{BACKGROUND, PREVIEW_DOT, length_text, weight_text};
 pub use log::{FishLog, Milestones};
 pub use session::{Phase, Session};
+pub use settings::{Difficulty, Settings};
 pub use species::{Catch, SPECIES};
 
 pub struct AnglerPlugin;
@@ -36,6 +42,9 @@ impl Plugin for AnglerPlugin {
         }
         if !app.is_plugin_added::<ControlsPlugin>() {
             app.add_plugins(ControlsPlugin);
+        }
+        if !app.is_plugin_added::<SoundPlugin>() {
+            app.add_plugins(SoundPlugin);
         }
         app.add_plugins((session::plugin, draw::plugin));
     }

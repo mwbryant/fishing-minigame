@@ -10,6 +10,7 @@
 mod device;
 mod panel;
 mod snapshots;
+mod speaker;
 
 use std::{
     env,
@@ -20,13 +21,14 @@ use std::{
 use angler_game::AnglerPlugin;
 use bevy::prelude::*;
 use minifb::{Key, MouseButton, MouseMode, Window, WindowOptions};
-use orbit_core::{Buttons, Frame, ImuFeed, Rng, SaveBlob, Touch};
+use orbit_core::{Buttons, Frame, ImuFeed, Rng, SaveBlob, SoundQueue, Touch};
 use orbit_game::OrbitPlugin;
 use orbit_gfx::Presenter;
 
 use crate::{
     device::{SaveFile, VirtualDevice},
     panel::{RamPanel, SIZE},
+    speaker::Speaker,
 };
 
 /// Matches the firmware's internal-RAM band buffer.
@@ -96,6 +98,10 @@ fn play(game: Game) {
     let mut pixels = vec![0u32; SIZE * SIZE];
     let mut stats = Stats::default();
     let mut device = VirtualDevice::upright();
+    let mut speaker = app
+        .world()
+        .contains_resource::<SoundQueue>()
+        .then(Speaker::open);
     let mut last_frame = Instant::now();
 
     while window.is_open() && !window.is_key_down(Key::Escape) {
@@ -105,6 +111,12 @@ fn play(game: Game) {
         app.update();
         if let Some(bytes) = app.world_mut().resource_mut::<SaveBlob>().take_pending() {
             save.save(&bytes);
+        }
+        if let Some(speaker) = speaker.as_mut() {
+            for command in app.world_mut().resource_mut::<SoundQueue>().drain() {
+                speaker.apply(command);
+            }
+            speaker.pump();
         }
 
         let sent = presenter.present(&app.world().resource::<Frame>().shapes, &mut panel);

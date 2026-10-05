@@ -6,7 +6,7 @@ use std::{fs, path::Path};
 use angler_game::{
     Phase, Session,
     cast::{self, CHARGE_SECS, Flight},
-    testing as angler,
+    testing as angler, ui,
 };
 use bevy::prelude::*;
 use orbit_core::{Frame, SaveBlob};
@@ -91,8 +91,15 @@ fn angler(camera: &mut Camera) {
 
     let saved = app.world_mut().resource_mut::<SaveBlob>().take_pending();
     let mut app = angler::headless_app_with_save(saved);
-    angler::tap(&mut app, Vec2::splat(233.0));
+    angler::tap(&mut app, ui::LOG.center());
     camera.shoot(&app, "angler_log");
+
+    angler::tap(&mut app, Vec2::splat(233.0));
+    angler::tap(&mut app, ui::SETTINGS.center());
+    camera.shoot(&app, "angler_settings");
+    angler::tap(&mut app, ui::GUTEN.center());
+    angler::tick(&mut app, 8);
+    camera.shoot(&app, "angler_guten");
 }
 
 /// Plays the fight with a steady hand for up to `frames` updates.

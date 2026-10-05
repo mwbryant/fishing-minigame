@@ -12,7 +12,7 @@ use embedded_graphics::{
 
 use crate::{
     Canvas,
-    sprite::{SpriteRef, draw_sprite, sprite_rect},
+    sprite::{SpriteRef, draw_sprite, draw_sprite_fit, sprite_rect},
 };
 
 const GLYPH_WIDTH: u32 = 10;
@@ -64,6 +64,12 @@ pub enum Shape {
         scale: u32,
         flip_x: bool,
     },
+    /// A sprite stretched to fill `area`, e.g. squashed to fake a 3D spin.
+    SpriteFit {
+        sprite: SpriteRef,
+        area: Rectangle,
+        flip_x: bool,
+    },
 }
 
 impl Shape {
@@ -107,6 +113,7 @@ impl Shape {
                 scale,
                 ..
             } => sprite_rect(sprite.0, *top_left, *scale),
+            Shape::SpriteFit { area, .. } => *area,
         }
     }
 
@@ -158,6 +165,11 @@ impl Shape {
                 scale,
                 flip_x,
             } => draw_sprite(canvas, sprite.0, *top_left, *scale, *flip_x),
+            Shape::SpriteFit {
+                sprite,
+                area,
+                flip_x,
+            } => draw_sprite_fit(canvas, sprite.0, *area, *flip_x),
         };
     }
 }
@@ -384,6 +396,11 @@ mod tests {
                 scale: 4,
                 flip_x: true,
             },
+            Shape::SpriteFit {
+                sprite: SpriteRef(&TEST_SPRITE),
+                area: Rectangle::new(Point::new(150, 300), Size::new(37, 50)),
+                flip_x: true,
+            },
         ];
         for shape in &shapes {
             let bounds = shape.bounds();
@@ -445,6 +462,11 @@ mod tests {
                 to: Point::new(440, 100),
                 width: 2,
                 color: Rgb565::WHITE,
+            },
+            Shape::SpriteFit {
+                sprite: SpriteRef(&TEST_SPRITE),
+                area: Rectangle::new(Point::new(90, 120), Size::new(123, 77)),
+                flip_x: false,
             },
         ];
         let whole = full_screen(&shapes);

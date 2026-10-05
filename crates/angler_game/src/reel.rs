@@ -6,13 +6,17 @@
 use bevy::math::ops;
 use orbit_core::Rng;
 
-use crate::species::{Species, Temper};
+use crate::{
+    settings::{Difficulty, Tuning},
+    species::{Species, Temper},
+};
 
 /// Track geometry. Positions on the track are centers, measured down from
 /// the top of the track.
 pub const TRACK_TOP: f32 = 70.0;
 pub const TRACK_HEIGHT: f32 = 326.0;
 pub const TRACK_WIDTH: f32 = 44.0;
+/// The catch zone at normal difficulty; see `Tuning::zone_height`.
 pub const ZONE_HEIGHT: f32 = 96.0;
 pub const FISH_HALF: f32 = 8.0;
 
@@ -41,6 +45,7 @@ pub enum ReelOutcome {
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Reel {
+    pub zone_height: f32,
     pub zone_y: f32,
     pub zone_v: f32,
     pub fish_y: f32,
@@ -55,11 +60,29 @@ pub struct Reel {
 }
 
 impl Reel {
-    /// Like Stardew, the fish and the zone start together near the bottom.
+    /// A fight at normal difficulty.
     pub fn new(species: &Species, rng: &mut Rng) -> Self {
-        let start = TRACK_HEIGHT - ZONE_HEIGHT / 2.0;
-        let (min, max) = species.temper.retarget_secs;
+        Self::with_tuning(species, &Difficulty::Normal.tuning(), rng)
+    }
+
+    /// Like Stardew, the fish and the zone start together near the bottom.
+    /// `fish_speed_scale` time-warps the fish: it swims the same way, faster.
+    pub fn with_tuning(species: &Species, tuning: &Tuning, rng: &mut Rng) -> Self {
+        let start = TRACK_HEIGHT - tuning.zone_height / 2.0;
+        let speed = tuning.fish_speed_scale;
+        let temper = Temper {
+            agility: species.temper.agility * speed * speed,
+            max_speed: species.temper.max_speed * speed,
+            retarget_secs: (
+                species.temper.retarget_secs.0 / speed,
+                species.temper.retarget_secs.1 / speed,
+            ),
+            darts_per_sec: species.temper.darts_per_sec * speed,
+            depth_bias: species.temper.depth_bias,
+        };
+        let (min, max) = temper.retarget_secs;
         Self {
+            zone_height: tuning.zone_height,
             zone_y: start,
             zone_v: 0.0,
             fish_y: start,
@@ -68,14 +91,15 @@ impl Reel {
             target: start,
             retarget_in: min + (max - min) * rng.next_f32(),
             settle_secs: HOOK_SETTLE_SECS,
-            temper: species.temper,
+            temper,
             fill_per_sec: FILL_PER_SEC,
-            drain_per_sec: DRAIN_PER_SEC + DRAIN_PER_TIER * f32::from(species.tier),
+            drain_per_sec: (DRAIN_PER_SEC + DRAIN_PER_TIER * f32::from(species.tier))
+                * tuning.drain_scale,
         }
     }
 
     pub fn fish_in_zone(&self) -> bool {
-        (self.fish_y - self.zone_y).abs() <= ZONE_HEIGHT / 2.0
+        (self.fish_y - self.zone_y).abs() <= self.zone_height / 2.0
     }
 
     pub fn step(&mut self, lean_deg: f32, dt: f32, rng: &mut Rng) -> Option<ReelOutcome> {
@@ -99,7 +123,10 @@ impl Reel {
         self.zone_v += (-push * LEAN_ACCEL - self.zone_v * ZONE_DAMPING) * dt;
         self.zone_v = self.zone_v.clamp(-ZONE_MAX_SPEED, ZONE_MAX_SPEED);
         self.zone_y += self.zone_v * dt;
-        let (top, bottom) = (ZONE_HEIGHT / 2.0, TRACK_HEIGHT - ZONE_HEIGHT / 2.0);
+        let (top, bottom) = (
+            self.zone_height / 2.0,
+            TRACK_HEIGHT - self.zone_height / 2.0,
+        );
         if self.zone_y < top {
             self.zone_y = top;
             self.zone_v = -self.zone_v * ZONE_BOUNCE;
@@ -275,6 +302,52 @@ mod tests {
             }
         }
         panic!("fight never ended");
+    }
+
+    fn land_rate_at(difficulty: Difficulty, species: usize) -> usize {
+        (1..=20)
+            .filter(|&seed| {
+                let mut rng = Rng::new(seed);
+                let mut reel = Reel::with_tuning(&SPECIES[species], &difficulty.tuning(), &mut rng);
+                let lag = (0.25 / DT) as usize;
+                let mut seen = alloc::collections::VecDeque::from(alloc::vec![
+                    (reel.zone_y, reel.zone_v, reel.fish_y);
+                    lag + 1
+                ]);
+                for _ in 0..(60.0 / DT) as usize {
+                    seen.push_back((reel.zone_y, reel.zone_v, reel.fish_y));
+                    let (zone_y, zone_v, fish_y) = seen.pop_front().unwrap();
+                    let push = (12.0 * (zone_y - fish_y) + 1.5 * zone_v) / LEAN_ACCEL;
+                    if let Some(outcome) = reel.step(lean_for(push), DT, &mut rng) {
+                        return outcome == ReelOutcome::Landed;
+                    }
+                }
+                false
+            })
+            .count()
+    }
+
+    #[test]
+    fn the_same_hesitant_player_lands_more_on_easy_and_fewer_on_hard() {
+        for species in [3, 4, 6] {
+            let [easy, normal, hard] = Difficulty::ALL.map(|d| land_rate_at(d, species));
+            assert!(
+                easy >= normal && normal >= hard,
+                "{}: {easy} {normal} {hard}",
+                SPECIES[species].name
+            );
+            assert!(easy > hard, "{}: {easy} {hard}", SPECIES[species].name);
+        }
+    }
+
+    #[test]
+    fn the_zone_size_follows_the_difficulty() {
+        let mut rng = Rng::new(1);
+        for difficulty in Difficulty::ALL {
+            let reel = Reel::with_tuning(&SPECIES[0], &difficulty.tuning(), &mut rng);
+            assert_eq!(reel.zone_height, difficulty.tuning().zone_height);
+            assert!(reel.fish_in_zone());
+        }
     }
 
     #[test]

@@ -1,14 +1,20 @@
-//! Angler in QEMU: scripted button and tilt input casts onto the spot, fights
-//! with a steady hand, and saves each catch through `esp-storage` into the
-//! emulated flash, then reads the log back.
+//! Angler in QEMU: scripted touch visits settings (saving a difficulty
+//! change) and the GUTEN easter egg, then button and tilt input casts onto the
+//! spot and fights with a steady hand. Every save goes through `esp-storage`
+//! into the emulated flash, and the final log and settings are read back.
 
 #![no_std]
 #![no_main]
 
+extern crate alloc;
+
+use alloc::vec;
+
 use angler_game::{
-    AnglerPlugin, BACKGROUND, FishLog, Phase, Session, cast,
+    AnglerPlugin, BACKGROUND, Difficulty, FishLog, Phase, Session, Settings, cast, save,
     session::RESULT_GUARD_SECS,
-    testing::{click_action, hold_action, phase, release_action, set_tilt},
+    testing::{click_action, hold_action, phase, release_action, set_tilt, tap},
+    ui,
 };
 use bevy::prelude::*;
 use esp_backtrace as _;
@@ -33,7 +39,20 @@ fn main() -> ! {
         },
         BACKGROUND,
     );
+    // Hold the 8 KB I2S stream buffer the firmware's speaker takes from the heap.
+    core::mem::forget(vec![0u32; 2048]);
     let mut saves = SlotStore::new(FlashStorage::new(flash), SAVE_FLASH_OFFSET);
+
+    tap(&mut smoke.app, ui::SETTINGS.center());
+    tap(&mut smoke.app, ui::HARDER.center());
+    persist(&mut smoke, &mut saves);
+    tap(&mut smoke.app, ui::GUTEN.center());
+    wait(&mut smoke, 2.0);
+    info!("guten: {:?} after 2 s", phase(&smoke.app));
+    tap(&mut smoke.app, Vec2::splat(233.0));
+    tap(&mut smoke.app, ui::EASIER.center());
+    persist(&mut smoke, &mut saves);
+    tap(&mut smoke.app, ui::BACK.center());
     click_action(&mut smoke.app);
 
     let mut landed = 0;
@@ -62,16 +81,7 @@ fn main() -> ! {
         }
         if let Phase::Caught { .. } = outcome {
             landed += 1;
-            let bytes = smoke
-                .app
-                .world_mut()
-                .resource_mut::<SaveBlob>()
-                .take_pending();
-            if let Some(bytes) = bytes
-                && let Err(err) = saves.save(&bytes)
-            {
-                info!("flash save failed: {err:?}");
-            }
+            persist(&mut smoke, &mut saves);
         }
         wait(&mut smoke, RESULT_GUARD_SECS + 0.2);
         click_action(&mut smoke.app);
@@ -80,17 +90,24 @@ fn main() -> ! {
         }
     }
 
-    let expected = smoke.app.world().resource::<FishLog>().clone();
-    let reloaded = saves.load().and_then(|bytes| FishLog::decode(&bytes));
+    let expected = (
+        smoke.app.world().resource::<FishLog>().clone(),
+        *smoke.app.world().resource::<Settings>(),
+    );
+    let reloaded = saves.load().and_then(|bytes| save::decode(&bytes));
     info!(
-        "landed {landed}; log total {}; flash holds total {:?}",
-        expected.total,
-        reloaded.as_ref().map(|log| log.total)
+        "landed {landed}; log total {}; flash holds {:?}",
+        expected.0.total,
+        reloaded
+            .as_ref()
+            .map(|(log, settings)| (log.total, settings.difficulty))
     );
     let failure = if landed < CATCHES {
         Some("could not land the fish")
+    } else if expected.1.difficulty != Difficulty::Normal {
+        Some("settings taps did not land on the buttons")
     } else if reloaded != Some(expected) {
-        Some("fish log did not round-trip through flash")
+        Some("save did not round-trip through flash")
     } else {
         None
     };
@@ -120,6 +137,20 @@ fn charge(smoke: &mut Smoke, power: f32) {
             return;
         }
         smoke.frame();
+    }
+}
+
+/// Writes any save the game asked for, as the firmware does after an update.
+fn persist(smoke: &mut Smoke, saves: &mut SlotStore<FlashStorage<'static>>) {
+    let pending = smoke
+        .app
+        .world_mut()
+        .resource_mut::<SaveBlob>()
+        .take_pending();
+    if let Some(bytes) = pending
+        && let Err(err) = saves.save(&bytes)
+    {
+        info!("flash save failed: {err:?}");
     }
 }
 

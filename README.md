@@ -11,6 +11,9 @@
     Stardew Valley.
   - **Keep:** every catch is shown with its length and weight and saved to flash.
   - **Re-level:** BOOT re-zeroes the IMU at any time.
+  - **Menus:** the title has LOG and SETTINGS touch buttons. Settings has EASY / NORMAL / HARD
+    difficulty (saved) and **GUTEN**, a riff on logic-fish: a rainbow trout spins to "Guten
+    Morgen, Sonnenschein" for 15 s through the board's speaker.
 - **Orbit**, circular pong: drag anywhere to swing the paddle around the rim.
 
 The same Bevy apps run in a desktop simulator and on the board, and both draw
@@ -23,7 +26,8 @@ panel will get.
 crates/orbit_gfx     no_std rasterizer (embedded-graphics + pixel-art sprites), dirty rects, bands
 crates/orbit_motion  no_std IMU fusion (Mahony) with zeroing -> steer/lean
 crates/orbit_save    no_std power-fail-safe flash records
-crates/orbit_core    shared Bevy plumbing: frame, touch, rng, saves; opt-in buttons + tilt
+crates/orbit_audio   no_std PCM clips + mixer (board speaker and desktop audio play the same)
+crates/orbit_core    shared Bevy plumbing: frame, touch, rng, saves; opt-in buttons + tilt, sound
 crates/orbit_game    Orbit
 crates/angler_game   Angler
 desktop/             minifb simulator for either game + headless PNG snapshots (std)

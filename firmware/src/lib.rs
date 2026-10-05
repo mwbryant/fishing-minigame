@@ -10,6 +10,7 @@ extern crate alloc;
 mod co5300;
 mod power_key;
 mod qmi8658;
+mod speaker;
 
 use alloc::{boxed::Box, vec};
 use core::{cell::RefCell, time::Duration};
@@ -25,6 +26,7 @@ use esp_hal::{
     dma_tx_buffer,
     gpio::{Input, InputConfig, Level, Output, OutputConfig, Pull},
     i2c::master::{Config as I2cConfig, I2c},
+    i2s::master::{Channels, DataFormat, I2s, TdmConfig},
     rng::Rng as HardwareRng,
     spi::{
         Mode,
@@ -34,11 +36,17 @@ use esp_hal::{
 };
 use esp_storage::FlashStorage;
 use log::{info, warn};
-use orbit_core::{Buttons, Frame, ImuFeed, ImuSample, Rng, SaveBlob, Touch};
+use orbit_audio::{Mixer, SAMPLE_RATE};
+use orbit_core::{Buttons, Frame, ImuFeed, ImuSample, Rng, SaveBlob, SoundQueue, Touch};
 use orbit_gfx::{Presenter, Rgb565, SCREEN_SIZE};
 use orbit_save::SlotStore;
 
-use crate::{co5300::Co5300, power_key::PwrKey, qmi8658::Qmi8658};
+use crate::{
+    co5300::Co5300,
+    power_key::PwrKey,
+    qmi8658::Qmi8658,
+    speaker::{AudioOut, Es8311},
+};
 
 /// 40 MHz is what every Waveshare demo uses; the CO5300 write clock tops out
 /// at 50 MHz.
@@ -177,6 +185,41 @@ pub fn run(add_game: impl FnOnce(&mut App), background: Rgb565) -> ! {
         ),
     }
 
+    // Started after the first update (Bevy's slow schedule build) so the
+    // stream doesn't underrun at once; only for games that make sound.
+    let mut sound = app.world().contains_resource::<SoundQueue>().then(|| {
+        let i2s = I2s::new(
+            peripherals.I2S0,
+            peripherals.DMA_CH1,
+            TdmConfig::new_tdm_philips()
+                .with_sample_rate(Rate::from_hz(SAMPLE_RATE))
+                .with_data_format(DataFormat::Data16Channel16)
+                .with_channels(Channels::STEREO),
+        )
+        .expect("I2S config")
+        .with_mclk(peripherals.GPIO42);
+        let i2s_tx = i2s
+            .i2s_tx
+            .with_bclk(peripherals.GPIO9)
+            .with_ws(peripherals.GPIO45)
+            .with_dout(peripherals.GPIO8)
+            .build();
+        let mut mixer = Mixer::default();
+        let audio = AudioOut::start(i2s_tx, speaker::stream_buffer(), &mut mixer);
+        let mut amp = Output::new(peripherals.GPIO46, Level::Low, OutputConfig::default());
+        let mut codec = Es8311::new(RefCellDevice::new(bus));
+        match codec.chip_id() {
+            Ok((id1, id2)) => info!("ES8311 id {id1:#04x} {id2:#04x} (expect 0x83 0x11)"),
+            Err(err) => warn!("ES8311 not answering: {err:?}"),
+        }
+        // `Output` has no Drop, so the amplifier stays enabled after `amp`
+        // goes out of scope.
+        if let Err(err) = codec.init(SAMPLE_RATE, &mut amp) {
+            warn!("ES8311 init failed: {err:?}");
+        }
+        (audio, mixer)
+    });
+
     let mut presenter = Presenter::new(vec![0u8; BAND_BYTES], background);
     let mut stats = Stats::new();
     let mut last_imu_read = HalInstant::now();
@@ -222,6 +265,13 @@ pub fn run(add_game: impl FnOnce(&mut App), background: Rgb565) -> ! {
         }
 
         app.update();
+
+        if let Some((audio, mixer)) = sound.as_mut() {
+            for command in app.world_mut().resource_mut::<SoundQueue>().drain() {
+                mixer.apply(command);
+            }
+            audio.pump(mixer);
+        }
 
         if let Some(bytes) = app.world_mut().resource_mut::<SaveBlob>().take_pending()
             && let Err(err) = saves.save(&bytes)

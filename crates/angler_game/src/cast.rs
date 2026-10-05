@@ -60,10 +60,11 @@ pub fn charge_power(held_secs: f32) -> f32 {
 }
 
 /// What a release after `held_secs` throws with: the meter's reading, or
-/// exactly full power inside the window at the top.
-pub fn release_power(held_secs: f32) -> f32 {
+/// exactly full power inside the window at the top (`perfect_power` and up;
+/// `PERFECT_POWER` at normal difficulty).
+pub fn release_power(held_secs: f32, perfect_power: f32) -> f32 {
     let power = charge_power(held_secs);
-    if power >= PERFECT_POWER { 1.0 } else { power }
+    if power >= perfect_power { 1.0 } else { power }
 }
 
 fn direction(elevation_deg: f32) -> Vec2 {
@@ -157,11 +158,13 @@ mod tests {
 
     #[test]
     fn releasing_near_the_top_of_the_meter_counts_as_full_power() {
-        assert_eq!(release_power(CHARGE_SECS), 1.0);
-        assert_eq!(release_power(CHARGE_SECS * 0.97), 1.0);
-        assert_eq!(release_power(CHARGE_SECS * 1.03), 1.0);
-        assert!((release_power(CHARGE_SECS * 0.5) - 0.5).abs() < 1e-5);
-        assert!(release_power(CHARGE_SECS * (PERFECT_POWER - 0.01)) < 1.0);
+        let release = |secs| release_power(secs, PERFECT_POWER);
+        assert_eq!(release(CHARGE_SECS), 1.0);
+        assert_eq!(release(CHARGE_SECS * 0.97), 1.0);
+        assert_eq!(release(CHARGE_SECS * 1.03), 1.0);
+        assert!((release(CHARGE_SECS * 0.5) - 0.5).abs() < 1e-5);
+        assert!(release(CHARGE_SECS * (PERFECT_POWER - 0.01)) < 1.0);
+        assert_eq!(release_power(CHARGE_SECS * 0.91, 0.90), 1.0);
     }
 
     #[test]

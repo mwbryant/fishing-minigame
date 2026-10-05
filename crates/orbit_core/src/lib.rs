@@ -11,6 +11,7 @@ mod buttons;
 mod motion;
 mod rng;
 mod save;
+mod sound;
 mod touch;
 
 use alloc::vec::Vec;
@@ -20,9 +21,11 @@ use orbit_gfx::Shape;
 
 pub use buttons::{ButtonState, Buttons};
 pub use motion::{ImuFeed, Tilt};
+pub use orbit_audio::{Clip, ClipRef, SoundCommand};
 pub use orbit_motion::ImuSample;
 pub use rng::Rng;
 pub use save::SaveBlob;
+pub use sound::SoundQueue;
 pub use touch::Touch;
 
 /// This frame's display list, back to front.
@@ -43,6 +46,15 @@ impl Plugin for CorePlugin {
             .init_resource::<Rng>()
             .init_resource::<SaveBlob>()
             .add_plugins(touch::plugin);
+    }
+}
+
+/// Sound requests for the platform's speaker. Opt-in like [`ControlsPlugin`].
+pub struct SoundPlugin;
+
+impl Plugin for SoundPlugin {
+    fn build(&self, app: &mut App) {
+        app.init_resource::<SoundQueue>();
     }
 }
 

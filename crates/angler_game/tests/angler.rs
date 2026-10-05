@@ -1,12 +1,15 @@
 use angler_game::{
-    FishLog, Phase, Session,
+    Difficulty, FishLog, GUTEN_MORGEN, Phase, Session, Settings,
     cast::{self, CHARGE_SECS, Flight, scene::WATER_Y},
     reel::{LEAN_DEAD_ZONE_DEG, LEAN_FULL_DEG},
+    save,
     session::{ESCAPED_SECS, NOTICE_SECS, RESULT_GUARD_SECS},
+    sprites,
     testing::*,
+    ui,
 };
 use bevy::prelude::*;
-use orbit_core::{Frame, SaveBlob};
+use orbit_core::{ClipRef, Frame, SaveBlob, SoundCommand, SoundQueue};
 use orbit_gfx::{Point, Shape, SpriteRef};
 
 const SCREEN_CENTER: Vec2 = Vec2::splat(233.0);
@@ -89,9 +92,9 @@ fn the_game_boots_to_the_title_and_the_button_starts_aiming() {
 }
 
 #[test]
-fn tapping_the_title_opens_the_fish_log_and_tapping_again_closes_it() {
+fn tapping_the_title_log_button_opens_the_fish_log_and_tapping_again_closes_it() {
     let mut app = headless_app();
-    tap(&mut app, SCREEN_CENTER);
+    tap(&mut app, ui::LOG.center());
     assert_eq!(phase(&app), Phase::Log);
     assert!(shows(&app, "FISH LOG"));
     tap(&mut app, SCREEN_CENTER);
@@ -292,7 +295,10 @@ fn reeling_the_fish_in_shows_it_and_saves_the_log() {
     let log = app.world().resource::<FishLog>().clone();
     assert_eq!(log.total, 1);
     let saved = app.world_mut().resource_mut::<SaveBlob>().take_pending();
-    assert_eq!(saved.and_then(|b| FishLog::decode(&b)), Some(log));
+    assert_eq!(
+        saved.and_then(|b| save::decode(&b)).map(|(log, _)| log),
+        Some(log)
+    );
 }
 
 #[test]
@@ -372,4 +378,154 @@ fn the_zero_button_confirms_from_any_screen() {
     assert!(shows(&app, "LEVEL SET"));
     tick(&mut app, 90);
     assert!(!shows(&app, "LEVEL SET"));
+}
+
+fn open_settings(app: &mut App) {
+    tap(app, ui::SETTINGS.center());
+    assert_eq!(phase(app), Phase::Settings);
+}
+
+fn difficulty(app: &App) -> Difficulty {
+    app.world().resource::<Settings>().difficulty
+}
+
+fn sounds(app: &App) -> Vec<SoundCommand> {
+    app.world().resource::<SoundQueue>().pending().to_vec()
+}
+
+#[test]
+fn the_title_has_log_and_settings_buttons_and_stray_taps_do_nothing() {
+    let mut app = headless_app();
+    assert!(shows(&app, "LOG") && shows(&app, "SETTINGS"));
+    tap(&mut app, Vec2::new(233.0, 300.0));
+    assert_eq!(phase(&app), Phase::Title);
+    open_settings(&mut app);
+    assert!(shows(&app, "DIFFICULTY") && shows(&app, "NORMAL"));
+}
+
+#[test]
+fn the_arrows_step_the_difficulty_and_each_change_is_saved() {
+    let mut app = headless_app();
+    open_settings(&mut app);
+    tap(&mut app, ui::HARDER.center());
+    assert_eq!(difficulty(&app), Difficulty::Hard);
+    assert!(shows(&app, "HARD"));
+    let saved = app
+        .world_mut()
+        .resource_mut::<SaveBlob>()
+        .take_pending()
+        .and_then(|b| save::decode(&b));
+    assert_eq!(
+        saved.map(|(_, settings)| settings.difficulty),
+        Some(Difficulty::Hard)
+    );
+    tap(&mut app, ui::HARDER.center());
+    assert_eq!(difficulty(&app), Difficulty::Easy);
+    tap(&mut app, ui::EASIER.center());
+    tap(&mut app, ui::EASIER.center());
+    assert_eq!(difficulty(&app), Difficulty::Normal);
+}
+
+#[test]
+fn the_chosen_difficulty_survives_a_reboot() {
+    let mut app = headless_app();
+    open_settings(&mut app);
+    tap(&mut app, ui::EASIER.center());
+    let saved = app.world_mut().resource_mut::<SaveBlob>().take_pending();
+    let rebooted = headless_app_with_save(saved);
+    assert_eq!(difficulty(&rebooted), Difficulty::Easy);
+}
+
+#[test]
+fn back_or_the_action_button_leaves_settings() {
+    let mut app = headless_app();
+    open_settings(&mut app);
+    tap(&mut app, ui::BACK.center());
+    assert_eq!(phase(&app), Phase::Title);
+    open_settings(&mut app);
+    click_action(&mut app);
+    assert_eq!(phase(&app), Phase::Title);
+}
+
+#[test]
+fn easy_widens_the_perfect_window_so_a_slightly_early_release_still_hits_the_dots() {
+    let release_at_92 = |app: &mut App| {
+        start_aiming(app);
+        hold_action(app, frames_for(0.92));
+        release_action(app);
+        matches!(phase(app), Phase::Flight { perfect: true, .. })
+    };
+    let mut normal = headless_app();
+    assert!(!release_at_92(&mut normal));
+    let mut easy = headless_app();
+    open_settings(&mut easy);
+    tap(&mut easy, ui::EASIER.center());
+    tap(&mut easy, ui::BACK.center());
+    assert!(release_at_92(&mut easy));
+}
+
+#[test]
+fn the_fight_uses_the_difficultys_catch_zone() {
+    let mut app = headless_app();
+    open_settings(&mut app);
+    tap(&mut app, ui::HARDER.center());
+    tap(&mut app, ui::BACK.center());
+    hook_a_fish(&mut app);
+    let Phase::Reel { reel, .. } = phase(&app) else {
+        panic!("expected a fight");
+    };
+    assert_eq!(reel.zone_height, Difficulty::Hard.tuning().zone_height);
+}
+
+#[test]
+fn guten_plays_the_song_and_spins_the_trout() {
+    let mut app = headless_app();
+    open_settings(&mut app);
+    tap(&mut app, ui::GUTEN.center());
+    assert_eq!(phase(&app), Phase::Guten);
+    assert_eq!(
+        sounds(&app),
+        vec![SoundCommand::Play(ClipRef(&GUTEN_MORGEN))]
+    );
+    assert!(shows(&app, "GUTEN MORGEN"));
+    let trout_width = |app: &App| {
+        app.world()
+            .resource::<Frame>()
+            .shapes
+            .iter()
+            .find_map(|s| match s {
+                Shape::SpriteFit { sprite, area, .. } if *sprite == SpriteRef(&sprites::TROUT) => {
+                    Some(area.size.width)
+                }
+                _ => None,
+            })
+            .expect("the trout is on screen")
+    };
+    let facing = trout_width(&app);
+    tick(&mut app, 34);
+    assert!(trout_width(&app) < facing / 2, "the trout turns side-on");
+}
+
+#[test]
+fn guten_lasts_as_long_as_the_song_then_returns_to_settings() {
+    assert!((GUTEN_MORGEN.duration_secs() - 15.15).abs() < 0.05);
+    let mut app = headless_app();
+    open_settings(&mut app);
+    tap(&mut app, ui::GUTEN.center());
+    tick(&mut app, (GUTEN_MORGEN.duration_secs() * 60.0) as u32 - 10);
+    assert_eq!(phase(&app), Phase::Guten);
+    tick(&mut app, 12);
+    assert_eq!(phase(&app), Phase::Settings);
+    assert_eq!(sounds(&app).last(), Some(&SoundCommand::Stop));
+}
+
+#[test]
+fn a_tap_stops_guten_early() {
+    let mut app = headless_app();
+    open_settings(&mut app);
+    tap(&mut app, ui::GUTEN.center());
+    tick(&mut app, 60);
+    tap(&mut app, SCREEN_CENTER);
+    assert_eq!(phase(&app), Phase::Settings);
+    assert_eq!(sounds(&app).last(), Some(&SoundCommand::Stop));
 }

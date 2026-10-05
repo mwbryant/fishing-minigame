@@ -109,6 +109,23 @@ fn tilt_set_directly_stays_put_without_samples() {
 }
 
 #[test]
+fn sound_requests_queue_in_order_until_the_platform_drains_them() {
+    static BEEP: orbit_core::Clip = orbit_core::Clip { pcm: &[1, 0] };
+    let mut queue = orbit_core::SoundQueue::default();
+    queue.play(&BEEP);
+    queue.stop();
+    let drained: Vec<_> = queue.drain().collect();
+    assert_eq!(
+        drained,
+        vec![
+            orbit_core::SoundCommand::Play(orbit_core::ClipRef(&BEEP)),
+            orbit_core::SoundCommand::Stop
+        ]
+    );
+    assert!(queue.pending().is_empty());
+}
+
+#[test]
 fn pending_saves_are_handed_over_once() {
     let mut blob = SaveBlob::from_storage(Some(vec![1, 2]));
     assert_eq!(blob.loaded(), Some(&[1u8, 2][..]));

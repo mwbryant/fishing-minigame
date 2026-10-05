@@ -5,12 +5,15 @@ use orbit_core::{Frame, Tilt};
 use orbit_gfx::{Point, Rectangle, Rgb565, SCREEN_CENTER, Shape, Size, SpriteRef};
 
 use crate::{
+    audio::GUTEN_SPIN_SECS,
     cast::{self, Flight, scene::*},
     log::FishLog,
-    reel::{FISH_HALF, Reel, TRACK_HEIGHT, TRACK_TOP, TRACK_WIDTH, ZONE_HEIGHT},
+    reel::{FISH_HALF, Reel, TRACK_HEIGHT, TRACK_TOP, TRACK_WIDTH},
     session::{Phase, RESULT_GUARD_SECS, Session},
+    settings::Settings,
     species::{Catch, SPECIES},
     sprites::{self, rgb},
+    ui::{self, Button},
 };
 
 pub const BACKGROUND: Rgb565 = rgb(0, 0, 0);
@@ -51,7 +54,13 @@ pub(crate) fn plugin(app: &mut App) {
     app.add_systems(PostUpdate, draw_frame);
 }
 
-fn draw_frame(session: Res<Session>, tilt: Res<Tilt>, log: Res<FishLog>, mut frame: ResMut<Frame>) {
+fn draw_frame(
+    session: Res<Session>,
+    tilt: Res<Tilt>,
+    log: Res<FishLog>,
+    settings: Res<Settings>,
+    mut frame: ResMut<Frame>,
+) {
     let shapes = &mut frame.shapes;
     shapes.clear();
     let elevation = cast::elevation_deg(tilt.steer_deg);
@@ -60,18 +69,25 @@ fn draw_frame(session: Res<Session>, tilt: Res<Tilt>, log: Res<FishLog>, mut fra
         Phase::Title => {
             lake(shapes, &session, cast::BASE_ELEVATION_DEG, false);
             shapes.push(label(110, "GONE FISHIN", 3, TEXT));
-            shapes.push(label(160, "PRESS BUTTON", 1, HINT));
-            shapes.push(label(186, "TAP FOR FISH LOG", 1, HINT));
-            shapes.push(label(400, &format!("CAUGHT {}", log.total), 1, TEXT));
+            shapes.push(label(160, "PRESS BUTTON TO FISH", 1, HINT));
             level(shapes, &tilt);
+            button(shapes, &ui::LOG);
+            button(shapes, &ui::SETTINGS);
+            shapes.push(label(412, &format!("CAUGHT {}", log.total), 1, TEXT));
         }
         Phase::Log => fish_log(shapes, &log),
+        Phase::Settings => settings_menu(shapes, &settings),
+        Phase::Guten => guten(shapes, t),
         Phase::Aim { charging_secs } => {
             lake(shapes, &session, elevation, true);
             shapes.push(label(52, &format!("ANGLE {}", elevation as i32), 1, TEXT));
             preview(shapes, &Flight::launch(elevation, 1.0));
             match charging_secs {
-                Some(secs) => power_gauge(shapes, cast::charge_power(*secs)),
+                Some(secs) => power_gauge(
+                    shapes,
+                    cast::charge_power(*secs),
+                    settings.difficulty.tuning().perfect_power,
+                ),
                 None => shapes.push(label(76, "HOLD BUTTON TO CAST", 1, HINT)),
             }
         }
@@ -239,7 +255,7 @@ fn preview(shapes: &mut Vec<Shape>, flight: &Flight) {
 
 /// Fills along the lower-left rim. The gold tip is the window that throws at
 /// full power; the fill turns gold while the meter is inside it.
-fn power_gauge(shapes: &mut Vec<Shape>, power: f32) {
+fn power_gauge(shapes: &mut Vec<Shape>, power: f32, perfect_power: f32) {
     let arc = |sweep: f32, color| Shape::Arc {
         center: SCREEN_CENTER,
         radius: 212,
@@ -253,11 +269,11 @@ fn power_gauge(shapes: &mut Vec<Shape>, power: f32) {
         center: SCREEN_CENTER,
         radius: 212,
         width: 12,
-        start_deg: 100.0 + 70.0 * cast::PERFECT_POWER,
-        sweep_deg: 70.0 * (1.0 - cast::PERFECT_POWER),
+        start_deg: 100.0 + 70.0 * perfect_power,
+        sweep_deg: 70.0 * (1.0 - perfect_power),
         color: GAUGE_PERFECT_ZONE,
     });
-    let color = if power >= cast::PERFECT_POWER {
+    let color = if power >= perfect_power {
         GOLD
     } else {
         GAUGE_FILL
@@ -267,7 +283,7 @@ fn power_gauge(shapes: &mut Vec<Shape>, power: f32) {
 
 /// A bubble level on the title screen: shows the IMU working and where zero is.
 fn level(shapes: &mut Vec<Shape>, tilt: &Tilt) {
-    let center = Point::new(233, 330);
+    let center = Point::new(233, 300);
     shapes.push(Shape::Ring {
         center,
         radius: 24,
@@ -295,13 +311,13 @@ fn reel_bar(shapes: &mut Vec<Shape>, reel: &Reel) {
         TRACK_HEIGHT as u32,
         TRACK,
     ));
-    let zone_top = top + (reel.zone_y - ZONE_HEIGHT / 2.0) as i32;
+    let zone_top = top + (reel.zone_y - reel.zone_height / 2.0) as i32;
     let zone_color = if reel.fish_in_zone() { ZONE_HOT } else { ZONE };
     shapes.push(rect(
         left,
         zone_top,
         TRACK_WIDTH as u32,
-        ZONE_HEIGHT as u32,
+        reel.zone_height as u32,
         zone_color,
     ));
     let fish = sprites::REEL_FISH.size() * 3;
@@ -371,6 +387,61 @@ fn fish_log(shapes: &mut Vec<Shape>, log: &FishLog) {
     shapes.push(label(380, &format!("TOTAL {}", log.total), 1, HINT));
 }
 
+fn settings_menu(shapes: &mut Vec<Shape>, settings: &Settings) {
+    shapes.push(rect(0, 0, 466, 466, DEEP));
+    shapes.push(label(80, "SETTINGS", 2, TEXT));
+    shapes.push(label(150, "DIFFICULTY", 1, HINT));
+    button(shapes, &ui::EASIER);
+    button(shapes, &ui::HARDER);
+    let difficulty = settings.difficulty;
+    shapes.push(label(
+        ui::EASIER.area.center().y,
+        difficulty.name(),
+        2,
+        GOLD,
+    ));
+    for (line, text) in difficulty.blurb().iter().enumerate() {
+        if !text.is_empty() {
+            shapes.push(label(244 + line as i32 * 24, text, 1, HINT));
+        }
+    }
+    button(shapes, &ui::GUTEN);
+    button(shapes, &ui::BACK);
+}
+
+/// The easter egg: logic-fish's spinning rainbow trout, faked in 2D by
+/// squashing the sprite's width with the cosine of its turn and mirroring it
+/// for the far side.
+fn guten(shapes: &mut Vec<Shape>, t: f32) {
+    let band = 466 / SKY.len() as i32 + 1;
+    for (i, color) in SKY.iter().rev().enumerate() {
+        shapes.push(rect(0, i as i32 * band, 466, band as u32, *color));
+    }
+    shapes.push(disc(233, 400, 70, SUN));
+    shapes.push(label(92, "GUTEN MORGEN", 2, TEXT));
+    let size = sprites::TROUT.size() * 13;
+    let turn = ops::cos(t / GUTEN_SPIN_SECS * core::f32::consts::TAU);
+    let width = ((size.width as f32 * turn.abs()) as u32).max(2);
+    shapes.push(Shape::SpriteFit {
+        sprite: SpriteRef(&sprites::TROUT),
+        area: Rectangle::new(
+            Point::new(233 - width as i32 / 2, 236 - size.height as i32 / 2),
+            Size::new(width, size.height),
+        ),
+        flip_x: turn < 0.0,
+    });
+}
+
+fn button(shapes: &mut Vec<Shape>, button: &Button) {
+    let area = button.area;
+    shapes.push(Shape::Rect { area, color: HINT });
+    shapes.push(Shape::Rect {
+        area: area.offset(-2),
+        color: DEEP,
+    });
+    shapes.push(label_at(area.center(), button.text, 1, TEXT));
+}
+
 pub fn length_text(length_mm: u16) -> String {
     format!("{}.{} CM", length_mm / 10, length_mm % 10)
 }
@@ -383,8 +454,12 @@ pub fn weight_text(weight_g: u32) -> String {
 }
 
 fn label(y: i32, text: &str, scale: u32, color: Rgb565) -> Shape {
+    label_at(Point::new(233, y), text, scale, color)
+}
+
+fn label_at(center: Point, text: &str, scale: u32, color: Rgb565) -> Shape {
     Shape::Label {
-        center: Point::new(233, y),
+        center,
         text: text.into(),
         scale,
         color,

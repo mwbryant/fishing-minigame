@@ -11,8 +11,9 @@ Status as of 2026-10-05: the board has **not arrived**. Both games, the
 renderer, and the simulator are tested on the host. Both firmware binaries
 build and link for the ESP32-S3, and both ran in Espressif's QEMU (Angler
 including a save round-trip through emulated flash). The display, touch, IMU,
-buttons, flash, and audio have never run on real hardware. Audio is researched
-and compile-checked (`docs/reference/es8311_audio.rs`) but not wired in.
+buttons, flash, and speaker have never run on real hardware. Audio is wired in
+(`firmware/src/speaker.rs`, ES8311 over I2S) but has only been compiled, not
+heard.
 
 ---
 
@@ -52,9 +53,12 @@ crates/orbit_gfx     #![no_std] rasterizer (disc/ring/arc/label/rect/line/sprite
 crates/orbit_motion  #![no_std] Mahony IMU filter + zeroing -> steer/lean degrees. Bevy math only.
 crates/orbit_save    #![no_std] power-fail-safe two-sector record store over embedded-storage NOR
                      flash, plus `RamFlash` (tests, desktop).
+crates/orbit_audio   #![no_std] 16 kHz mono PCM clips in flash + a one-voice `Mixer`; both
+                     platforms pull samples from it. No Bevy.
 crates/orbit_core    #![no_std] shared Bevy plumbing. `CorePlugin`: Frame, Touch, Rng, SaveBlob.
                      `ControlsPlugin` (opt-in): Buttons {action, zero}, ImuFeed -> Tilt,
                      zero button re-levels the IMU from any screen.
+                     `SoundPlugin` (opt-in): `SoundQueue` of play/stop commands.
 crates/orbit_game    #![no_std] Orbit (circular pong, touch only; uses Bevy states).
 crates/angler_game   #![no_std] Angler (fishing; one phase-machine resource, no Bevy states).
 desktop/             std simulator for either game (minifb window, RAM model of the panel,
@@ -79,7 +83,11 @@ The frame loop is the same on both platforms:
    - renders each dirty rect in full-width bands into a small buffer (`render`);
    - calls `Panel::write(area, bytes)`. The bytes are big-endian RGB565, which is the panel's wire format.
 
-4. It writes `SaveBlob::take_pending()` (if any) to storage. At boot, it passes
+4. If the game has `SoundPlugin`, it drains `SoundQueue` into its `orbit_audio::Mixer`
+   and tops up the speaker:
+   - device: I2S DMA stream into the ES8311, `firmware/src/speaker.rs`;
+   - desktop: `tinyaudio` + `rtrb`, `desktop/src/speaker.rs`.
+5. It writes `SaveBlob::take_pending()` (if any) to storage. At boot, it passes
    storage's bytes in through `SaveBlob::from_storage`.
 
 The desktop `Panel` copies into a 466x466 RAM model. The firmware `Panel` is the
@@ -449,7 +457,24 @@ tight `bounds()`. The original plan notes follow.
     (ripples, the bobber) instead.
 - **Simulator:** shows sprites unchanged, because it uses the same renderer.
 
-### 10.2 Sound [verified from schematic, BSP, and an esp-hal 1.2.2 compile; never run on hardware]
+### 10.2 Sound (built; compiled for the board, played on desktop, never heard on hardware)
+
+What shipped:
+- **Format:** `orbit_audio` clips are mono s16le PCM at `SAMPLE_RATE` = 16 kHz, embedded with
+  `include_bytes!` (flash, no RAM). Both platforms run at that rate, so nothing resamples.
+- **Mixer:** one voice; `SoundCommand::Play` restarts, `Stop` silences.
+- **Firmware** (`firmware/src/speaker.rs`, adapted from the reference driver):
+  - starts only when the game added `SoundPlugin`, after the first `app.update()`;
+  - I2S0 with `DMA_CH1`, `Channels::STEREO` (the same sample in L and R), MCLK on GPIO42;
+  - the codec over the shared I2C bus, GPIO46 driven high to enable the amp;
+  - the 8 KB stream buffer and its 8 descriptors are **leaked from the internal heap**
+    (word-aligned `Box<[u32]>`), not `dma_tx_stream_buffer!` statics. So the `.stack` doesn't
+    shrink, and games without sound (Orbit) don't pay for it.
+  - The boot log prints `ES8311 id 0x83 0x11` when the codec answers.
+- **Desktop:** `tinyaudio` at 16 kHz mono, fed through an `rtrb` ring that keeps about 1/15 s
+  queued. If no device opens, it plays silently.
+
+Research notes from before it was built follow.
 
 **Hardware path:**
 - Chain: ESP32-S3 I2S0 → **ES8311** codec (I2C `0x18`, fixed in hardware) → **NS4150B** mono
@@ -599,8 +624,35 @@ flight and reel physics run in `FixedUpdate` at 60 Hz.
 **Tuning knobs:** all constants are at the top of `cast.rs`, `reel.rs` and `species.rs`. The
 tests check behaviour, not values, so retune freely and rerun `cargo test -p angler_game`.
 
-**Not built yet:** sound (section 10.2 has the full plan and a compiled driver), and a reel
-crank by circling a finger on the rim (touch is wired and unused in fights).
+**Home screen and settings:**
+- **Title buttons:** LOG and SETTINGS are on-screen touch buttons (`ui.rs` holds the
+  rectangles shared by drawing and hit tests). Taps elsewhere on the title do nothing;
+  PWR still starts fishing.
+- **Difficulty:** `settings.rs`, EASY / NORMAL / HARD, stepped with the < > buttons. Each
+  level has a `Tuning`:
+
+  | Level | Catch zone | Drain | Fish speed | PERFECT from |
+  |---|---|---|---|---|
+  | EASY | 124 px | ×0.7 | ×0.85 | 0.90 |
+  | NORMAL | 96 px | ×1 | ×1 | 0.95 |
+  | HARD | 76 px | ×1.3 | ×1.15 | 0.98 |
+
+  - Fish speed is a time-warp: spring × s², top speed and dart rate × s, retarget pauses ÷ s.
+  - NORMAL is the tuning the reel tests pin.
+  - A test checks that the same hesitant player lands more on EASY and fewer on HARD.
+- **Save format** (`save.rs`): `FLOG` version 2 = the fish log plus a difficulty byte. Version-1
+  saves still load, at NORMAL. Every difficulty change saves.
+
+**GUTEN easter egg** (a riff on the user's logic-fish toy):
+- Lives in the settings menu.
+- Plays "Guten Morgen, Sonnenschein" (`assets/guten_morgen.pcm`, converted from
+  logic-fish's mp3; see `assets/README.md`) for its 15.15 s.
+- Meanwhile the rainbow-trout sprite spins once per 2.3 s (logic-fish's speed). The spin uses
+  `Shape::SpriteFit`: width × |cos θ|, mirrored past 90°.
+- A tap or a PWR press stops it early. Either way it queues `Stop` and returns to settings.
+
+**Not built yet:** sound effects for the game itself (plop, reel, catch; the mixer and queue
+are ready), and a reel crank by circling a finger on the rim.
 
 ## 11. Gotchas (all hit or confirmed during bring-up)
 
