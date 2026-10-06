@@ -128,7 +128,7 @@ Images are in `img/`. Newest beats go at the bottom.
   - after 30 s untouched, dim the panel to 25% and run at 20 Hz.
 - Images: `10-battery-on-title.png`, `10-hold-to-sleep.png`.
 
-## 11. Becoming an arcade (in progress)
+## 11. Becoming an arcade
 
 - **The ask:** a boot menu choosing between three games (Angler, Spider Roulette, a
   skateboard side-scroller) plus global settings with mute. Device rotation is the primary
@@ -136,3 +136,107 @@ Images are in `img/`. Newest beats go at the bottom.
 - **First problem:** Angler and any other game shared one flash record. Now the record
   holds a section per game plus a shared `PREF` section. Old Angler saves still load,
   because their magic (`FLOG`) doubles as the section name.
+- (See beats 12-19.)
+
+## 12. "The sleep is a bit too fast"
+
+- A 1.5 s BOOT hold slept the board, and GOOD NIGHT flashed by before the panel went dark.
+- **Now:** the hint appears at 0.5 s, sleep starts at 3 s, and GOOD NIGHT stays up 2.5 s.
+- **The bigger change:** sleep and idle moved out of Angler into one core system. A shared
+  `orbit_ui` crate (buttons, battery, sleep overlay) means every new game gets them free.
+
+## 13. Rotation as the main control: a dial menu
+
+- **The ask:** "Remember to use rotation as the primary control interface."
+- **On a round screen, a dial is the obvious menu.** Turning the device sweeps a gold arc
+  round the rim at 3x the turn, so about +-60 degrees of wrist reaches every option. The
+  ring it points at lights up and its name fills the middle; PWR picks.
+- **Picking a game ends the menu app with Bevy's own `AppExit`.** The firmware drops it and
+  builds the game in its place, so only one Bevy app is ever in memory. That matters with
+  284 KB of heap.
+- **The menu re-levels the IMU when it appears,** so however you hold the device points at
+  the top.
+- **SETTINGS is a two-option dial** with a global mute, saved for every game.
+- Images: `13-arcade-dial.png`, `13-arcade-dial-five.png` (after Bees??? joined),
+  `13-arcade-settings-mute.png`.
+
+## 14. Four games, one flash record
+
+- **The problem:** the board keeps its save in two flash sectors, and every game wrote the
+  whole record. Flash Angler, then any other game, and the fish log is gone.
+- **Now:** the record holds named sections (`FLOG`, `SPDR`, `SKAT`, `BEES`, and `PREF` for
+  shared preferences).
+- **The trick:** Angler's old saves start with its magic `FLOG`, so a pre-sections record
+  loads as the section named by its first four bytes. The fish log on the board survives
+  the upgrade.
+
+## 15. Spider Roulette
+
+- **The game:** twelve eggs ring a web, and one hides a spider. Turn to aim, press PWR to
+  crack.
+- **Tension, cheaply:**
+  - the odds in the middle tick down ("1 IN 12" ... "1 IN 2");
+  - a synthesized heartbeat speeds up from one every 1.25 s to one every 0.35 s.
+- **The pounce:** the spider jumps at the glass in three bounds over a red flash, with a
+  screech (a rising hiss over a sour saw).
+- Images: `15-spider-pick.png`, `15-spider-pounce.png`.
+
+## 16. Skate: rotation is the board
+
+- **The controls:** turn counterclockwise (nose up) to pop an ollie. In the air the board
+  follows your turn, and you have to level out to land.
+- **One pop per turn:** the device must come back toward level before the next one.
+- **The obstacles:** cones and benches. Land level on a bench to grind.
+- **Proof it's playable:** a test rider who pops just before each obstacle survives 20 s of
+  a street speeding from 220 to 420 px/s. The same rider passes in QEMU.
+- **Render budget:** the night city is static; only the rider, obstacles and lane dashes
+  move, so frames stay small.
+- Images: `16-skate-ollie.png`, `16-skate-grind.png`.
+
+## 17. Bees???: the Moon is a jar of honey
+
+- **The user's pitch:** "the moon being a hollow jar of honey orbiting the earth and you must
+  prevent it from spilling by rotating the device."
+- **The design:**
+  - an unseen wobble keeps tipping the jar, and its reach grows over time;
+  - your turn counters it at 2x;
+  - the fuller the jar, the less tilt it takes to spill: 40 degrees full, 100 nearly empty.
+- **Then: "the bees should be wearing the selected hat."**
+  - Bees??? reads Angler's save section for the worn hat. Saves are sections now (beat 14),
+    so another game's state is just a lookup.
+  - The hats were drawn for the angler's head, so each is seated by its head columns
+    (4-8 on the angler's 14-column grid) over the bee's head, and mirrored when a bee flies
+    left.
+- Images: `17-bees-orbit.png`, `17-bees-spilling.png`, `17-bees-in-cowboy-hats.png`.
+
+## 18. Hats for the other games
+
+- **The new hats:** a BEE HAT (stripes, antennae, little wings), a SPIDER HAT (legs draped
+  over the head, a red eye) and a SKATE HAT (a deck balanced wheels-up).
+- They slot into the shelf by price.
+- Image: `12-bee-spider-skate-hats.png`.
+
+## 19. What QEMU caught
+
+- **A leak check:** the arcade smoke launches each game from the menu and sends it HOME,
+  twice round. The internal heap back at the menu was 194 KB at the first return and 194 KB
+  at the worst of eight. Dropping a Bevy app really gives its memory back.
+- **A fragile script:**
+  - the old Orbit smoke counted frames ("finger up for 60 of every 900");
+  - one run's 2,000 emulated frames held only 4.7 s of game time, where the previous run
+    had 26 s, and the round never restarted;
+  - the handbook already said "script by game time, never frame counts", and now every
+    script does.
+- **Stack drift:**
+  - the new CPU-halt interrupt handler lives in IRAM, which took about 5 KB of DRAM from
+    the firmware's stack;
+  - the emulator harness's heap grew to match, so its measurements stay honest.
+- **Heap per app, at peak, out of 284 KB:**
+
+  | App | Peak |
+  |---|---|
+  | Menu | 182 KB |
+  | Spider Roulette | 185 KB |
+  | Skate | 191 KB |
+  | Bees??? | 192 KB |
+  | Angler | 204 KB |
