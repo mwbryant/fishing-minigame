@@ -12,6 +12,7 @@ use esp_hal::{
     gpio::Output,
     i2s::master::{I2sTx, I2sTxDmaTransfer},
 };
+use log::warn;
 use orbit_audio::Mixer;
 
 pub const ES8311_ADDR: u8 = 0x18;
@@ -153,12 +154,19 @@ fn fill_frames(bytes: &mut [u8], source: &mut Mixer) -> usize {
 
 /// Non-blocking streaming output. `pump` copies as many frames as the DMA has
 /// already consumed, so the queued audio (= latency) stays at about the
-/// buffer length. If a frame stalls long enough to drain the buffer, the
-/// transfer stops and `pump` restarts it.
+/// buffer length. If a frame stalls long enough to drain the buffer, the DMA
+/// stops for good (esp-hal: "the transfer must then be resumed or
+/// restarted"), so `pump` restarts it; a start the driver refuses is kept and
+/// retried on the next pump rather than dropped.
 pub struct AudioOut {
-    transfer: Option<I2sTxDmaTransfer<'static, Blocking, DmaTxStreamBuf>>,
-    capacity: usize,
+    stream: Option<Stream>,
     pub underruns: u32,
+    pub failed_starts: u32,
+}
+
+enum Stream {
+    Playing(I2sTxDmaTransfer<'static, Blocking, DmaTxStreamBuf>),
+    Stopped(I2sTx<'static, Blocking>, DmaTxStreamBuf),
 }
 
 impl AudioOut {
@@ -167,52 +175,49 @@ impl AudioOut {
         buffer: DmaTxStreamBuf,
         source: &mut Mixer,
     ) -> Self {
-        let (descriptors, bytes) = buffer.split();
-        let capacity = bytes.len();
         let mut out = Self {
-            transfer: None,
-            capacity,
+            stream: None,
             underruns: 0,
+            failed_starts: 0,
         };
-        out.launch(i2s_tx, descriptors, bytes, source);
+        out.launch(i2s_tx, buffer, source);
         out
     }
 
+    /// Refills the buffer from the start and begins a fresh transfer.
     fn launch(
         &mut self,
         i2s_tx: I2sTx<'static, Blocking>,
-        descriptors: DmaAlignedMut<'static, [DmaDescriptor]>,
-        bytes: DmaAlignedMut<'static, [u8]>,
+        buffer: DmaTxStreamBuf,
         source: &mut Mixer,
     ) {
-        let Ok(mut buffer) = DmaTxStreamBuf::new(descriptors, bytes) else {
-            return;
-        };
+        let (descriptors, bytes) = buffer.split();
+        let mut buffer =
+            DmaTxStreamBuf::new(descriptors, bytes).expect("the stream buffer's own parts fit");
         buffer.push_with(|bytes| fill_frames(bytes, source));
-        self.transfer = i2s_tx.write(buffer).ok();
+        self.stream = Some(match i2s_tx.write(buffer) {
+            Ok(transfer) => Stream::Playing(transfer),
+            Err((err, i2s_tx, buffer)) => {
+                self.failed_starts += 1;
+                warn!("audio stream failed to start ({err:?}); retrying next frame");
+                Stream::Stopped(i2s_tx, buffer)
+            }
+        });
     }
 
-    pub fn pump(&mut self, source: &mut Mixer) -> usize {
-        let Some(transfer) = self.transfer.as_mut() else {
-            return 0;
-        };
-        if transfer.is_done() && transfer.available_bytes() >= self.capacity {
-            self.underruns += 1;
-            let Some(transfer) = self.transfer.take() else {
-                return 0;
-            };
-            let (i2s_tx, buffer) = transfer.stop();
-            let (descriptors, bytes) = buffer.split();
-            self.launch(i2s_tx, descriptors, bytes, source);
-            return self.capacity;
-        }
-        let mut written = 0;
-        loop {
-            let pushed = transfer.push_with(|bytes| fill_frames(bytes, source));
-            if pushed == 0 {
-                return written;
+    pub fn pump(&mut self, source: &mut Mixer) {
+        match self.stream.take() {
+            Some(Stream::Playing(transfer)) if transfer.is_done() => {
+                self.underruns += 1;
+                let (i2s_tx, buffer) = transfer.stop();
+                self.launch(i2s_tx, buffer, source);
             }
-            written += pushed;
+            Some(Stream::Playing(mut transfer)) => {
+                while transfer.push_with(|bytes| fill_frames(bytes, source)) > 0 {}
+                self.stream = Some(Stream::Playing(transfer));
+            }
+            Some(Stream::Stopped(i2s_tx, buffer)) => self.launch(i2s_tx, buffer, source),
+            None => {}
         }
     }
 }

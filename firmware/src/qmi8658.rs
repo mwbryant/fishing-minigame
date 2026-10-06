@@ -63,6 +63,11 @@ impl<I2C: I2c> Qmi8658<I2C> {
         self.write(CTRL7, CTRL7_ACCEL_GYRO)
     }
 
+    /// Turns both sensors off (CTRL7 = 0), a few microamps until `init`.
+    pub fn power_down(&mut self) -> Result<(), Error<I2C::Error>> {
+        self.write(CTRL7, 0)
+    }
+
     /// One burst read of AX_L..GZ_H (12 bytes, little-endian i16 pairs).
     pub fn read(&mut self) -> Result<([f32; 3], [f32; 3]), Error<I2C::Error>> {
         let mut raw = [0u8; 12];

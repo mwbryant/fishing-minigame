@@ -27,7 +27,9 @@ const OPCODE_WRITE_REGISTER: u16 = 0x02;
 const OPCODE_WRITE_PIXELS: u16 = 0x32;
 const MEMORY_WRITE_CONTINUE: u32 = 0x00_3c_00;
 
+const SLEEP_IN: u8 = 0x10;
 const SLEEP_OUT: u8 = 0x11;
+const DISPLAY_OFF: u8 = 0x28;
 const DISPLAY_ON: u8 = 0x29;
 const COLUMN_ADDRESS: u8 = 0x2a;
 const ROW_ADDRESS: u8 = 0x2b;
@@ -97,6 +99,24 @@ impl<'d> Co5300<'d> {
         delay.delay_ms(120);
         self.register(DISPLAY_ON, &[])?;
         self.wait();
+        Ok(())
+    }
+
+    /// Panel brightness, 0 (dark) to 255. AMOLED draw scales with it.
+    pub fn set_brightness(&mut self, level: u8) -> Result<(), Error> {
+        self.register(BRIGHTNESS, &[level])?;
+        self.wait();
+        Ok(())
+    }
+
+    /// Darkens the panel and puts the controller to sleep, its lowest-power
+    /// state short of cutting its supply. Only a reset (`init`) wakes it.
+    pub fn sleep(&mut self, delay: &mut impl DelayNs) -> Result<(), Error> {
+        self.set_brightness(0)?;
+        self.register(DISPLAY_OFF, &[])?;
+        self.register(SLEEP_IN, &[])?;
+        self.wait();
+        delay.delay_ms(120);
         Ok(())
     }
 
