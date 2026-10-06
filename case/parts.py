@@ -1,7 +1,7 @@
 """Case geometry, built from params.py (what you tune) and board.py (what was measured).
 
 The case is one cup shaped like a fly reel: the glass is the spool face, the rim is line wound
-between two flanges, and the back plate carries a drag-knob ring, a fish and two lines of
+between two flanges, and the back plate carries a drag-knob ring, a whale and a line of
 text. The board drops in glass-up and three M2 screws through the back pull its own SMT
 standoffs down onto posts, so nothing clips or glues. Two printed plungers carry PWR and BOOT
 through the rim. The battery variant is the same cup with the floor lowered by one cell.
@@ -20,12 +20,13 @@ from build123d import (
     Ellipse,
     Part,
     Plane,
-    Polygon,
     Polyline,
     Pos,
+    Rectangle,
     RectangleRounded,
     Rot,
     Sketch,
+    Spline,
     Text,
     ThreePointArc,
     extrude,
@@ -203,19 +204,53 @@ def port_cutouts() -> Part:
     return cuts
 
 
-def fish(length: float) -> Sketch:
-    """A side-on fish, nose to the left, centred on the origin."""
-    n = length
-    body = Pos(-0.07 * n, 0) * Ellipse(0.37 * n, 0.18 * n)
-    tail = Polygon(
-        (0.2 * n, 0), (0.5 * n, 0.22 * n), (0.42 * n, 0), (0.5 * n, -0.22 * n), align=None
+def whale(n: float) -> Sketch:
+    """A cartoon whale about `n` long: nose left, tail raised, spouting. Centred on the origin."""
+
+    def at(x, y):
+        return Pos(x * n, y * n)
+
+    outline = Spline(
+        *[
+            (x * n, y * n)
+            for x, y in (
+                (-0.50, -0.02),
+                (-0.46, 0.12),
+                (-0.34, 0.21),
+                (-0.14, 0.23),
+                (0.04, 0.17),
+                (0.18, 0.08),
+                (0.28, 0.06),
+                (0.34, 0.12),
+                (0.37, 0.17),
+                (0.41, 0.15),
+                (0.39, 0.06),
+                (0.31, -0.07),
+                (0.16, -0.16),
+                (-0.06, -0.21),
+                (-0.28, -0.20),
+                (-0.44, -0.13),
+            )
+        ],
+        periodic=True,
     )
-    dorsal = Polygon((-0.2 * n, 0.15 * n), (0.0, 0.27 * n), (0.12 * n, 0.12 * n), align=None)
-    belly = Polygon((0.02 * n, -0.15 * n), (0.12 * n, -0.24 * n), (0.16 * n, -0.1 * n), align=None)
-    eye = Pos(-0.31 * n, 0.05 * n) * Circle(0.04 * n)
-    gill = Pos(-0.06 * n, 0) * Circle(0.17 * n) - Pos(-0.03 * n, 0) * Circle(0.17 * n)
-    gill &= Pos(-0.07 * n, 0) * Ellipse(0.3 * n, 0.13 * n)
-    return body + tail + dorsal + belly - eye - gill
+    shape = make_face(outline)
+    for a in (150, 35):
+        r = math.radians(a)
+        fluke = Rot(0, 0, a) * Ellipse(0.1 * n, 0.05 * n)
+        shape += at(0.39 + 0.08 * math.cos(r), 0.17 + 0.08 * math.sin(r)) * fluke
+    shape += at(-0.06, -0.2) * Rot(0, 0, -35) * Ellipse(0.1 * n, 0.045 * n)
+    w = 0.05
+    shape += at(-0.2, 0.3) * Rectangle(w * n, 0.12 * n)
+    for cx, side in ((-0.28, 1), (-0.12, -1)):
+        arm = at(cx, 0.36) * (Circle((0.08 + w / 2) * n) - Circle((0.08 - w / 2) * n))
+        shape += arm & at(cx, 0.46) * Rectangle(0.3 * n, 0.2 * n)
+        shape += at(cx - side * 0.08, 0.34) * Circle(0.035 * n)
+    shape -= at(-0.33, 0.05) * Circle(0.03 * n)
+    mouth = at(-0.3, 0.25) * Circle(0.33 * n) - at(-0.3, 0.285) * Circle(0.33 * n)
+    shape -= mouth & at(-0.34, -0.07) * Ellipse(0.1 * n, 0.08 * n)
+    box = shape.bounding_box()
+    return Pos(-(box.min.X + box.max.X) / 2, -(box.min.Y + box.max.Y) / 2) * shape
 
 
 def arc_text(txt: str, radius: float, top: bool) -> Sketch:
@@ -237,7 +272,7 @@ def back_art_sketch() -> Sketch:
         art += Rot(0, 0, a) * Pos(r + w / 2 + 0.35, 0) * RectangleRounded(0.9, 0.5, 0.2)
     if p.OUTER_RING_R:
         art += Circle(p.OUTER_RING_R + w / 2) - Circle(p.OUTER_RING_R - w / 2)
-    art += fish(p.FISH_LENGTH)
+    art += whale(p.WHALE_SIZE)
     if p.TEXT_TOP:
         art += arc_text(p.TEXT_TOP, p.TEXT_RADIUS, top=True)
     if p.TEXT_BOTTOM:

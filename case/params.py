@@ -49,20 +49,20 @@ SD_SLOT = True
 SD_SLOT_SIZE = (13.0, 2.0)
 
 # --- Back plate artwork (debossed, so it prints face down with no supports) ---------------
-TEXT_TOP = "TIGHT LINES"
-TEXT_BOTTOM = "HAPPY BIRTHDAY"
+TEXT_TOP = ""  # empty for none
+TEXT_BOTTOM = "HAPPY BIRTHDAY ETHAN"
 FONT = "Arial Rounded MT Bold"
 TEXT_SIZE = 3.6
 TEXT_RADIUS = 13.6  # radius of the text centreline
-TEXT_SPAN = 150.0  # degrees of arc each line may use at most
+TEXT_SPAN = 200.0  # degrees of arc each line may use at most
 ART_DEPTH = 0.6
 ART_ROTATION = 0.0  # turn the whole back design (degrees) if the screen's "up" isn't +Y
-KNOB_RING_R = 10.6  # the "drag knob" ring around the fish
+KNOB_RING_R = 10.6  # the "drag knob" ring around the whale
 KNOB_RING_W = 0.7
 KNOB_TICKS = 36
-FISH_LENGTH = 14.0
+WHALE_SIZE = 13.0  # nose to tail; must stay inside the grille ring (check.py)
 OUTER_RING_R = 16.9  # thin ring just inside the screw heads; 0 to drop it
-GRILLE_R = 8.6  # speaker grille: a ring of holes around the fish, like a reel's ported knob
+GRILLE_R = 8.6  # speaker grille: a ring of holes around the whale, like a reel's ported knob
 GRILLE_HOLES = 24
 GRILLE_HOLE_D = 1.6
 

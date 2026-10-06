@@ -2,7 +2,7 @@
 
 A 3D-printable case for the Waveshare ESP32-S3-Touch-AMOLED-1.75, made to look like a fly-fishing
 reel. The screen is the spool, the rim is fishing line wound between two flanges, and the back is
-the drag knob: a fish, a speaker grille and "TIGHT LINES / HAPPY BIRTHDAY". PWR, BOOT, USB-C and
+the drag knob: a spouting whale, a speaker grille and "HAPPY BIRTHDAY ETHAN". PWR, BOOT, USB-C and
 the microSD slot all stay reachable.
 
 ![front](previews/front.png)
@@ -21,7 +21,7 @@ Waveshare's own STEP model of the board (in `../docs/`).
   |  |  three M2 standoffs onto three posts  |  |   PWR / BOOT plungers (2 and 4 o'clock)
   |  |       [ speaker, face down ]          |  |   microSD slot (3 o'clock)
   |__|_______o o o grille o o o_____________|__|
-       back: fish, text, 3 screw heads
+       back: whale, text, 3 screw heads
 ```
 
 - The case is one cup. The board drops in glass-up and three M2 screws through the back go into

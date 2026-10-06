@@ -97,6 +97,10 @@ def check_variant(battery: bool, solids: list):
         report((box & case).volume < OVERLAP, f"{item} ({dims}) clears the posts and rails")
         report(not overlaps(box, solids), f"{item} ({dims}) clears the board")
 
+    grille = parts.speaker_grille(battery)
+    clear = (parts.art(battery) & grille).volume < OVERLAP if p.SPEAKER else True
+    report(clear, "the back artwork stays clear of the grille holes")
+
     if parts.contents(battery):
         m = 0.5  # the two wires splay a little as they leave the plug
         plugs = [
