@@ -4,7 +4,7 @@
 use core::cell::Cell;
 
 use bevy::prelude::*;
-use orbit_core::{Buttons, Clip, Rng, SaveBlob, SoundQueue, Tilt, Touch};
+use orbit_core::{Buttons, Clip, Power, Rng, SaveBlob, SoundQueue, Tilt, Touch};
 
 use crate::{
     audio::{self, GUTEN_MORGEN},
@@ -21,6 +21,9 @@ use crate::{
 /// Results ignore presses this long, so a press meant for the fight doesn't
 /// skip the celebration.
 pub const RESULT_GUARD_SECS: f32 = 0.8;
+/// GUTEN ignores taps and presses this long, so a touch that flickers as the
+/// finger lifts off the GUTEN button can't stop the song it just started.
+pub const GUTEN_GUARD_SECS: f32 = 0.6;
 pub const ESCAPED_SECS: f32 = 3.0;
 pub const BITE_SHOW_SECS: f32 = 0.7;
 pub const NOTHING_BITES_SECS: f32 = 9.0;
@@ -28,6 +31,15 @@ pub const NOTICE_SECS: f32 = 1.4;
 pub const TOAST_SECS: f32 = 1.2;
 /// The reel clicks each time the catch meter rises by this much.
 pub const REEL_CLICK_STEP: f32 = 0.03;
+/// Holding the zero button this long puts the board to sleep.
+pub const SLEEP_HOLD_SECS: f32 = 1.5;
+/// The "HOLD TO SLEEP" hint appears once the zero button is held this long.
+pub const SLEEP_HINT_SECS: f32 = 0.35;
+/// This long without a touch, a button or a turn of the device, and the game
+/// tells the platform it is idle (dim the panel, slow the loop).
+pub const IDLE_SECS: f32 = 30.0;
+/// Turning or leaning the device more than this counts as input.
+pub const IDLE_TILT_DEG: f32 = 3.0;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Phase {
@@ -72,6 +84,8 @@ pub enum Phase {
     Escaped,
     /// A short message, then back to aiming.
     Notice(&'static str),
+    /// Asked the platform to sleep; only waking it (a restart) leaves.
+    Asleep,
 }
 
 #[derive(Resource, Debug)]
@@ -85,6 +99,11 @@ pub struct Session {
     pub toast_secs: f32,
     /// Seconds since boot, for idle animations.
     pub clock: f32,
+    /// How long the zero button has been held; holding it long sleeps.
+    pub zero_held_secs: f32,
+    /// Seconds since the last input, and the pose at that input.
+    pub idle_secs: f32,
+    idle_pose: Vec2,
 }
 
 impl Default for Session {
@@ -95,6 +114,9 @@ impl Default for Session {
             spot_x: (SPOT_RANGE.0 + SPOT_RANGE.1) / 2.0,
             toast_secs: 0.0,
             clock: 0.0,
+            zero_held_secs: 0.0,
+            idle_secs: 0.0,
+            idle_pose: Vec2::ZERO,
         }
     }
 }
@@ -151,6 +173,7 @@ fn play(
     mut session: ResMut<Session>,
     mut blob: ResMut<SaveBlob>,
     mut sound: ResMut<SoundQueue>,
+    mut power: ResMut<Power>,
 ) {
     let dt = time.delta_secs();
     session.clock += dt;
@@ -162,6 +185,26 @@ fn play(
     };
 
     let action = buttons.action;
+    session.zero_held_secs = if buttons.zero.held() {
+        session.zero_held_secs + dt
+    } else {
+        0.0
+    };
+    let pose = Vec2::new(tilt.steer_deg, tilt.lean_deg);
+    if touch.position().is_some()
+        || action.held()
+        || buttons.zero.held()
+        || pose.distance(session.idle_pose) > IDLE_TILT_DEG
+    {
+        session.idle_secs = 0.0;
+        session.idle_pose = pose;
+    } else {
+        session.idle_secs += dt;
+    }
+    power.idle = session.idle_secs >= IDLE_SECS;
+    let falling_asleep =
+        session.zero_held_secs >= SLEEP_HOLD_SECS && session.phase != Phase::Asleep;
+
     let tap = touch.just_pressed();
     let hit_button = Cell::new(false);
     let tapped = |button: &ui::Button| {
@@ -178,6 +221,12 @@ fn play(
     let mut erase = false;
     let mut sfx: Option<&'static Clip> = None;
     let next = match &mut session.phase {
+        _ if falling_asleep => {
+            power.request_sleep();
+            sound.stop();
+            Some(Phase::Asleep)
+        }
+        Phase::Asleep => None,
         Phase::Title if action.pressed() => Some(aim()),
         Phase::Title if tapped(&ui::LOG) => Some(Phase::Log),
         Phase::Title if tapped(&ui::SHOP) => Some(Phase::Shop {
@@ -225,7 +274,10 @@ fn play(
             None
         }
         Phase::Shop { .. } if tapped(&ui::BACK) || action.pressed() => Some(Phase::Title),
-        Phase::Guten if elapsed >= GUTEN_MORGEN.duration_secs() || tap || action.pressed() => {
+        Phase::Guten
+            if elapsed >= GUTEN_MORGEN.duration_secs()
+                || (elapsed >= GUTEN_GUARD_SECS && (tap || action.pressed())) =>
+        {
             sound.stop();
             Some(Phase::Settings)
         }

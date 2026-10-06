@@ -9,6 +9,7 @@ extern crate alloc;
 
 mod buttons;
 mod motion;
+mod power;
 mod rng;
 mod save;
 mod sound;
@@ -23,6 +24,7 @@ pub use buttons::{ButtonState, Buttons};
 pub use motion::{ImuFeed, Tilt};
 pub use orbit_audio::{Clip, ClipRef, SoundCommand};
 pub use orbit_motion::ImuSample;
+pub use power::{Battery, Power};
 pub use rng::Rng;
 pub use save::SaveBlob;
 pub use sound::SoundQueue;
@@ -58,13 +60,15 @@ impl Plugin for SoundPlugin {
     }
 }
 
-/// The physical buttons and IMU tilt (with the zero button re-levelling it).
-/// Opt-in: every resource and system costs device heap, so games that only
-/// use touch leave it out, and platforms feed these only when present.
+/// The physical buttons, IMU tilt (with the zero button re-levelling it) and
+/// [`Power`] (battery, idle, sleep). Opt-in: every resource and system costs
+/// device heap, so games that only use touch leave it out, and platforms
+/// feed these only when present.
 pub struct ControlsPlugin;
 
 impl Plugin for ControlsPlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins((buttons::plugin, motion::plugin));
+        app.init_resource::<Power>()
+            .add_plugins((buttons::plugin, motion::plugin));
     }
 }

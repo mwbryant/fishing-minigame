@@ -4,6 +4,7 @@
 //!
 //! ```text
 //! cargo run -p orbit_desktop -- [angler|orbit]                 play (default angler)
+//!   Holding Z (BOOT) sleeps the board like the firmware does; Z again wakes it.
 //! cargo run -p orbit_desktop -- [angler|orbit] snapshot <dir>  scripted PNGs, headless
 //! ```
 
@@ -21,7 +22,7 @@ use std::{
 use angler_game::AnglerPlugin;
 use bevy::prelude::*;
 use minifb::{Key, MouseButton, MouseMode, Window, WindowOptions};
-use orbit_core::{Buttons, Frame, ImuFeed, Rng, SaveBlob, SoundQueue, Touch};
+use orbit_core::{Battery, Buttons, Frame, ImuFeed, Power, Rng, SaveBlob, SoundQueue, Touch};
 use orbit_game::OrbitPlugin;
 use orbit_gfx::Presenter;
 
@@ -71,18 +72,36 @@ fn main() {
 
 fn play(game: Game) {
     println!(
-        "{}: mouse = finger | Space = action (PWR) | Z = zero (BOOT) | \
+        "{}: mouse = finger | Space = action (PWR) | Z = zero (BOOT; hold to sleep, press to wake) | \
          left/right = turn the device | hold up/down = lean | C = straighten | Esc = quit",
         game.name()
     );
     let mut window =
         Window::new("Orbit board", SIZE, SIZE, WindowOptions::default()).expect("open window");
     window.set_target_fps(60);
+    let mut save = SaveFile::open(game.name());
+    let mut speaker = None;
+    let mut pixels = vec![0u32; SIZE * SIZE];
+    while run(game, &mut window, &mut save, &mut speaker, &mut pixels) {
+        println!("asleep: press Z (BOOT) to wake");
+        if !sleep_until_woken(&mut window, &pixels) {
+            return;
+        }
+    }
+}
 
+/// One boot of the game, like the board's: runs until the window closes
+/// (false) or the game asks to sleep (true).
+fn run(
+    game: Game,
+    window: &mut Window,
+    save: &mut SaveFile,
+    speaker: &mut Option<Speaker>,
+    pixels: &mut [u32],
+) -> bool {
     let seed = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map_or(1, |d| d.subsec_nanos());
-    let mut save = SaveFile::open(game.name());
     let mut app = App::new();
     match game {
         Game::Orbit => app.add_plugins(OrbitPlugin),
@@ -92,22 +111,27 @@ fn play(game: Game) {
         .insert_resource(SaveBlob::from_storage(save.load()));
     app.finish();
     app.cleanup();
+    if let Some(mut power) = app.world_mut().get_resource_mut::<Power>() {
+        power.battery = Some(Battery {
+            percent: None,
+            external_power: true,
+            charging: false,
+        });
+    }
+    if speaker.is_none() && app.world().contains_resource::<SoundQueue>() {
+        *speaker = Some(Speaker::open());
+    }
 
     let mut panel = RamPanel::new();
     let mut presenter = Presenter::new(vec![0u8; BAND_BYTES], game.background());
-    let mut pixels = vec![0u32; SIZE * SIZE];
     let mut stats = Stats::default();
     let mut device = VirtualDevice::upright();
-    let mut speaker = app
-        .world()
-        .contains_resource::<SoundQueue>()
-        .then(Speaker::open);
     let mut last_frame = Instant::now();
 
     while window.is_open() && !window.is_key_down(Key::Escape) {
         let dt = last_frame.elapsed().as_secs_f32();
         last_frame = Instant::now();
-        feed_inputs(&window, app.world_mut(), &mut device, dt);
+        feed_inputs(window, app.world_mut(), &mut device, dt);
         app.update();
         if let Some(bytes) = app.world_mut().resource_mut::<SaveBlob>().take_pending() {
             save.save(&bytes);
@@ -123,11 +147,47 @@ fn play(game: Game) {
         if let Some(title) = stats.record(sent) {
             window.set_title(&title);
         }
-        panel.to_argb(&mut pixels);
+        panel.to_argb(pixels);
+        let power = app
+            .world()
+            .get_resource::<Power>()
+            .copied()
+            .unwrap_or_default();
+        if power.idle {
+            for px in pixels.iter_mut() {
+                *px = (*px >> 2) & 0x003F_3F3F;
+            }
+        }
+        window.set_target_fps(if power.idle { 20 } else { 60 });
         window
-            .update_with_buffer(&pixels, SIZE, SIZE)
+            .update_with_buffer(pixels, SIZE, SIZE)
+            .expect("present window");
+        if power.sleep_requested() {
+            return true;
+        }
+    }
+    false
+}
+
+/// Keeps the last frame up until Z (BOOT) is released, then a dark panel
+/// until it is pressed again; false if the window closes instead.
+fn sleep_until_woken(window: &mut Window, last_frame: &[u32]) -> bool {
+    let dark = vec![0u32; SIZE * SIZE];
+    let mut released = false;
+    window.set_target_fps(20);
+    while window.is_open() && !window.is_key_down(Key::Escape) {
+        let held = window.is_key_down(Key::Z);
+        if released && held {
+            window.set_target_fps(60);
+            return true;
+        }
+        released |= !held;
+        let shown = if released { &dark } else { last_frame };
+        window
+            .update_with_buffer(shown, SIZE, SIZE)
             .expect("present window");
     }
+    false
 }
 
 /// Mouse as the finger, keys as the buttons and the device's motion. Button

@@ -9,7 +9,7 @@ use angler_game::{
     testing as angler, ui,
 };
 use bevy::prelude::*;
-use orbit_core::{Frame, SaveBlob};
+use orbit_core::{Battery, Buttons, Frame, Power, SaveBlob};
 use orbit_game::{
     Screen,
     arena::SCREEN_CENTER,
@@ -63,8 +63,19 @@ fn orbit(camera: &mut Camera) {
     camera.shoot(&app, "orbit_game_over");
 }
 
+/// What the board's power chip would report, so the menus show a level.
+fn battery(app: &mut App, percent: u8) {
+    app.world_mut().resource_mut::<Power>().battery = Some(Battery {
+        percent: Some(percent),
+        external_power: false,
+        charging: false,
+    });
+    app.update();
+}
+
 fn angler(camera: &mut Camera) {
     let mut app = angler::headless_app();
+    battery(&mut app, 76);
     camera.shoot(&app, "angler_title");
 
     angler::click_action(&mut app);
@@ -91,6 +102,7 @@ fn angler(camera: &mut Camera) {
 
     let saved = app.world_mut().resource_mut::<SaveBlob>().take_pending();
     let mut app = angler::headless_app_with_save(saved);
+    battery(&mut app, 76);
     angler::tap(&mut app, ui::LOG.center());
     camera.shoot(&app, "angler_log");
 
@@ -104,6 +116,7 @@ fn angler(camera: &mut Camera) {
     angler::tick(&mut app, 8);
     camera.shoot(&app, "angler_guten");
 
+    angler::tick(&mut app, 40);
     angler::tap(&mut app, Vec2::splat(233.0));
     angler::tap(&mut app, ui::BACK.center());
     app.world_mut().resource_mut::<Inventory>().earn(120);
@@ -115,6 +128,9 @@ fn angler(camera: &mut Camera) {
     angler::tap(&mut app, ui::BUY.center());
     angler::tap(&mut app, ui::BACK.center());
     camera.shoot(&app, "angler_title_hat");
+    app.world_mut().resource_mut::<Buttons>().zero.set(true);
+    angler::tick(&mut app, 50);
+    camera.shoot(&app, "angler_hold_to_sleep");
 }
 
 /// Plays the fight with a steady hand for up to `frames` updates.

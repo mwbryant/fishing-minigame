@@ -1,7 +1,9 @@
 use core::{f32::consts::FRAC_PI_2, time::Duration};
 
 use bevy::{prelude::*, time::TimeUpdateStrategy};
-use orbit_core::{Buttons, ControlsPlugin, CorePlugin, ImuFeed, ImuSample, SaveBlob, Tilt};
+use orbit_core::{
+    Battery, Buttons, ControlsPlugin, CorePlugin, ImuFeed, ImuSample, Power, SaveBlob, Tilt,
+};
 
 const DT: f32 = 1.0 / 60.0;
 
@@ -157,6 +159,36 @@ fn an_undrained_queue_keeps_only_its_newest_commands() {
         queue.pending().last(),
         Some(&orbit_core::SoundCommand::Stop)
     );
+}
+
+#[test]
+fn power_starts_awake_with_no_battery_reading_until_the_platform_reports_one() {
+    let mut app = app();
+    let power = *app.world().resource::<Power>();
+    assert_eq!(power.battery, None);
+    assert!(!power.idle && !power.sleep_requested());
+    app.world_mut().resource_mut::<Power>().battery = Some(Battery {
+        percent: Some(76),
+        external_power: false,
+        charging: false,
+    });
+    app.update();
+    assert_eq!(
+        app.world()
+            .resource::<Power>()
+            .battery
+            .and_then(|b| b.percent),
+        Some(76)
+    );
+}
+
+#[test]
+fn a_sleep_request_stays_set_for_the_platform_to_act_on() {
+    let mut app = app();
+    app.world_mut().resource_mut::<Power>().request_sleep();
+    app.update();
+    app.update();
+    assert!(app.world().resource::<Power>().sleep_requested());
 }
 
 #[test]

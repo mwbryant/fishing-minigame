@@ -9,7 +9,7 @@ use angler_game::{
     ui,
 };
 use bevy::prelude::*;
-use orbit_core::{ClipRef, Frame, SaveBlob, SoundCommand, SoundQueue};
+use orbit_core::{Buttons, ClipRef, Frame, SaveBlob, SoundCommand, SoundQueue};
 use orbit_gfx::{Point, Shape, Sprite, SpriteRef};
 
 const SCREEN_CENTER: Vec2 = Vec2::splat(233.0);
@@ -968,4 +968,125 @@ fn menu_buttons_click_buying_rings_the_till_and_a_tap_that_cannot_do_anything_th
         0,
         "taps off the buttons are silent"
     );
+}
+
+#[test]
+fn a_stray_tap_right_after_guten_starts_does_not_cut_the_song() {
+    let mut app = headless_app();
+    open_settings(&mut app);
+    tap(&mut app, ui::GUTEN.center());
+    tick(&mut app, 3);
+    tap(&mut app, SCREEN_CENTER);
+    click_action(&mut app);
+    assert_eq!(phase(&app), Phase::Guten);
+    assert_eq!(last_sound(&app), Some(play(&GUTEN_MORGEN)));
+}
+
+fn report_battery(app: &mut App, percent: Option<u8>, external_power: bool, charging: bool) {
+    app.world_mut().resource_mut::<orbit_core::Power>().battery = Some(orbit_core::Battery {
+        percent,
+        external_power,
+        charging,
+    });
+    app.update();
+}
+
+fn power(app: &App) -> orbit_core::Power {
+    *app.world().resource::<orbit_core::Power>()
+}
+
+#[test]
+fn the_menus_show_the_battery_level_with_a_bolt_while_charging() {
+    let mut app = headless_app();
+    assert!(
+        !labels(&app).iter().any(|l| l.ends_with('%')),
+        "no reading yet"
+    );
+    report_battery(&mut app, Some(76), false, false);
+    assert!(shows(&app, "76%"));
+    assert!(!sprite_drawn(&app, &sprites::BOLT));
+    report_battery(&mut app, Some(77), true, true);
+    assert!(shows(&app, "77%") && sprite_drawn(&app, &sprites::BOLT));
+    open_shop(&mut app);
+    assert!(shows(&app, "77%"));
+}
+
+#[test]
+fn on_usb_without_a_battery_the_menus_say_usb() {
+    let mut app = headless_app();
+    report_battery(&mut app, None, true, false);
+    assert!(shows(&app, "USB"));
+}
+
+#[test]
+fn a_low_battery_warns_during_play_but_a_healthy_one_stays_out_of_the_way() {
+    let mut app = headless_app();
+    report_battery(&mut app, Some(60), false, false);
+    start_aiming(&mut app);
+    assert!(!shows(&app, "60%"));
+    report_battery(&mut app, Some(12), false, false);
+    assert!(shows(&app, "12%"));
+    report_battery(&mut app, Some(12), true, true);
+    assert!(!shows(&app, "12%"), "charging is not a warning");
+}
+
+fn hold_zero(app: &mut App, frames: u32) {
+    app.world_mut().resource_mut::<Buttons>().zero.set(true);
+    tick(app, frames);
+}
+
+#[test]
+fn holding_the_zero_button_puts_the_board_to_sleep() {
+    let mut app = headless_app();
+    hold_zero(&mut app, 30);
+    assert!(shows(&app, "HOLD TO SLEEP"));
+    assert!(!power(&app).sleep_requested());
+    hold_zero(&mut app, 70);
+    assert!(power(&app).sleep_requested());
+    assert_eq!(phase(&app), Phase::Asleep);
+    assert!(shows(&app, "GOOD NIGHT") && shows(&app, "PRESS BOOT TO WAKE"));
+    app.world_mut().resource_mut::<Buttons>().zero.set(false);
+    click_action(&mut app);
+    tap(&mut app, ui::SHOP.center());
+    assert_eq!(
+        phase(&app),
+        Phase::Asleep,
+        "nothing wakes it but the platform"
+    );
+}
+
+#[test]
+fn a_short_zero_press_still_just_re_levels() {
+    let mut app = headless_app();
+    press_zero(&mut app);
+    tick(&mut app, 30);
+    assert!(!shows(&app, "HOLD TO SLEEP"));
+    assert!(!power(&app).sleep_requested());
+    assert_eq!(phase(&app), Phase::Title);
+}
+
+#[test]
+fn falling_asleep_silences_the_speaker() {
+    let mut app = headless_app();
+    open_settings(&mut app);
+    tap(&mut app, ui::GUTEN.center());
+    hold_zero(&mut app, 100);
+    assert_eq!(last_sound(&app), Some(SoundCommand::Stop));
+}
+
+#[test]
+fn half_a_minute_without_input_goes_idle_and_any_input_wakes_it() {
+    let mut app = headless_app();
+    tick(&mut app, 60 * 29);
+    assert!(!power(&app).idle);
+    tick(&mut app, 70);
+    assert!(power(&app).idle);
+    tap(&mut app, SCREEN_CENTER);
+    assert!(!power(&app).idle);
+
+    tick(&mut app, 60 * 31);
+    assert!(power(&app).idle);
+    set_tilt(&mut app, 6.0, 0.0);
+    app.update();
+    assert!(!power(&app).idle, "turning the device counts as input");
 }

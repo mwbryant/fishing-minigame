@@ -300,3 +300,9 @@ pub static BOBBER: Sprite = Sprite {
 };
 
 pub const BOBBER_WATERLINE: i32 = 3;
+
+/// Charging, beside the battery level.
+pub static BOLT: Sprite = Sprite {
+    rows: &["...YY", "..YY.", ".YYYY", "YYYY.", ".YY..", "YY..."],
+    palette: &[(b'Y', rgb(255, 220, 60))],
+};
