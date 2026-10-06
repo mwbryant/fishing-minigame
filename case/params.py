@@ -49,8 +49,8 @@ SD_SLOT = True
 SD_SLOT_SIZE = (13.0, 2.0)
 
 # --- Back plate artwork (debossed, so it prints face down with no supports) ---------------
-TEXT_TOP = ""  # empty for none
-TEXT_BOTTOM = "HAPPY BIRTHDAY ETHAN"
+TEXT_TOP = "HAPPY BIRTHDAY"  # empty for none
+TEXT_BOTTOM = "ETHAN"
 FONT = "Arial Rounded MT Bold"
 TEXT_SIZE = 3.6
 TEXT_RADIUS = 13.6  # radius of the text centreline
