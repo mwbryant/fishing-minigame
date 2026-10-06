@@ -4,7 +4,8 @@
 use core::cell::Cell;
 
 use bevy::prelude::*;
-use orbit_core::{Buttons, Clip, Power, Rng, SaveBlob, SoundQueue, Tilt, Touch};
+use bevy::app::AppExit;
+use orbit_core::{Buttons, Clip, Launcher, Power, Rng, SaveBlob, SoundQueue, Tilt, Touch};
 
 use crate::{
     audio::{self, GUTEN_MORGEN},
@@ -156,6 +157,8 @@ fn play(
     mut blob: ResMut<SaveBlob>,
     mut sound: ResMut<SoundQueue>,
     power: Res<Power>,
+    launcher: Option<Res<Launcher>>,
+    mut exit: MessageWriter<AppExit>,
 ) {
     let dt = time.delta_secs();
     session.clock += dt;
@@ -187,6 +190,10 @@ fn play(
     let mut erase = false;
     let mut sfx: Option<&'static Clip> = None;
     let next = match &mut session.phase {
+        Phase::Title if launcher.is_some() && tapped(&ui::HOME) => {
+            exit.write(AppExit::Success);
+            None
+        }
         Phase::Title if action.pressed() => Some(aim()),
         Phase::Title if tapped(&ui::LOG) => Some(Phase::Log),
         Phase::Title if tapped(&ui::SHOP) => Some(Phase::Shop {

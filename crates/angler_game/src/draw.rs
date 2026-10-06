@@ -1,7 +1,7 @@
 use alloc::{format, string::String, vec::Vec};
 
 use bevy::{math::ops, prelude::*};
-use orbit_core::{Frame, Power, Tilt};
+use orbit_core::{Frame, Launcher, Power, Tilt};
 use orbit_gfx::{Point, Rectangle, Rgb565, SCREEN_CENTER, Shape, Size, SpriteRef};
 use orbit_ui::{battery_level, button, framed_button, power_overlay, running_low};
 
@@ -67,6 +67,7 @@ fn draw_frame(
     settings: Res<Settings>,
     inventory: Res<Inventory>,
     power: Res<Power>,
+    launcher: Option<Res<Launcher>>,
     mut frame: ResMut<Frame>,
 ) {
     let shapes = &mut frame.shapes;
@@ -80,6 +81,9 @@ fn draw_frame(
             shapes.push(label(110, "GONE FISHIN", 3, TEXT));
             shapes.push(label(160, "PRESS BUTTON TO FISH", 1, HINT));
             level(shapes, &tilt);
+            if launcher.is_some() {
+                button(shapes, &ui::HOME);
+            }
             button(shapes, &ui::LOG);
             button(shapes, &ui::SHOP);
             button(shapes, &ui::SETTINGS);

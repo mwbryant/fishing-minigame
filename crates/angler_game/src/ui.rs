@@ -3,6 +3,8 @@
 
 pub use orbit_ui::Button;
 
+/// On the title when the arcade menu launched the game.
+pub const HOME: Button = Button::new(193, 40, 80, 30, "HOME");
 pub const LOG: Button = Button::new(73, 352, 100, 36, "LOG");
 pub const SHOP: Button = Button::new(183, 352, 100, 36, "SHOP");
 pub const SETTINGS: Button = Button::new(293, 352, 100, 36, "SETTINGS");

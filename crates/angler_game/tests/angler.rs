@@ -1075,3 +1075,19 @@ fn falling_asleep_silences_the_speaker() {
     hold_zero(&mut app, 190);
     assert_eq!(last_sound(&app), Some(SoundCommand::Stop));
 }
+
+#[test]
+fn launched_from_the_menu_the_title_offers_home() {
+    let app = headless_app();
+    assert!(!shows(&app, "HOME"));
+    let mut app = orbit_core::testing::headless(
+        |app| {
+            app.add_plugins(angler_game::AnglerPlugin)
+                .insert_resource(orbit_core::Launcher);
+        },
+        None,
+    );
+    assert!(shows(&app, "HOME"));
+    tap(&mut app, ui::HOME.center());
+    assert_eq!(app.should_exit(), Some(bevy::app::AppExit::Success));
+}
