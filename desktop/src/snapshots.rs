@@ -49,6 +49,7 @@ pub fn run(game: Game, dir: &Path) {
         Game::Orbit => orbit(&mut camera),
         Game::Angler => angler(&mut camera),
         Game::Spider => spider(&mut camera),
+        Game::Skate => skate(&mut camera),
     }
 }
 
@@ -100,6 +101,35 @@ fn spider(camera: &mut Camera) {
     camera.shoot(&app, "spider_pounce");
     core_testing::tick(&mut app, 120);
     camera.shoot(&app, "spider_bitten");
+}
+
+fn skate(camera: &mut Camera) {
+    use skate_game::{Kind, POP_DEG, Ride, SKATER_X};
+    let mut app = core_testing::headless(
+        |app| {
+            app.add_plugins(skate_game::SkatePlugin);
+        },
+        None,
+    );
+    battery(&mut app, 76);
+    camera.shoot(&app, "skate_title");
+    core_testing::click_action(&mut app);
+    core_testing::tick(&mut app, 40);
+    app.world_mut()
+        .resource_mut::<Ride>()
+        .place(Kind::Bench, SKATER_X + 90.0);
+    core_testing::set_tilt(&mut app, -(POP_DEG + 8.0), 0.0);
+    core_testing::tick(&mut app, 14);
+    camera.shoot(&app, "skate_ollie");
+    core_testing::set_tilt(&mut app, 0.0, 0.0);
+    core_testing::tick(&mut app, 34);
+    camera.shoot(&app, "skate_grind");
+    core_testing::tick(&mut app, 60);
+    app.world_mut()
+        .resource_mut::<Ride>()
+        .place(Kind::Cone, SKATER_X + 40.0);
+    core_testing::tick(&mut app, 70);
+    camera.shoot(&app, "skate_bailed");
 }
 
 fn orbit(camera: &mut Camera) {
@@ -207,6 +237,7 @@ impl Game {
             Game::Orbit => orbit_game::BACKGROUND,
             Game::Angler => angler_game::BACKGROUND,
             Game::Spider => spider_game::BACKGROUND,
+            Game::Skate => skate_game::BACKGROUND,
         }
     }
 }
