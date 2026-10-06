@@ -1,6 +1,9 @@
 use bevy::{app::AppExit, prelude::*};
 use orbit_core::{ClipRef, Launcher, SaveBlob, SoundCommand, SoundQueue, testing::*};
-use skate_game::{Kind, LAND_DEG, POP_DEG, Phase, Ride, SKATER_X, SkatePlugin, audio, ui};
+use skate_game::{
+    HALFPIPE_SECS, Kind, LAND_DEG, POP_DEG, PX_PER_METER, Phase, Ride, SKATER_X, SPIN_GAIN,
+    SkatePlugin, audio, ui,
+};
 
 fn game(saved: Option<Vec<u8>>) -> App {
     headless(
@@ -163,11 +166,12 @@ fn steady_rider(app: &mut App) {
 }
 
 #[test]
-fn a_rider_who_pops_before_each_obstacle_keeps_going_as_the_street_speeds_up() {
+fn a_rider_who_pops_before_each_obstacle_keeps_going_through_the_street_and_halfpipe() {
     let mut app = game(None);
     click_action(&mut app);
     let slow = ride(&app).speed;
-    for _ in 0..60 * 20 {
+    let mut visited_halfpipe = false;
+    for _ in 0..60 * 30 {
         steady_rider(&mut app);
         assert_eq!(
             ride(&app).phase,
@@ -175,7 +179,9 @@ fn a_rider_who_pops_before_each_obstacle_keeps_going_as_the_street_speeds_up() {
             "bailed at {}",
             ride(&app).distance
         );
+        visited_halfpipe |= ride(&app).in_halfpipe();
     }
+    assert!(visited_halfpipe, "150 m in, it drops into the halfpipe");
     assert!(ride(&app).spawned >= 8, "{} obstacles", ride(&app).spawned);
     assert!(ride(&app).speed > slow + 100.0);
 }
@@ -210,4 +216,98 @@ fn launched_from_the_menu_the_title_offers_home() {
     );
     tap(&mut app, ui::HOME.center());
     assert_eq!(app.should_exit(), Some(AppExit::Success));
+}
+
+fn drop_in(app: &mut App) {
+    roll(app);
+    app.world_mut().resource_mut::<Ride>().approach_halfpipe();
+    tick(app, 5);
+    assert!(
+        ride(app).in_halfpipe(),
+        "every 150 m the street drops into a halfpipe"
+    );
+}
+
+/// Waits (level) until the skater leaves the coping.
+fn until_air(app: &mut App) {
+    set_tilt(app, 0.0, 0.0);
+    for _ in 0..60 * 3 {
+        if ride(app).halfpipe_air() {
+            return;
+        }
+        app.update();
+    }
+    panic!("never got air in the halfpipe");
+}
+
+fn until_landed(app: &mut App) {
+    for _ in 0..60 * 2 {
+        if !ride(app).halfpipe_air() {
+            return;
+        }
+        app.update();
+    }
+    panic!("never came back down");
+}
+
+#[test]
+fn every_150_metres_the_street_drops_into_a_halfpipe() {
+    let mut app = game(None);
+    roll(&mut app);
+    let first = ride(&app).next_halfpipe_m();
+    assert!((140.0..=160.0).contains(&first), "{first} m");
+    assert!(!ride(&app).in_halfpipe());
+    drop_in(&mut app);
+    assert!(shows(&app, "DROP IN!"));
+    assert!(ride(&app).obstacles().is_empty(), "the street is gone");
+}
+
+#[test]
+fn the_halfpipe_lasts_about_seven_seconds_then_its_back_to_the_street() {
+    let mut app = game(None);
+    drop_in(&mut app);
+    let at = ride(&app).distance;
+    tick(&mut app, (60.0 * (HALFPIPE_SECS - 1.0)) as u32);
+    assert!(ride(&app).in_halfpipe());
+    tick(&mut app, 60 * 3);
+    assert!(!ride(&app).in_halfpipe());
+    assert_eq!(ride(&app).phase, Phase::Riding);
+    let next = ride(&app).next_halfpipe_m();
+    assert!(next >= at / PX_PER_METER + 140.0, "next drop at {next} m");
+}
+
+#[test]
+fn turning_in_the_air_spins_a_trick_and_landing_it_scores() {
+    let mut app = game(None);
+    drop_in(&mut app);
+    until_air(&mut app);
+    let before = ride(&app).score;
+    set_tilt(&mut app, 360.0 / SPIN_GAIN, 0.0);
+    until_landed(&mut app);
+    assert!(shows(&app, "360! +35"), "{:?}", labels(&app));
+    assert!(ride(&app).score >= before + 35);
+    assert!(heard(&app, &audio::LAND));
+}
+
+#[test]
+fn a_plain_air_scores_a_little() {
+    let mut app = game(None);
+    drop_in(&mut app);
+    until_air(&mut app);
+    until_landed(&mut app);
+    assert!(shows(&app, "AIR! +5"), "{:?}", labels(&app));
+}
+
+#[test]
+fn landing_a_spin_crooked_slams_but_the_run_goes_on() {
+    let mut app = game(None);
+    drop_in(&mut app);
+    until_air(&mut app);
+    let before = ride(&app).score;
+    set_tilt(&mut app, 90.0 / SPIN_GAIN, 0.0);
+    until_landed(&mut app);
+    assert!(shows(&app, "SLAM!"));
+    assert_eq!(ride(&app).score, before, "no points for a slam");
+    assert_eq!(ride(&app).phase, Phase::Riding);
+    assert!(ride(&app).in_halfpipe());
 }

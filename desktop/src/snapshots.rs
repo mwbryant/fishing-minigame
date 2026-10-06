@@ -136,6 +136,29 @@ fn skate(camera: &mut Camera) {
         .place(Kind::Cone, SKATER_X + 40.0);
     core_testing::tick(&mut app, 70);
     camera.shoot(&app, "skate_bailed");
+
+    let mut app = core_testing::headless(
+        |app| {
+            app.add_plugins(skate_game::SkatePlugin);
+        },
+        None,
+    );
+    core_testing::click_action(&mut app);
+    app.world_mut().resource_mut::<Ride>().approach_halfpipe();
+    core_testing::tick(&mut app, 20);
+    camera.shoot(&app, "skate_halfpipe");
+    while !app.world().resource::<Ride>().halfpipe_air() {
+        app.update();
+    }
+    core_testing::set_tilt(&mut app, 30.0, 0.0);
+    core_testing::tick(&mut app, 18);
+    camera.shoot(&app, "skate_halfpipe_air");
+    core_testing::set_tilt(&mut app, 60.0, 0.0);
+    while app.world().resource::<Ride>().halfpipe_air() {
+        app.update();
+    }
+    core_testing::tick(&mut app, 6);
+    camera.shoot(&app, "skate_halfpipe_360");
 }
 
 /// Bees??? with the angler wearing the cowboy hat, so the bees do too.

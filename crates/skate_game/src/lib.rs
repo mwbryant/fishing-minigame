@@ -2,6 +2,8 @@
 //! the device counterclockwise (nose up) to pop an ollie; in the air the
 //! board follows the turn, and it has to come down within `LAND_DEG` of level
 //! or you bail. Clear cones, clear or grind benches; the street speeds up.
+//! Every `HALFPIPE_EVERY_M` metres the street drops into a halfpipe for a
+//! freestyle section: air off each wall and turn the device to spin tricks.
 //! The best score persists in the board's save record.
 
 #![no_std]
@@ -16,7 +18,9 @@ pub mod ui;
 
 use alloc::vec::Vec;
 
-use bevy::{app::AppExit, prelude::*};
+use core::f32::consts::FRAC_PI_2;
+
+use bevy::{app::AppExit, math::ops, prelude::*};
 use orbit_core::{
     Buttons, Clip, ControlsPlugin, CorePlugin, Launcher, Power, Rng, SaveBlob, SoundPlugin,
     SoundQueue, Tilt, Touch,
@@ -49,7 +53,32 @@ const FIRST_SPAWN: f32 = 260.0;
 /// Results ignore presses this long, so a panicked press can't skip them.
 pub const RESULT_GUARD_SECS: f32 = 0.8;
 const TOAST_SECS: f32 = 0.8;
-const PX_PER_METER: f32 = 30.0;
+pub const PX_PER_METER: f32 = 30.0;
+/// Every this many metres of street, the skater drops into a halfpipe...
+pub const HALFPIPE_EVERY_M: f32 = 150.0;
+/// ...for this long, then rides back out onto the street.
+pub const HALFPIPE_SECS: f32 = 7.0;
+/// The halfpipe is the bottom half of a circle this big, centered here.
+pub const PIPE_CENTER: Vec2 = Vec2::new(233.0, 230.0);
+pub const PIPE_RADIUS: f32 = 175.0;
+/// Speed leaving the coping, the same every time, so every wall gives the
+/// same air (about 0.7 s).
+pub const AIR_SPEED: f32 = 520.0;
+/// In the halfpipe's air the skater spins this many times the device's turn,
+/// so about 60 degrees of wrist is a 360.
+pub const SPIN_GAIN: f32 = 6.0;
+/// A spin lands if it's within this of a whole half turn.
+pub const LAND_SPIN_DEG: f32 = 50.0;
+/// Name and points by half turns spun: none, 180, 360, 540, 720 or more.
+pub const TRICKS: [(&str, u32); 5] = [
+    ("AIR!", 5),
+    ("180!", 15),
+    ("360!", 35),
+    ("540!", 60),
+    ("720!", 90),
+];
+/// No street obstacles spawn this close before the drop into the halfpipe.
+const SPAWN_STOP_BEFORE_PIPE: f32 = 600.0;
 pub const BACKGROUND: Rgb565 = orbit_ui::rgb(12, 14, 34);
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -90,6 +119,37 @@ impl Obstacle {
     }
 }
 
+/// A freestyle section in the halfpipe.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Halfpipe {
+    pub secs: f32,
+    /// Where on the pipe: radians from the bottom, positive toward the right wall.
+    pub angle: f32,
+    pub angular_speed: f32,
+    pub air: Option<Air>,
+}
+
+/// Off the coping: straight up and back down the same wall.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Air {
+    pub height: f32,
+    pub climb: f32,
+    /// +1 off the right wall, -1 off the left.
+    pub side: f32,
+    /// How far the skater has spun, degrees clockwise, from the device's turn
+    /// since takeoff.
+    pub spin_deg: f32,
+    steer_at_takeoff: f32,
+}
+
+/// How the last halfpipe landing went, for the toast.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Trick {
+    /// An index into `TRICKS`.
+    Landed(usize),
+    Slam,
+}
+
 #[derive(Resource, Debug)]
 pub struct Ride {
     pub phase: Phase,
@@ -107,7 +167,10 @@ pub struct Ride {
     pub board_deg: f32,
     pub spawned: u32,
     pub toast: Option<(&'static str, f32)>,
+    pub trick: Option<(Trick, f32)>,
+    pub halfpipe: Option<Halfpipe>,
     obstacles: Vec<Obstacle>,
+    next_halfpipe: f32,
     airborne: bool,
     grinding: Option<u32>,
     armed: bool,
@@ -131,7 +194,10 @@ impl Default for Ride {
             board_deg: 0.0,
             spawned: 0,
             toast: None,
+            trick: None,
+            halfpipe: None,
             obstacles: Vec::new(),
+            next_halfpipe: HALFPIPE_EVERY_M * PX_PER_METER,
             airborne: false,
             grinding: None,
             armed: true,
@@ -154,6 +220,27 @@ impl Ride {
 
     pub fn obstacles(&self) -> &[Obstacle] {
         &self.obstacles
+    }
+
+    pub fn in_halfpipe(&self) -> bool {
+        self.halfpipe.is_some()
+    }
+
+    /// Up off a halfpipe wall.
+    pub fn halfpipe_air(&self) -> bool {
+        self.halfpipe.is_some_and(|pipe| pipe.air.is_some())
+    }
+
+    /// Where the next drop into a halfpipe is, in metres of street.
+    pub fn next_halfpipe_m(&self) -> f32 {
+        self.next_halfpipe / PX_PER_METER
+    }
+
+    /// Rolls the ride to just before the next halfpipe on an empty street,
+    /// for tests.
+    pub fn approach_halfpipe(&mut self) {
+        self.distance = self.next_halfpipe - 10.0;
+        self.clear_street();
     }
 
     /// Empties the street, for tests and a fresh start.
@@ -188,6 +275,74 @@ impl Ride {
     fn enter(&mut self, phase: Phase) {
         self.phase = phase;
         self.phase_secs = 0.0;
+    }
+
+    fn drop_in(&mut self) {
+        self.obstacles.clear();
+        self.halfpipe = Some(Halfpipe {
+            secs: 0.0,
+            angle: -FRAC_PI_2,
+            angular_speed: AIR_SPEED / PIPE_RADIUS,
+            air: None,
+        });
+        self.toast = Some(("DROP IN!", TOAST_SECS));
+    }
+
+    /// One step of the halfpipe: ride the pipe like a pendulum, air off each
+    /// wall, spin with the device in the air, judge the landing; after
+    /// `HALFPIPE_SECS`, roll out at the bottom back onto the street.
+    fn freestyle(&mut self, steer: f32, dt: f32) -> Option<&'static Clip> {
+        let mut pipe = self.halfpipe?;
+        let mut sfx = None;
+        pipe.secs += dt;
+        match pipe.air.as_mut() {
+            Some(air) => {
+                air.climb -= GRAVITY * dt;
+                air.height += air.climb * dt;
+                air.spin_deg = (steer - air.steer_at_takeoff) * SPIN_GAIN;
+                if air.height <= 0.0 {
+                    let (side, spin) = (air.side, air.spin_deg);
+                    pipe.air = None;
+                    pipe.angle = side * FRAC_PI_2;
+                    pipe.angular_speed = -side * AIR_SPEED / PIPE_RADIUS;
+                    let half_turns = ops::round(spin.abs() / 180.0);
+                    if (spin.abs() - half_turns * 180.0).abs() <= LAND_SPIN_DEG {
+                        let trick = (half_turns as usize).min(TRICKS.len() - 1);
+                        self.bonus += TRICKS[trick].1 as f32;
+                        self.trick = Some((Trick::Landed(trick), TOAST_SECS * 1.5));
+                        sfx = Some(&audio::LAND);
+                    } else {
+                        self.trick = Some((Trick::Slam, TOAST_SECS * 1.5));
+                        sfx = Some(&audio::BAIL);
+                    }
+                }
+            }
+            None => {
+                pipe.angular_speed -= GRAVITY / PIPE_RADIUS * ops::sin(pipe.angle) * dt;
+                pipe.angle += pipe.angular_speed * dt;
+                let side = pipe.angle.signum();
+                if pipe.angle.abs() >= FRAC_PI_2 && pipe.angular_speed * side > 0.0 {
+                    pipe.angle = side * FRAC_PI_2;
+                    pipe.air = Some(Air {
+                        height: 0.0,
+                        climb: AIR_SPEED,
+                        side,
+                        spin_deg: 0.0,
+                        steer_at_takeoff: steer,
+                    });
+                    sfx = Some(&audio::POP);
+                }
+            }
+        }
+        if pipe.secs >= HALFPIPE_SECS && pipe.air.is_none() && pipe.angle.abs() < 0.35 {
+            self.halfpipe = None;
+            self.clear_street();
+            self.next_spawn = self.distance + FIRST_SPAWN;
+            self.next_halfpipe = self.distance + HALFPIPE_EVERY_M * PX_PER_METER;
+        } else {
+            self.halfpipe = Some(pipe);
+        }
+        sfx
     }
 }
 
@@ -262,6 +417,24 @@ fn simulate(
     }
     let dt = time.delta_secs();
     let mut sfx: Option<&'static Clip> = None;
+    if let Some((_, left)) = ride.toast.as_mut() {
+        *left -= dt;
+    }
+    ride.toast = ride.toast.filter(|(_, left)| *left > 0.0);
+    if let Some((_, left)) = ride.trick.as_mut() {
+        *left -= dt;
+    }
+    ride.trick = ride.trick.filter(|(_, left)| *left > 0.0);
+
+    if ride.halfpipe.is_some() {
+        sfx = ride.freestyle(tilt.steer_deg, dt);
+        ride.board_deg = 0.0;
+        ride.score = (ride.distance / PX_PER_METER) as u32 + ride.bonus as u32;
+        if let Some(clip) = sfx {
+            sound.play(clip);
+        }
+        return;
+    }
 
     ride.speed = (ride.speed + SPEED_GAIN * dt).min(MAX_SPEED);
     let travel = ride.speed * dt;
@@ -271,7 +444,9 @@ fn simulate(
     }
     ride.obstacles
         .retain(|obstacle| obstacle.x + obstacle.kind.size().0 > -40.0);
-    if ride.distance >= ride.next_spawn {
+    if ride.distance >= ride.next_spawn
+        && ride.distance < ride.next_halfpipe - SPAWN_STOP_BEFORE_PIPE
+    {
         let kind = if rng.next_f32() < 0.6 {
             Kind::Cone
         } else {
@@ -281,10 +456,11 @@ fn simulate(
         let gap = (300.0 + 300.0 * rng.next_f32()) * ride.speed / START_SPEED;
         ride.next_spawn = ride.distance + gap;
     }
-    if let Some((_, left)) = ride.toast.as_mut() {
-        *left -= dt;
+    if !ride.airborne && ride.grinding.is_none() && ride.distance >= ride.next_halfpipe {
+        ride.drop_in();
+        sound.play(&audio::POP);
+        return;
     }
-    ride.toast = ride.toast.filter(|(_, left)| *left > 0.0);
 
     let steer = tilt.steer_deg;
     ride.board_deg = steer.clamp(-80.0, 80.0);
