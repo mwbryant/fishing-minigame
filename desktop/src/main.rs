@@ -3,7 +3,7 @@
 //! CO5300, and the IMU is a virtual device driven from the keyboard.
 //!
 //! ```text
-//! cargo run -p orbit_desktop -- [arcade|angler|orbit]          play (default arcade)
+//! cargo run -p orbit_desktop -- [arcade|angler|spider|orbit]   play (default arcade)
 //!   Holding Z (BOOT) sleeps the board like the firmware does; Z again wakes it.
 //! cargo run -p orbit_desktop -- [angler|orbit] snapshot <dir>  scripted PNGs, headless
 //! ```
@@ -28,6 +28,7 @@ use orbit_core::{
 };
 use orbit_game::OrbitPlugin;
 use orbit_gfx::Presenter;
+use spider_game::SpiderPlugin;
 
 use crate::{
     device::{SaveFile, VirtualDevice},
@@ -49,6 +50,7 @@ pub enum Game {
     Arcade,
     Orbit,
     Angler,
+    Spider,
 }
 
 impl Game {
@@ -57,6 +59,7 @@ impl Game {
             Game::Arcade => "arcade",
             Game::Orbit => "orbit",
             Game::Angler => "angler",
+            Game::Spider => "spider",
         }
     }
 
@@ -65,6 +68,7 @@ impl Game {
             Game::Arcade => app.add_plugins(ArcadePlugin),
             Game::Orbit => app.add_plugins(OrbitPlugin),
             Game::Angler => app.add_plugins(AnglerPlugin),
+            Game::Spider => app.add_plugins(SpiderPlugin),
         };
     }
 
@@ -72,7 +76,8 @@ impl Game {
     fn picked(game: arcade::Game) -> Option<Self> {
         match game {
             arcade::Game::Angler => Some(Game::Angler),
-            arcade::Game::Spider | arcade::Game::Skate => None,
+            arcade::Game::Spider => Some(Game::Spider),
+            arcade::Game::Skate => None,
         }
     }
 }
@@ -91,6 +96,7 @@ fn main() {
         Some("arcade") => (Game::Arcade, &args[1..]),
         Some("orbit") => (Game::Orbit, &args[1..]),
         Some("angler") => (Game::Angler, &args[1..]),
+        Some("spider") => (Game::Spider, &args[1..]),
         _ => (Game::Arcade, &args[..]),
     };
     match rest.first().map(String::as_str) {

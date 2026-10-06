@@ -48,6 +48,7 @@ pub fn run(game: Game, dir: &Path) {
         Game::Arcade => arcade(&mut camera),
         Game::Orbit => orbit(&mut camera),
         Game::Angler => angler(&mut camera),
+        Game::Spider => spider(&mut camera),
     }
 }
 
@@ -71,6 +72,34 @@ fn arcade(camera: &mut Camera) {
     core_testing::set_tilt(&mut app, 4.0, 0.0);
     core_testing::click_action(&mut app);
     camera.shoot(&app, "arcade_settings");
+}
+
+fn spider(camera: &mut Camera) {
+    let mut app = core_testing::headless(
+        |app| {
+            app.add_plugins(spider_game::SpiderPlugin);
+        },
+        None,
+    );
+    battery(&mut app, 76);
+    camera.shoot(&app, "spider_title");
+    core_testing::click_action(&mut app);
+    app.world_mut()
+        .resource_mut::<spider_game::Table>()
+        .hide_spider(6);
+    for steer in [0.0, 10.0, 20.0, -10.0] {
+        core_testing::set_tilt(&mut app, steer, 0.0);
+        core_testing::click_action(&mut app);
+    }
+    core_testing::set_tilt(&mut app, 48.0, 0.0);
+    app.update();
+    camera.shoot(&app, "spider_pick");
+    core_testing::set_tilt(&mut app, 60.0, 0.0);
+    core_testing::click_action(&mut app);
+    core_testing::tick(&mut app, 10);
+    camera.shoot(&app, "spider_pounce");
+    core_testing::tick(&mut app, 120);
+    camera.shoot(&app, "spider_bitten");
 }
 
 fn orbit(camera: &mut Camera) {
@@ -177,6 +206,7 @@ impl Game {
             Game::Arcade => arcade::BACKGROUND,
             Game::Orbit => orbit_game::BACKGROUND,
             Game::Angler => angler_game::BACKGROUND,
+            Game::Spider => spider_game::BACKGROUND,
         }
     }
 }
