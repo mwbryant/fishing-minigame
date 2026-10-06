@@ -12,8 +12,7 @@ extern crate alloc;
 use alloc::vec;
 
 use angler_game::{
-    AnglerPlugin, BACKGROUND, Difficulty, FishLog, Inventory, Phase, Session, Settings, cast,
-    save,
+    AnglerPlugin, BACKGROUND, Difficulty, FishLog, Inventory, Phase, Session, Settings, cast, save,
     session::RESULT_GUARD_SECS,
     testing::{click_action, hold_action, phase, release_action, set_tilt, tap},
     ui,

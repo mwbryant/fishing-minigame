@@ -3,8 +3,8 @@
 
 use core::cell::Cell;
 
-use bevy::prelude::*;
 use bevy::app::AppExit;
+use bevy::prelude::*;
 use orbit_core::{Buttons, Clip, Launcher, Power, Rng, SaveBlob, SoundQueue, Tilt, Touch};
 
 use crate::{

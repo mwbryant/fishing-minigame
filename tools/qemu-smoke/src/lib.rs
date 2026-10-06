@@ -6,7 +6,7 @@
 
 extern crate alloc;
 
-use alloc::vec;
+use alloc::{vec, vec::Vec};
 use core::time::Duration;
 
 use bevy::{platform::time::Instant, prelude::*};
@@ -16,7 +16,7 @@ use esp_hal::{
     time::Instant as HalInstant,
 };
 use log::{error, info};
-use orbit_core::{Frame, Rng};
+use orbit_core::{Frame, Launcher, Rng, SaveBlob};
 use orbit_gfx::{Panel, Presenter, Rectangle, Rgb565, SCREEN_SIZE};
 
 /// Keep in sync with firmware/src/lib.rs.
@@ -24,7 +24,7 @@ const BAND_BYTES: usize = SCREEN_SIZE as usize * 2 * 8;
 /// The firmware's 212 KB plus the ~20 KB of statics this build lacks (DMA
 /// buffers, drivers), so both stacks come out the same size. `run.sh` prints
 /// the two `.stack` sizes; adjust this when they drift apart.
-const INTERNAL_HEAP_BYTES: usize = 232 * 1024;
+const INTERNAL_HEAP_BYTES: usize = 237 * 1024;
 
 pub struct Smoke {
     pub app: App,
@@ -56,12 +56,7 @@ impl Smoke {
         // SAFETY: called once, before anything reads Bevy's clock.
         unsafe { Instant::set_elapsed(since_boot) };
 
-        let mut app = App::new();
-        add_game(&mut app);
-        app.insert_resource(Rng::new(HardwareRng::new().random()));
-        app.finish();
-        app.cleanup();
-        app.update();
+        let app = build(add_game, None, false);
         info!("bevy built; heap {}", esp_alloc::HEAP.stats());
         let smoke = Self {
             app,
@@ -70,6 +65,31 @@ impl Smoke {
             peak_psram: psram_used(),
         };
         (smoke, peripherals.FLASH)
+    }
+
+    /// Drops the running app and builds the next one, as the arcade
+    /// firmware does, with `saved` as the record in storage.
+    pub fn relaunch(
+        &mut self,
+        add_game: impl FnOnce(&mut App),
+        background: Rgb565,
+        saved: Option<Vec<u8>>,
+        launched: bool,
+    ) {
+        let old = core::mem::replace(&mut self.app, App::empty());
+        drop(old);
+        self.app = build(add_game, saved, launched);
+        self.presenter = Presenter::new(vec![0u8; BAND_BYTES], background);
+        self.peak_psram = self.peak_psram.max(psram_used());
+    }
+
+    /// Steps frames for `secs` of game time (emulated frames are short, so
+    /// scripts go by game time, never frame counts).
+    pub fn wait(&mut self, secs: f32) {
+        let until = self.app.world().resource::<Time>().elapsed_secs() + secs;
+        while self.app.world().resource::<Time>().elapsed_secs() < until {
+            self.frame();
+        }
     }
 
     /// Updates once and presents the frame, tracking PSRAM use.
@@ -103,6 +123,32 @@ impl Smoke {
             delay.delay_millis(1000);
         }
     }
+}
+
+fn build(add_game: impl FnOnce(&mut App), saved: Option<Vec<u8>>, launched: bool) -> App {
+    let mut app = App::new();
+    add_game(&mut app);
+    if launched {
+        app.insert_resource(Launcher);
+    }
+    app.insert_resource(Rng::new(HardwareRng::new().random()))
+        .insert_resource(SaveBlob::from_storage(saved));
+    app.finish();
+    app.cleanup();
+    app.update();
+    app
+}
+
+/// Internal-SRAM heap in use, for leak checks across relaunches.
+pub fn internal_heap_used() -> usize {
+    esp_alloc::HEAP
+        .stats()
+        .region_stats
+        .iter()
+        .flatten()
+        .filter(|region| !region.capabilities.contains(MemoryCapability::External))
+        .map(|region| region.used)
+        .sum()
 }
 
 fn psram_used() -> usize {

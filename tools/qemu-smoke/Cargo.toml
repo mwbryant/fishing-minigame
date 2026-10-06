@@ -18,6 +18,26 @@ name = "angler"
 test = false
 bench = false
 
+[[bin]]
+name = "spider"
+test = false
+bench = false
+
+[[bin]]
+name = "skate"
+test = false
+bench = false
+
+[[bin]]
+name = "bees"
+test = false
+bench = false
+
+[[bin]]
+name = "arcade"
+test = false
+bench = false
+
 # Mirrors firmware/Cargo.toml minus the display/touch drivers. Logging goes
 # over UART because QEMU doesn't wire USB-Serial-JTAG to stdout.
 [dependencies]
@@ -26,6 +46,10 @@ orbit_gfx = { path = "../../crates/orbit_gfx" }
 orbit_core = { path = "../../crates/orbit_core" }
 orbit_save = { path = "../../crates/orbit_save" }
 angler_game = { path = "../../crates/angler_game" }
+arcade = { path = "../../crates/arcade" }
+spider_game = { path = "../../crates/spider_game" }
+skate_game = { path = "../../crates/skate_game" }
+bees_game = { path = "../../crates/bees_game" }
 bevy = { version = "0.19", default-features = false, features = ["default_no_std"] }
 esp-hal = { version = "~1.2.2", features = ["esp32s3", "log-04", "unstable"] }
 esp-bootloader-esp-idf = { version = "0.6.0", features = ["esp32s3", "log-04"] }

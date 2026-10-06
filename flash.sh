@@ -3,7 +3,7 @@
 # board's serial log. Only the bootloader, partition table and app are
 # written, so saves (0x9000/0xA000) survive. Every session's log is kept in logs/.
 #
-#   ./flash.sh [angler|orbit]     build + flash (Angler by default), then the log
+#   ./flash.sh [game]     build + flash (the arcade menu by default; or angler, spider, skate, bees, orbit), then the log
 #   ./flash.sh monitor [game]     only reopen the log (Ctrl+R restarts the board)
 #
 # Several boards plugged in: ESPFLASH_PORT=/dev/cu.usbmodemXXXX ./flash.sh
@@ -16,7 +16,7 @@ if [ "${1:-}" = monitor ]; then
     mode=monitor
     shift
 fi
-game="${1:-angler}"
+game="${1:-arcade}"
 if [ ! -f "$repo/firmware/src/bin/$game.rs" ]; then
     games="$(cd "$repo/firmware/src/bin" && ls -- *.rs | sed 's/\.rs$//' | tr '\n' ' ')"
     echo "unknown game '$game'; pick one of: $games" >&2

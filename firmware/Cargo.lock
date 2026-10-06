@@ -58,6 +58,17 @@ dependencies = [
  "bevy",
  "orbit_core",
  "orbit_gfx",
+ "orbit_ui",
+]
+
+[[package]]
+name = "arcade"
+version = "0.1.0"
+dependencies = [
+ "bevy",
+ "orbit_core",
+ "orbit_gfx",
+ "orbit_ui",
 ]
 
 [[package]]
@@ -129,6 +140,17 @@ name = "az"
 version = "1.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7b7e4c2464d97fe331d41de9d5db0def0a96f4d823b8b32a2efd503578988973"
+
+[[package]]
+name = "bees_game"
+version = "0.1.0"
+dependencies = [
+ "angler_game",
+ "bevy",
+ "orbit_core",
+ "orbit_gfx",
+ "orbit_ui",
+]
 
 [[package]]
 name = "bevy"
@@ -2113,6 +2135,8 @@ name = "orbit_firmware"
 version = "0.1.0"
 dependencies = [
  "angler_game",
+ "arcade",
+ "bees_game",
  "bevy",
  "critical-section",
  "cst92xx",
@@ -2131,6 +2155,8 @@ dependencies = [
  "orbit_game",
  "orbit_gfx",
  "orbit_save",
+ "skate_game",
+ "spider_game",
 ]
 
 [[package]]
@@ -2162,6 +2188,15 @@ name = "orbit_save"
 version = "0.1.0"
 dependencies = [
  "embedded-storage",
+]
+
+[[package]]
+name = "orbit_ui"
+version = "0.1.0"
+dependencies = [
+ "bevy",
+ "orbit_core",
+ "orbit_gfx",
 ]
 
 [[package]]
@@ -2479,6 +2514,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e3a9fe34e3e7a50316060351f37187a3f546bce95496156754b601a5fa71b76e"
 
 [[package]]
+name = "skate_game"
+version = "0.1.0"
+dependencies = [
+ "bevy",
+ "orbit_core",
+ "orbit_gfx",
+ "orbit_ui",
+]
+
+[[package]]
 name = "slab"
 version = "0.4.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2532,6 +2577,16 @@ checksum = "f39bb07107650fb128f05f033a97212e946a3c0625cc729c97ed586bf7f226a3"
 dependencies = [
  "somni-expr",
  "somni-parser",
+]
+
+[[package]]
+name = "spider_game"
+version = "0.1.0"
+dependencies = [
+ "bevy",
+ "orbit_core",
+ "orbit_gfx",
+ "orbit_ui",
 ]
 
 [[package]]

@@ -60,6 +60,7 @@ pub(crate) fn plugin(app: &mut App) {
     app.add_systems(PostUpdate, draw_frame);
 }
 
+#[allow(clippy::too_many_arguments)]
 fn draw_frame(
     session: Res<Session>,
     tilt: Res<Tilt>,

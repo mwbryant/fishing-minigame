@@ -1,7 +1,8 @@
 //! Board support for the Waveshare ESP32-S3-Touch-AMOLED-1.75 and the frame
 //! loop every game binary shares: bring up the display, touch, IMU, buttons
-//! and flash, build the game's `no_std` Bevy app, then each frame feed the
-//! inputs, update, persist saves and present the frame over QSPI.
+//! and flash once (`Board::new`), then for each game build its `no_std` Bevy
+//! app and run it (`Board::run`): each frame feed the inputs, update, persist
+//! saves and present the frame over QSPI, until the app exits or sleeps.
 
 #![no_std]
 #![feature(asm_experimental_arch)]
@@ -30,6 +31,7 @@ use esp_hal::{
     gpio::{Event, Input, InputConfig, Level, Output, OutputConfig, Pull, WakeupConfig},
     i2c::master::{Config as I2cConfig, I2c},
     i2s::master::{Channels, DataFormat, I2s, TdmConfig},
+    peripherals::{DMA_CH1, GPIO8, GPIO9, GPIO42, GPIO45, GPIO46, I2S0, LPWR},
     rng::Rng as HardwareRng,
     rtc_cntl::{
         SocResetReason,
@@ -47,7 +49,7 @@ use esp_storage::FlashStorage;
 use log::{info, warn};
 use orbit_audio::{Mixer, SAMPLE_RATE};
 use orbit_core::{
-    Battery, Buttons, Frame, ImuFeed, ImuSample, Power, Rng, SaveBlob, SoundQueue, Touch,
+    Battery, Buttons, Frame, ImuFeed, ImuSample, Launcher, Power, Rng, SaveBlob, SoundQueue, Touch,
 };
 use orbit_gfx::{Presenter, Rgb565, SCREEN_SIZE};
 use orbit_save::SlotStore;
@@ -100,297 +102,422 @@ enum Switch {
 }
 
 type Bus = RefCell<I2c<'static, Blocking>>;
+type Device = RefCellDevice<'static, I2c<'static, Blocking>>;
 
-/// Brings up the board, builds the app with `add_game`, and runs it forever.
-pub fn run(add_game: impl FnOnce(&mut App), background: Rgb565) -> ! {
-    esp_println::logger::init_logger_from_env();
-    let peripherals = esp_hal::init(esp_hal::Config::default().with_cpu_clock(CpuClock::max()));
-    if reset_reason() == Some(SocResetReason::CoreDeepSleep) {
-        info!("woke from sleep");
-    }
+/// The speaker's peripherals, kept until a game with sound needs them, so
+/// games without sound (Orbit) never pay for the stream buffer.
+struct SpeakerPins {
+    i2s: I2S0<'static>,
+    dma: DMA_CH1<'static>,
+    mclk: GPIO42<'static>,
+    bclk: GPIO9<'static>,
+    ws: GPIO45<'static>,
+    dout: GPIO8<'static>,
+    amp: GPIO46<'static>,
+}
 
-    // Internal SRAM first: on the S3, atomic read-modify-write instructions
-    // don't work on PSRAM, and Bevy keeps Arc counts and spinlocks on the
-    // heap. PSRAM is registered last as a safety net; in emulation the whole
-    // app fits internally and nothing lands there.
-    esp_alloc::heap_allocator!(#[esp_hal::ram(reclaimed)] size: 73744);
-    esp_alloc::heap_allocator!(size: INTERNAL_HEAP_BYTES);
-    esp_alloc::psram_allocator!(peripherals.PSRAM, esp_hal::psram);
+struct Speaker {
+    audio: AudioOut,
+    mixer: Mixer,
+    amp: Output<'static>,
+}
 
-    // SAFETY: called once, before anything reads Bevy's clock.
-    unsafe { Instant::set_elapsed(since_boot) };
+/// The board, brought up once. Games run on it one after another: the arcade
+/// runs its menu, then the game it picked, then the menu again.
+pub struct Board {
+    delay: Delay,
+    display: Co5300<'static>,
+    bus: &'static Bus,
+    touch: CST92xx<Device, Delay, Output<'static>>,
+    touch_ready: bool,
+    imu: Qmi8658<Device>,
+    imu_ready: bool,
+    pmic: Option<Axp2101<Device>>,
+    pwr: Option<PwrKey<Device>>,
+    boot: Input<'static>,
+    saves: SlotStore<FlashStorage<'static>>,
+    speaker_pins: Option<SpeakerPins>,
+    speaker: Option<Speaker>,
+    idle: Idle,
+    lpwr: Option<LPWR<'static>>,
+    finger: Option<Vec2>,
+    empty_touch_reads: u8,
+    battery: Option<(Battery, u16)>,
+    battery_read: Option<HalInstant>,
+    last_imu_read: HalInstant,
+}
 
-    let mut delay = Delay::new();
-
-    let spi = Spi::new(
-        peripherals.SPI2,
-        SpiConfig::default()
-            .with_frequency(Rate::from_mhz(DISPLAY_SPI_MHZ))
-            .with_mode(Mode::_0),
-    )
-    .expect("display SPI config")
-    .with_sio0(peripherals.GPIO4)
-    .with_sio1(peripherals.GPIO5)
-    .with_sio2(peripherals.GPIO6)
-    .with_sio3(peripherals.GPIO7)
-    .with_sck(peripherals.GPIO38)
-    .with_dma(peripherals.DMA_CH0);
-    let mut display = Co5300::new(
-        spi,
-        Output::new(peripherals.GPIO12, Level::High, OutputConfig::default()),
-        Output::new(peripherals.GPIO39, Level::High, OutputConfig::default()),
-        [
-            dma_tx_buffer!(DMA_BYTES).expect("DMA buffer A"),
-            dma_tx_buffer!(DMA_BYTES).expect("DMA buffer B"),
-        ],
-    );
-    display.init(&mut delay).expect("CO5300 init");
-    info!("display ready");
-
-    let i2c = I2c::new(
-        peripherals.I2C0,
-        I2cConfig::default().with_frequency(Rate::from_khz(400)),
-    )
-    .expect("I2C config")
-    .with_sda(peripherals.GPIO15)
-    .with_scl(peripherals.GPIO14);
-    let bus: &'static Bus = Box::leak(Box::new(RefCell::new(i2c)));
-
-    let touch_reset = Output::new(peripherals.GPIO40, Level::High, OutputConfig::default());
-    let mut touch = CST92xx::new(RefCellDevice::new(bus), delay).with_reset(touch_reset);
-    let touch_ready = touch.init().is_ok();
-    if !touch_ready {
-        warn!("CST9217 touch init failed; running without touch");
-    }
-
-    let mut imu = Qmi8658::new(RefCellDevice::new(bus));
-    let imu_ready = match imu.init(&mut delay) {
-        Ok(()) => true,
-        Err(qmi8658::Error::WrongChip(id)) => {
-            warn!("IMU answered WHO_AM_I {id:#04x}, expected 0x05; running without tilt");
-            false
+impl Board {
+    /// Brings up the heap, the clock, and every driver.
+    #[allow(clippy::new_without_default)]
+    pub fn new() -> Self {
+        esp_println::logger::init_logger_from_env();
+        let peripherals = esp_hal::init(esp_hal::Config::default().with_cpu_clock(CpuClock::max()));
+        if reset_reason() == Some(SocResetReason::CoreDeepSleep) {
+            info!("woke from sleep");
         }
-        Err(err) => {
-            warn!("QMI8658 init failed ({err:?}); running without tilt");
-            false
-        }
-    };
-    let mut pmic = Axp2101::new(RefCellDevice::new(bus))
-        .inspect_err(|err| warn!("AXP2101 unavailable: {err:?}; no battery level"))
-        .ok();
-    let mut pwr = PwrKey::new(RefCellDevice::new(bus))
-        .inspect_err(|err| warn!("PWR key unavailable: {err:?}"))
-        .ok();
-    let mut boot = Input::new(
-        peripherals.GPIO0,
-        InputConfig::default().with_pull(Pull::Up),
-    );
 
-    let mut saves = SlotStore::new(FlashStorage::new(peripherals.FLASH), SAVE_FLASH_OFFSET);
-    let saved = saves.load();
-    info!(
-        "save storage: {}",
-        if saved.is_some() {
-            "found a save"
-        } else {
-            "empty"
-        }
-    );
+        // Internal SRAM first: on the S3, atomic read-modify-write instructions
+        // don't work on PSRAM, and Bevy keeps Arc counts and spinlocks on the
+        // heap. PSRAM is registered last as a safety net; in emulation the whole
+        // app fits internally and nothing lands there.
+        esp_alloc::heap_allocator!(#[esp_hal::ram(reclaimed)] size: 73744);
+        esp_alloc::heap_allocator!(size: INTERNAL_HEAP_BYTES);
+        esp_alloc::psram_allocator!(peripherals.PSRAM, esp_hal::psram);
 
-    let mut app = App::new();
-    add_game(&mut app);
-    app.insert_resource(Rng::new(HardwareRng::new().random()))
-        .insert_resource(SaveBlob::from_storage(saved));
-    app.finish();
-    app.cleanup();
-    app.update();
-    match psram_used() {
-        0 => info!("bevy app built entirely in internal SRAM"),
-        spilled => warn!(
-            "bevy spilled {spilled} B into PSRAM; atomics there are unreliable, \
-             grow INTERNAL_HEAP_BYTES if the game hangs"
-        ),
-    }
+        // SAFETY: called once, before anything reads Bevy's clock.
+        unsafe { Instant::set_elapsed(since_boot) };
 
-    // Started after the first update (Bevy's slow schedule build) so the
-    // stream doesn't underrun at once; only for games that make sound.
-    let mut sound = app.world().contains_resource::<SoundQueue>().then(|| {
-        let i2s = I2s::new(
-            peripherals.I2S0,
-            peripherals.DMA_CH1,
-            TdmConfig::new_tdm_philips()
-                .with_sample_rate(Rate::from_hz(SAMPLE_RATE))
-                .with_data_format(DataFormat::Data16Channel16)
-                .with_channels(Channels::STEREO),
+        let mut delay = Delay::new();
+
+        let spi = Spi::new(
+            peripherals.SPI2,
+            SpiConfig::default()
+                .with_frequency(Rate::from_mhz(DISPLAY_SPI_MHZ))
+                .with_mode(Mode::_0),
         )
-        .expect("I2S config")
-        .with_mclk(peripherals.GPIO42);
-        let i2s_tx = i2s
-            .i2s_tx
-            .with_bclk(peripherals.GPIO9)
-            .with_ws(peripherals.GPIO45)
-            .with_dout(peripherals.GPIO8)
-            .build();
-        let mut mixer = Mixer::default();
-        let audio = AudioOut::start(i2s_tx, speaker::stream_buffer(), &mut mixer);
-        let mut amp = Output::new(peripherals.GPIO46, Level::Low, OutputConfig::default());
-        let mut codec = Es8311::new(RefCellDevice::new(bus));
-        match codec.chip_id() {
-            Ok((id1, id2)) => info!("ES8311 id {id1:#04x} {id2:#04x} (expect 0x83 0x11)"),
-            Err(err) => warn!("ES8311 not answering: {err:?}"),
-        }
-        if let Err(err) = codec.init(SAMPLE_RATE, &mut amp) {
-            warn!("ES8311 init failed: {err:?}");
-        }
-        (audio, mixer, amp)
-    });
+        .expect("display SPI config")
+        .with_sio0(peripherals.GPIO4)
+        .with_sio1(peripherals.GPIO5)
+        .with_sio2(peripherals.GPIO6)
+        .with_sio3(peripherals.GPIO7)
+        .with_sck(peripherals.GPIO38)
+        .with_dma(peripherals.DMA_CH0);
+        let mut display = Co5300::new(
+            spi,
+            Output::new(peripherals.GPIO12, Level::High, OutputConfig::default()),
+            Output::new(peripherals.GPIO39, Level::High, OutputConfig::default()),
+            [
+                dma_tx_buffer!(DMA_BYTES).expect("DMA buffer A"),
+                dma_tx_buffer!(DMA_BYTES).expect("DMA buffer B"),
+            ],
+        );
+        display.init(&mut delay).expect("CO5300 init");
+        info!("display ready");
 
-    let idle = Idle::new(SystemTimer::new(peripherals.SYSTIMER).alarm0);
-    let lpwr = peripherals.LPWR;
-    let mut presenter = Presenter::new(vec![0u8; BAND_BYTES], background);
-    let mut stats = Stats::new();
-    let mut last_imu_read = HalInstant::now();
-    let mut finger = None;
-    let mut empty_touch_reads = 0u8;
-    let mut battery: Option<(Battery, u16)> = None;
-    let mut battery_read: Option<HalInstant> = None;
-    let mut dimmed = false;
-    loop {
-        let frame_start = HalInstant::now();
-        let world = app.world_mut();
+        let i2c = I2c::new(
+            peripherals.I2C0,
+            I2cConfig::default().with_frequency(Rate::from_khz(400)),
+        )
+        .expect("I2C config")
+        .with_sda(peripherals.GPIO15)
+        .with_scl(peripherals.GPIO14);
+        let bus: &'static Bus = Box::leak(Box::new(RefCell::new(i2c)));
 
+        let touch_reset = Output::new(peripherals.GPIO40, Level::High, OutputConfig::default());
+        let mut touch = CST92xx::new(RefCellDevice::new(bus), delay).with_reset(touch_reset);
+        let touch_ready = touch.init().is_ok();
+        if !touch_ready {
+            warn!("CST9217 touch init failed; running without touch");
+        }
+
+        let mut imu = Qmi8658::new(RefCellDevice::new(bus));
+        let imu_ready = match imu.init(&mut delay) {
+            Ok(()) => true,
+            Err(qmi8658::Error::WrongChip(id)) => {
+                warn!("IMU answered WHO_AM_I {id:#04x}, expected 0x05; running without tilt");
+                false
+            }
+            Err(err) => {
+                warn!("QMI8658 init failed ({err:?}); running without tilt");
+                false
+            }
+        };
+        let pmic = Axp2101::new(RefCellDevice::new(bus))
+            .inspect_err(|err| warn!("AXP2101 unavailable: {err:?}; no battery level"))
+            .ok();
+        let pwr = PwrKey::new(RefCellDevice::new(bus))
+            .inspect_err(|err| warn!("PWR key unavailable: {err:?}"))
+            .ok();
+        let boot = Input::new(
+            peripherals.GPIO0,
+            InputConfig::default().with_pull(Pull::Up),
+        );
+
+        let mut saves = SlotStore::new(FlashStorage::new(peripherals.FLASH), SAVE_FLASH_OFFSET);
+        info!(
+            "save storage: {}",
+            if saves.load().is_some() {
+                "found a save"
+            } else {
+                "empty"
+            }
+        );
+
+        Self {
+            delay,
+            display,
+            bus,
+            touch,
+            touch_ready,
+            imu,
+            imu_ready,
+            pmic,
+            pwr,
+            boot,
+            saves,
+            speaker_pins: Some(SpeakerPins {
+                i2s: peripherals.I2S0,
+                dma: peripherals.DMA_CH1,
+                mclk: peripherals.GPIO42,
+                bclk: peripherals.GPIO9,
+                ws: peripherals.GPIO45,
+                dout: peripherals.GPIO8,
+                amp: peripherals.GPIO46,
+            }),
+            speaker: None,
+            idle: Idle::new(SystemTimer::new(peripherals.SYSTIMER).alarm0),
+            lpwr: Some(peripherals.LPWR),
+            finger: None,
+            empty_touch_reads: 0,
+            battery: None,
+            battery_read: None,
+            last_imu_read: HalInstant::now(),
+        }
+    }
+
+    /// Builds an app with `add_game` and runs it until it sends `AppExit`,
+    /// then hands it back so the caller can see what a menu picked. A game
+    /// `launched` from the arcade menu offers HOME. When a game asks to sleep
+    /// this never returns: the board sleeps, and waking it restarts the chip.
+    pub fn run(
+        &mut self,
+        add_game: impl FnOnce(&mut App),
+        background: Rgb565,
+        launched: bool,
+    ) -> App {
+        let mut app = App::new();
+        add_game(&mut app);
+        if launched {
+            app.insert_resource(Launcher);
+        }
+        app.insert_resource(Rng::new(HardwareRng::new().random()))
+            .insert_resource(SaveBlob::from_storage(self.saves.load()));
+        app.finish();
+        app.cleanup();
+        app.update();
+        match psram_used() {
+            0 => info!("bevy app built entirely in internal SRAM"),
+            spilled => warn!(
+                "bevy spilled {spilled} B into PSRAM; atomics there are unreliable, \
+                 grow INTERNAL_HEAP_BYTES if the game hangs"
+            ),
+        }
+        // Started after the first update (Bevy's slow schedule build) so the
+        // stream doesn't underrun at once; only once a game makes sound.
+        if self.speaker.is_none()
+            && app.world().contains_resource::<SoundQueue>()
+            && let Some(pins) = self.speaker_pins.take()
+        {
+            self.speaker = Some(start_speaker(pins, self.bus));
+        }
+        if let Err(err) = self.display.set_brightness(FULL_BRIGHTNESS) {
+            warn!("brightness change failed: {err:?}");
+        }
+
+        let mut presenter = Presenter::new(vec![0u8; BAND_BYTES], background);
+        let mut stats = Stats::new();
+        let mut dimmed = false;
+        loop {
+            let frame_start = HalInstant::now();
+            self.feed_inputs(app.world_mut());
+            app.update();
+
+            if let Some(speaker) = self.speaker.as_mut() {
+                for command in app.world_mut().resource_mut::<SoundQueue>().drain() {
+                    speaker.mixer.apply(command);
+                }
+                speaker.audio.pump(&mut speaker.mixer);
+            }
+            if let Some(bytes) = app.world_mut().resource_mut::<SaveBlob>().take_pending()
+                && let Err(err) = self.saves.save(&bytes)
+            {
+                warn!("saving failed: {err:?}");
+            }
+            let sent =
+                presenter.present(&app.world().resource::<Frame>().shapes, &mut self.display);
+
+            let power = app.world().get_resource::<Power>().copied();
+            if power.is_some_and(|power| power.sleep_requested()) {
+                self.sleep();
+            }
+            if app.should_exit().is_some() {
+                return app;
+            }
+            let idle_now = power.is_some_and(|power| power.idle);
+            if idle_now != dimmed {
+                dimmed = idle_now;
+                let level = if dimmed {
+                    IDLE_BRIGHTNESS
+                } else {
+                    FULL_BRIGHTNESS
+                };
+                if let Err(err) = self.display.set_brightness(level) {
+                    warn!("brightness change failed: {err:?}");
+                }
+            }
+
+            let busy = frame_start.elapsed();
+            if let Some(frames) = stats.record(busy, sent) {
+                info!(
+                    "{frames}{}{} | heap {}",
+                    self.speaker
+                        .as_ref()
+                        .map_or(String::new(), |speaker| audio_status(&speaker.audio)),
+                    battery_status(self.battery),
+                    esp_alloc::HEAP.stats(),
+                );
+            }
+            let budget = if dimmed {
+                IDLE_FRAME_BUDGET
+            } else {
+                FRAME_BUDGET
+            };
+            let spare = budget.saturating_sub(Duration::from_micros(busy.as_micros()));
+            self.idle
+                .wait(HalDuration::from_micros(spare.as_micros() as u64));
+        }
+    }
+
+    /// Touch, battery, buttons and IMU into the app's input resources.
+    fn feed_inputs(&mut self, world: &mut World) {
         // A failed read says nothing about the finger, so it changes nothing.
-        if touch_ready && let Ok(points) = touch.touches() {
+        if self.touch_ready
+            && let Ok(points) = self.touch.touches()
+        {
             match points[0] {
                 Some(p) => {
-                    finger = Some(screen_point(p.x, p.y));
-                    empty_touch_reads = 0;
+                    self.finger = Some(screen_point(p.x, p.y));
+                    self.empty_touch_reads = 0;
                 }
                 None => {
-                    empty_touch_reads = empty_touch_reads.saturating_add(1);
-                    if empty_touch_reads >= TOUCH_RELEASE_READS {
-                        finger = None;
+                    self.empty_touch_reads = self.empty_touch_reads.saturating_add(1);
+                    if self.empty_touch_reads >= TOUCH_RELEASE_READS {
+                        self.finger = None;
                     }
                 }
             }
         }
-        world.resource_mut::<Touch>().set(finger);
+        world.resource_mut::<Touch>().set(self.finger);
 
-        if battery_read.is_none_or(|at| at.elapsed().as_millis() >= BATTERY_POLL_MS)
-            && let Some(pmic) = pmic.as_mut()
+        if self
+            .battery_read
+            .is_none_or(|at| at.elapsed().as_millis() >= BATTERY_POLL_MS)
+            && let Some(pmic) = self.pmic.as_mut()
         {
-            battery_read = Some(HalInstant::now());
+            self.battery_read = Some(HalInstant::now());
             match pmic.battery() {
-                Ok(reading) => battery = Some(reading),
+                Ok(reading) => self.battery = Some(reading),
                 Err(err) => warn!("battery read failed: {err:?}"),
             }
-            if let (Some((reading, _)), Some(mut power)) =
-                (battery, world.get_resource_mut::<Power>())
-            {
-                power.battery = Some(reading);
-            }
+        }
+        if let (Some((reading, _)), Some(mut power)) =
+            (self.battery, world.get_resource_mut::<Power>())
+            && power.battery != Some(reading)
+        {
+            power.battery = Some(reading);
         }
 
         if let Some(mut buttons) = world.get_resource_mut::<Buttons>() {
-            let pwr_held = pwr
+            let pwr_held = self
+                .pwr
                 .as_mut()
                 .is_some_and(|key| key.is_pressed().unwrap_or(false));
+            let boot_held = self.boot.is_low();
             let held = |switch| match switch {
                 Switch::Pwr => pwr_held,
-                Switch::Boot => boot.is_low(),
+                Switch::Boot => boot_held,
             };
             buttons.action.set(held(ACTION_BUTTON));
             buttons.zero.set(held(ZERO_BUTTON));
         }
 
-        if imu_ready
+        if self.imu_ready
             && let Some(mut feed) = world.get_resource_mut::<ImuFeed>()
-            && let Ok((accel, gyro)) = imu.read()
+            && let Ok((accel, gyro)) = self.imu.read()
         {
             let now = HalInstant::now();
-            let dt = (now - last_imu_read).as_micros() as f32 / 1e6;
-            last_imu_read = now;
+            let dt = (now - self.last_imu_read).as_micros() as f32 / 1e6;
+            self.last_imu_read = now;
             feed.push(ImuSample {
                 accel: imu_to_screen(accel),
                 gyro: imu_to_screen(gyro) * (core::f32::consts::PI / 180.0),
                 dt,
             });
         }
-
-        app.update();
-
-        if let Some((audio, mixer, _)) = sound.as_mut() {
-            for command in app.world_mut().resource_mut::<SoundQueue>().drain() {
-                mixer.apply(command);
-            }
-            audio.pump(mixer);
-        }
-
-        if let Some(bytes) = app.world_mut().resource_mut::<SaveBlob>().take_pending()
-            && let Err(err) = saves.save(&bytes)
-        {
-            warn!("saving failed: {err:?}");
-        }
-        let sent = presenter.present(&app.world().resource::<Frame>().shapes, &mut display);
-
-        let power = app.world().get_resource::<Power>().copied();
-        if power.is_some_and(|power| power.sleep_requested()) {
-            // The game's goodbye frame is on the glass. Wait for BOOT to come
-            // up first: it wakes the chip on a low level.
-            info!("sleeping; press BOOT to wake");
-            while boot.is_low() {
-                delay.delay_millis(10);
-            }
-            delay.delay_millis(50);
-            if let Some((_, _, amp)) = sound.as_mut() {
-                amp.set_low();
-            }
-            if touch_ready && let Err(err) = touch.sleep() {
-                warn!("touch sleep failed: {err:?}");
-            }
-            if imu_ready && let Err(err) = imu.power_down() {
-                warn!("IMU power-down failed: {err:?}");
-            }
-            if let Err(err) = display.sleep(&mut delay) {
-                warn!("display sleep failed: {err:?}");
-            }
-            boot.listen(Event::LowLevel);
-            boot.apply_wakeup_config(&WakeupConfig::default().with_low_power_path(true))
-                .expect("GPIO0 is a low-power pad");
-            LowPower::new(lpwr).sleep_deep(RtcSleepConfig::deep());
-        }
-        let idle_now = power.is_some_and(|power| power.idle);
-        if idle_now != dimmed {
-            dimmed = idle_now;
-            let level = if dimmed {
-                IDLE_BRIGHTNESS
-            } else {
-                FULL_BRIGHTNESS
-            };
-            if let Err(err) = display.set_brightness(level) {
-                warn!("brightness change failed: {err:?}");
-            }
-        }
-
-        let busy = frame_start.elapsed();
-        if let Some(frames) = stats.record(busy, sent) {
-            info!(
-                "{frames}{}{} | heap {}",
-                sound
-                    .as_ref()
-                    .map_or(String::new(), |(audio, ..)| audio_status(audio)),
-                battery_status(battery),
-                esp_alloc::HEAP.stats(),
-            );
-        }
-        let budget = if dimmed {
-            IDLE_FRAME_BUDGET
-        } else {
-            FRAME_BUDGET
-        };
-        let spare = budget.saturating_sub(Duration::from_micros(busy.as_micros()));
-        idle.wait(HalDuration::from_micros(spare.as_micros() as u64));
     }
+
+    /// The game's goodbye frame is on the glass: wait for BOOT to come up
+    /// (it wakes the chip on a low level), switch everything off, and sleep.
+    fn sleep(&mut self) -> ! {
+        info!("sleeping; press BOOT to wake");
+        while self.boot.is_low() {
+            self.delay.delay_millis(10);
+        }
+        self.delay.delay_millis(50);
+        if let Some(speaker) = self.speaker.as_mut() {
+            speaker.amp.set_low();
+        }
+        if self.touch_ready
+            && let Err(err) = self.touch.sleep()
+        {
+            warn!("touch sleep failed: {err:?}");
+        }
+        if self.imu_ready
+            && let Err(err) = self.imu.power_down()
+        {
+            warn!("IMU power-down failed: {err:?}");
+        }
+        if let Err(err) = self.display.sleep(&mut self.delay) {
+            warn!("display sleep failed: {err:?}");
+        }
+        self.boot.listen(Event::LowLevel);
+        self.boot
+            .apply_wakeup_config(&WakeupConfig::default().with_low_power_path(true))
+            .expect("GPIO0 is a low-power pad");
+        let lpwr = self.lpwr.take().expect("the board sleeps once per boot");
+        LowPower::new(lpwr).sleep_deep(RtcSleepConfig::deep());
+    }
+}
+
+/// Brings up the board and runs one game; a HOME from it (which only the
+/// arcade menu offers) starts it again.
+pub fn run(add_game: impl Fn(&mut App), background: Rgb565) -> ! {
+    let mut board = Board::new();
+    loop {
+        drop(board.run(&add_game, background, false));
+    }
+}
+
+fn start_speaker(pins: SpeakerPins, bus: &'static Bus) -> Speaker {
+    let i2s = I2s::new(
+        pins.i2s,
+        pins.dma,
+        TdmConfig::new_tdm_philips()
+            .with_sample_rate(Rate::from_hz(SAMPLE_RATE))
+            .with_data_format(DataFormat::Data16Channel16)
+            .with_channels(Channels::STEREO),
+    )
+    .expect("I2S config")
+    .with_mclk(pins.mclk);
+    let i2s_tx = i2s
+        .i2s_tx
+        .with_bclk(pins.bclk)
+        .with_ws(pins.ws)
+        .with_dout(pins.dout)
+        .build();
+    let mut mixer = Mixer::default();
+    let audio = AudioOut::start(i2s_tx, speaker::stream_buffer(), &mut mixer);
+    let mut amp = Output::new(pins.amp, Level::Low, OutputConfig::default());
+    let mut codec = Es8311::new(RefCellDevice::new(bus));
+    match codec.chip_id() {
+        Ok((id1, id2)) => info!("ES8311 id {id1:#04x} {id2:#04x} (expect 0x83 0x11)"),
+        Err(err) => warn!("ES8311 not answering: {err:?}"),
+    }
+    if let Err(err) = codec.init(SAMPLE_RATE, &mut amp) {
+        warn!("ES8311 init failed: {err:?}");
+    }
+    Speaker { audio, mixer, amp }
 }
 
 fn audio_status(audio: &AudioOut) -> String {

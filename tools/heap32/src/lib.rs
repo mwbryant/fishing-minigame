@@ -8,6 +8,7 @@ use angler_game::{
     testing as angler, ui,
 };
 use bevy::{math::ops, platform::time::Instant, prelude::*};
+use orbit_core::testing as core_testing;
 use orbit_game::{
     arena::SCREEN_CENTER,
     testing::{headless_app, press, tap, tick},
@@ -119,5 +120,109 @@ pub extern "C" fn measure_angler() -> *const u32 {
         angler::tick(&mut app, 60);
         angler::click_action(&mut app);
     }
+    report(app, built)
+}
+
+fn built(add_game: impl FnOnce(&mut App)) -> App {
+    core_testing::headless(add_game, None)
+}
+
+/// The arcade menu: the dial swept round, settings opened, sound toggled
+/// twice, back, then a game picked.
+#[unsafe(no_mangle)]
+pub extern "C" fn measure_arcade() -> *const u32 {
+    start_clock();
+    let mut app = built(|app| {
+        app.add_plugins(arcade::ArcadePlugin);
+    });
+    let built = CURRENT.load(Relaxed);
+    for frame in 0..600 {
+        core_testing::set_tilt(&mut app, ops::sin(frame as f32 * 0.02) * 70.0, 0.0);
+        app.update();
+    }
+    core_testing::set_tilt(&mut app, -24.0, 0.0);
+    core_testing::click_action(&mut app);
+    core_testing::set_tilt(&mut app, 0.0, 0.0);
+    core_testing::click_action(&mut app);
+    core_testing::click_action(&mut app);
+    core_testing::set_tilt(&mut app, 60.0, 0.0);
+    core_testing::click_action(&mut app);
+    core_testing::set_tilt(&mut app, 24.0, 0.0);
+    core_testing::click_action(&mut app);
+    core_testing::tick(&mut app, 60);
+    report(app, built)
+}
+
+/// Spider Roulette: three rounds of cracking eggs round the dial.
+#[unsafe(no_mangle)]
+pub extern "C" fn measure_spider() -> *const u32 {
+    start_clock();
+    let mut app = built(|app| {
+        app.add_plugins(spider_game::SpiderPlugin);
+    });
+    let built = CURRENT.load(Relaxed);
+    for _ in 0..3 {
+        core_testing::click_action(&mut app);
+        for egg in 0..spider_game::EGGS {
+            let dial = egg as f32 * 30.0;
+            let steer = if dial > 180.0 { dial - 360.0 } else { dial } / 3.0;
+            core_testing::set_tilt(&mut app, steer, 0.0);
+            core_testing::tick(&mut app, 20);
+            core_testing::click_action(&mut app);
+        }
+        core_testing::tick(&mut app, 150);
+    }
+    report(app, built)
+}
+
+/// Skate: a rider popping before each obstacle for 30 s, then a bail.
+#[unsafe(no_mangle)]
+pub extern "C" fn measure_skate() -> *const u32 {
+    use skate_game::{BOARD_HALF, POP_DEG, Phase, Ride, SKATER_X};
+    start_clock();
+    let mut app = built(|app| {
+        app.add_plugins(skate_game::SkatePlugin);
+    });
+    let built = CURRENT.load(Relaxed);
+    core_testing::click_action(&mut app);
+    for _ in 0..60 * 30 {
+        let ride = app.world().resource::<Ride>();
+        if ride.phase != Phase::Riding {
+            break;
+        }
+        let close = ride
+            .obstacles()
+            .iter()
+            .any(|o| (0.0..55.0).contains(&(o.x - SKATER_X - BOARD_HALF)));
+        let steer = if close && !ride.airborne() {
+            -(POP_DEG + 5.0)
+        } else {
+            0.0
+        };
+        core_testing::set_tilt(&mut app, steer, 0.0);
+        app.update();
+    }
+    core_testing::set_tilt(&mut app, 0.0, 0.0);
+    core_testing::tick(&mut app, 600);
+    report(app, built)
+}
+
+/// Bees???: a steady hand for 30 s, then the jar tipped until it's empty.
+#[unsafe(no_mangle)]
+pub extern "C" fn measure_bees() -> *const u32 {
+    use bees_game::{CONTROL_GAIN, Orbit};
+    start_clock();
+    let mut app = built(|app| {
+        app.add_plugins(bees_game::BeesPlugin);
+    });
+    let built = CURRENT.load(Relaxed);
+    core_testing::click_action(&mut app);
+    for _ in 0..60 * 30 {
+        let steer = app.world().resource::<Orbit>().drift_deg / CONTROL_GAIN;
+        core_testing::set_tilt(&mut app, steer, 0.0);
+        app.update();
+    }
+    core_testing::set_tilt(&mut app, 80.0, 0.0);
+    core_testing::tick(&mut app, 60 * 20);
     report(app, built)
 }
