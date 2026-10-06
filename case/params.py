@@ -10,7 +10,7 @@ is at 9 o'clock, PWR at 2 o'clock and BOOT at 4 o'clock (see board.py).
 GLASS_GAP = 0.30  # radial gap between the glass edge and the case bore
 RIM_PROUD = 0.50  # rim height above the glass, so a face-down drop lands on plastic
 FLOOR_GAP = 0.60  # gap between the deepest board part (8-pin header) and the floor
-BUTTON_HOLE_GAP = 0.15  # radial gap between a button shaft and its hole
+BUTTON_HOLE_GAP = 0.15  # gap all round between a button cap and its hole
 BUTTON_ACTUATOR_GAP = 0.10  # gap between a button and the switch at rest
 
 # --- Body ---------------------------------------------------------------------------------
@@ -34,12 +34,17 @@ SCREW_SHELF = 2.7  # plastic the screw head clamps; 2.7 + 3.3 thread = M2x6
 POST_D = 4.6  # posts the standoffs sit on (narrow: the BAT/SPK sockets are close)
 POST_WIDE_D = 6.0  # lower part of the posts in the battery case, around the counterbore
 
-# --- Buttons (two printed plungers between the case and the side keys) --------------------
-BUTTON_D = 3.2  # the part you press
-BUTTON_FLANGE_D = 5.4  # keeps the plunger from falling out; a 45 deg cone, prints unsupported
+# --- Buttons (two printed caps through the rim, pressing the side keys) --------------------
+BUTTON_SIZE = (
+    8.0,
+    4.6,
+)  # the cap you press: along the rim x tall (a rounded slot, so it can't turn)
+BUTTON_FLANGE = (
+    0.9  # how far the flange inside overhangs the cap; a 45 deg cone, prints unsupported
+)
 BUTTON_FLANGE_T = 0.4
-BUTTON_NUB_D = 1.6  # presses the switch actuator (2.0 x 1.0)
-BUTTON_PROUD = 0.8  # how far the button stands out past the flanges
+BUTTON_NUB_D = 1.8  # presses the switch actuator (2.0 x 1.0)
+BUTTON_PROUD = 1.0  # how far the cap stands out past the flanges
 BUTTON_TIP_CHAMFER = 0.4
 
 # --- Ports --------------------------------------------------------------------------------

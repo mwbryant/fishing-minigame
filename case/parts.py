@@ -1,9 +1,9 @@
 """Case geometry, built from params.py (what you tune) and board.py (what was measured).
 
 The case is one cup shaped like a fly reel: the glass is the spool face, the rim is line wound
-between two flanges, and the back plate carries a drag-knob ring, a whale and a line of
-text. The board drops in glass-up and three M2 screws through the back pull its own SMT
-standoffs down onto posts, so nothing clips or glues. Two printed plungers carry PWR and BOOT
+between two flanges, and the back plate carries a drag-knob ring, a whale and raised text
+around the screw heads. The board drops in glass-up and three M2 screws through the back pull its own SMT
+standoffs down onto posts, so nothing clips or glues. Two printed button caps carry PWR and BOOT
 through the rim. The battery variant is the same cup with the floor lowered by one cell.
 """
 
@@ -26,6 +26,7 @@ from build123d import (
     RectangleRounded,
     Rot,
     Sketch,
+    SlotOverall,
     Spline,
     Text,
     ThreePointArc,
@@ -194,9 +195,13 @@ def speaker_grille(battery: bool) -> Part:
 def port_cutouts() -> Part:
     w, h = p.USB_OPENING
     cuts = through_rim(board.USB_ANGLE, board.USB_Z, RectangleRounded(w, h, p.USB_OPENING_ROUND))
-    hole = Circle(p.BUTTON_D / 2 + p.BUTTON_HOLE_GAP)
+    w, h = p.BUTTON_SIZE
+    g, f = p.BUTTON_HOLE_GAP, p.BUTTON_FLANGE
+    hole = SlotOverall(w + 2 * g, h + 2 * g)
+    seat = SlotOverall(w + 2 * f + 1, h + 2 * f + 1)
     for angle in (board.PWR_ANGLE, board.BOOT_ANGLE):
         cuts += through_rim(angle, board.KEY_Z, hole)
+        cuts += extrude(radial_plane(angle, BORE_R - 2, board.KEY_Z) * seat, amount=2)
     if p.SD_SLOT:
         sw, sh = p.SD_SLOT_SIZE
         cuts += through_rim(
@@ -347,53 +352,52 @@ def case(battery: bool = False) -> Part:
     return body - cuts
 
 
-# --- Button plungers -------------------------------------------------------------------------
-# Along its own axis a plunger runs from the switch actuator (inside) to past the rim. Its flange
-# is a 45 degree cone that stops against the edge of the hole, which also centres it.
+# --- Buttons ---------------------------------------------------------------------------------
+# Along its axis a button runs from the switch actuator (inside) to past the rim: a nub, a flange,
+# a 45 degree cone and the cap. The cone stops against the hole's edge on a flat seat cut into
+# the bore, which also centres the cap. Its rounded-slot shape keys it so it can't turn.
 
 
 def button_stations() -> dict[str, float]:
-    """Distances from the case centre along the button axis, with the plunger at rest."""
-    hole_r = p.BUTTON_D / 2 + p.BUTTON_HOLE_GAP
-    stop = math.sqrt(BORE_R**2 - hole_r**2)
-    flange = stop - (p.BUTTON_FLANGE_D / 2 - hole_r)
+    """Distances from the case centre along the button axis, with the button at rest."""
+    cone_end = BORE_R + p.BUTTON_HOLE_GAP
+    cone_start = cone_end - p.BUTTON_FLANGE
     return {
         "nub": board.KEY_TIP_R + p.BUTTON_ACTUATOR_GAP,
-        "flange_in": flange - p.BUTTON_FLANGE_T,
-        "flange": flange,
-        "shaft": stop + (hole_r - p.BUTTON_D / 2),
+        "flange_in": cone_start - p.BUTTON_FLANGE_T,
+        "cone_start": cone_start,
+        "cone_end": cone_end,
         "tip": OUTER_R + p.BUTTON_PROUD,
     }
 
 
 def button_axial() -> Part:
-    """The plunger with its axis on +Z, where Z is the distance from the case centre."""
+    """One button with its axis on +Z (Z is the distance from the case centre), long side on X."""
     s = button_stations()
-    rb, rf, rn, c = p.BUTTON_D / 2, p.BUTTON_FLANGE_D / 2, p.BUTTON_NUB_D / 2, p.BUTTON_TIP_CHAMFER
-    outline = Polyline(
-        (0, 0, s["nub"]),
-        (rn, 0, s["nub"]),
-        (rn, 0, s["flange_in"]),
-        (rf, 0, s["flange_in"]),
-        (rf, 0, s["flange"]),
-        (rb, 0, s["shaft"]),
-        (rb, 0, s["tip"] - c),
-        (rb - c, 0, s["tip"]),
-        (0, 0, s["tip"]),
-        close=True,
+    w, h = p.BUTTON_SIZE
+    f, c = p.BUTTON_FLANGE, p.BUTTON_TIP_CHAMFER
+    flange = SlotOverall(w + 2 * f, h + 2 * f)
+    nub = Cylinder(p.BUTTON_NUB_D / 2, s["flange_in"] - s["nub"], align=BOTTOM)
+    cap_length = s["tip"] - s["cone_end"]
+    cap = extrude(SlotOverall(w, h), amount=cap_length - c)
+    cap += Pos(0, 0, cap_length - c) * extrude(SlotOverall(w, h), amount=c, taper=45)
+    return (
+        Pos(0, 0, s["nub"]) * nub
+        + Pos(0, 0, s["flange_in"]) * extrude(flange, amount=p.BUTTON_FLANGE_T)
+        + Pos(0, 0, s["cone_start"]) * extrude(flange, amount=f, taper=45)
+        + Pos(0, 0, s["cone_end"]) * cap
     )
-    return revolve(make_face(outline), Axis.Z)
 
 
 def button(pressed: float = 0.0) -> Part:
-    """Both plungers in place on the case (pressed = how far in, in mm)."""
+    """Both buttons in place on the case (pressed = how far in, in mm)."""
     axial = Pos(0, 0, -pressed) * button_axial()
     both = Part()
     for angle in (board.PWR_ANGLE, board.BOOT_ANGLE):
-        both += Pos(0, 0, board.KEY_Z) * Rot(0, 0, angle) * Rot(0, 90, 0) * axial
+        both += radial_plane(angle, 0, board.KEY_Z).location * axial
     return both
 
 
 def button_print() -> Part:
-    """One plunger standing on the face you press, as it prints."""
+    """One button lying on the face you press, as it prints."""
     return Pos(0, 0, button_stations()["tip"]) * Rot(180, 0, 0) * button_axial()

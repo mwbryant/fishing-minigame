@@ -1,7 +1,7 @@
 """Build every printable part into out/: `uv run build.py`.
 
 out/ gets, for each case variant, a STEP (edit it in any CAD program) and an STL, plus a
-3MF print plate with the case on its back and three button plungers beside it, and a
+3MF print plate with the case on its back and three button caps beside it, and a
 _two_colour.3mf where the raised art is its own part, ready for a second filament on an AMS.
 """
 
@@ -30,7 +30,7 @@ def mesh_object(mesher: Mesher, shape, name: str):
 
 
 def plate(name: str, case, two_colour: bool = False):
-    """The case on its back, at the origin, with three plungers (one spare) beside it.
+    """The case on its back, at the origin, with three button caps (one spare) beside it.
 
     With `two_colour` the case is one object in two parts, the raised art and the rest, so the
     slicer can give the art its own filament.
@@ -85,7 +85,8 @@ def main():
         summary(name, battery)
     save(parts.button_print(), "button")
     save(fit_ring(), "fit_test_ring")
-    print(f"buttons: print 2 (+1 spare) standing on the round end, {p.BUTTON_D} mm across")
+    w, h = p.BUTTON_SIZE
+    print(f"buttons: {w:g} x {h:g} mm caps, print 2 (+1 spare) lying on the face you press")
     print("fit_test_ring: the top 10 mm of the case; print it as it lies, cut edge down")
     print("screws: 3x M2x6 (M2x5 also fits; never longer than 6), heads in the back counterbores")
     print(f"wrote {OUT.relative_to(Path.cwd()) if OUT.is_relative_to(Path.cwd()) else OUT}/")
