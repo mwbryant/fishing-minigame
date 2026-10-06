@@ -29,7 +29,7 @@ Rules that bite:
   the flow with a phase enum resource rather than Bevy states (states cost device heap), and
   add a `firmware/src/bin/<game>.rs` plus a `tools/qemu-smoke/src/bin/<game>.rs`.
 - The heap budget is tight: Bevy must fit in about 284 KB of internal SRAM, because
-  PSRAM atomics are unreliable on the S3. Peak headroom is Orbit 11 KB and Angler 79 KB.
+  PSRAM atomics are unreliable on the S3. Peak headroom is Orbit 11 KB and Angler 76 KB.
   After adding plugins, systems, resources or states, run `tools/heap32/run.sh`.
   `tools/qemu-smoke/run.sh` checks the full firmware runtime of both games in QEMU.
 - Shapes are diffed with `PartialEq` every frame and must report tight `bounds()`. The

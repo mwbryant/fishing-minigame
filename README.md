@@ -16,6 +16,9 @@
     Gold and hats are saved.
   - **Re-level:** BOOT re-zeroes the IMU at any time, and it re-levels by itself after
     each fish.
+  - **Sleep:** hold BOOT for 1.5 s to sleep (panel, touch, IMU and amp off, chip in deep
+    sleep); press BOOT to wake. After 30 s untouched the panel dims and the loop slows to
+    20 Hz. The battery level shows at the top of the menus.
   - **Sound:** effects for the cast, splash, bite, reel clicks, catch, escape, the shop's
     till and menu taps, synthesized by a small script.
   - **Menus:** the title has LOG, SHOP and SETTINGS touch buttons, and MENU on the aiming

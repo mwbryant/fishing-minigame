@@ -26,7 +26,8 @@ cargo test --workspace && cargo clippy --workspace --all-targets && cargo fmt
 cargo run -p orbit_desktop -- angler                 # play Angler (the default) ...
 cargo run -p orbit_desktop -- orbit                  # ... or Orbit
 cargo run -p orbit_desktop -- angler snapshot screenshots   # headless PNGs of each screen
-#   desktop controls: mouse = finger, Space = action (PWR), Z = zero (BOOT),
+#   desktop controls: mouse = finger, Space = action (PWR), Z = zero (BOOT; hold 1.5 s
+#   to sleep, press to wake: the window goes dark, then the game boots afresh),
 #   left/right = turn the virtual device (it stays turned), hold up/down = lean it
 #   15 degrees (it springs back level when released), C = straighten, Esc = quit.
 #   Desktop saves live in ~/.logic-orbit/<game>.flash (device flash format).
@@ -183,7 +184,8 @@ Both buttons are on the right edge, **PWR at about 2 o'clock and BOOT at about 4
 and **PWR = action** (hold to charge a cast). They are swapped by the `ACTION_BUTTON` /
 `ZERO_BUTTON` constants in `firmware/src/lib.rs`.
 
-**BOOT:** GPIO0, active low, with an external 10k pull-up and a 100 nF debounce cap.
+**BOOT:** GPIO0, active low, with an external 10k pull-up and a 100 nF debounce cap. It is a
+low-power (RTC) pad, so it is the deep-sleep wake button (section 10.5).
 
 **PWR:**
 - Its live level is TCA9554 (0x20) pin P4, `SYS_OUT`, **high while pressed**. Make P4 an input
@@ -194,6 +196,17 @@ and **PWR = action** (hold to charge a cast). They are swapped by the `ACTION_BU
 - Angler also cancels any charge held past 4.4 s (`MAX_CHARGE_SECS`).
 - 0x22 bit 1 would disable hold-to-off entirely; it isn't touched.
 - Don't use XPowersLib's `setIrqLevel`/`setOffLevel`; their bit masks are wrong.
+- **PWR can't wake the ESP32 from deep sleep** [verified in the schematic netlist]. The
+  AXP2101's IRQ (pin 38, net `AXP_IRQ`) goes only to TCA9554 P5 (`EXIO5`), and the
+  expander's INT output reaches no ESP32 GPIO.
+
+**AXP2101 battery** [verified in datasheet v1.4 §6.13; readings unverified on hardware],
+`firmware/src/axp2101.rs`:
+- REG 00 bit 5 is VBUS good, bit 3 battery present.
+- REG 01 bits 6:5 are the current direction: 01 charging, 10 discharging, 00 standby.
+- REG 34/35 is the battery voltage in mV: bits 13:8 in the low six bits of 0x34.
+- REG A4 is the fuel gauge's percentage. The gauge (REG 18 bit 3) and the battery-voltage
+  ADC (REG 30 bit 0) are on from power-on.
 
 **QMI8658 IMU** (0x6B), driver at `firmware/src/qmi8658.rs`:
 - **Boot and checks:** reset with `0x60 = 0xB0`, then poll `0x4D == 0x80`. WHO_AM_I (0x00)
@@ -317,11 +330,11 @@ Measured **[verified]** with `tools/heap32/run.sh`:
 | Game | After build | During play | Peak | Headroom in 284 KB (with the 7 KB band) |
 |---|---|---|---|---|
 | Orbit | 197 KB | 206 KB | 265 KB | **11 KB** |
-| Angler | 194 KB | 197 KB | 198 KB | **79 KB** |
+| Angler | 197 KB | 200 KB | 201 KB | **76 KB** |
 
 Angler is 67 KB leaner at peak because it uses **one phase-machine resource and four systems
 instead of Bevy states**. The hat shop (one `Inventory` resource, a `Phase::Shop`, no new
-systems) cost it 3 KB. `StatesPlugin`, the `StateTransition` schedule, and every
+systems) cost it 3 KB, and `Power` (battery, idle, sleep) another 3 KB. `StatesPlugin`, the `StateTransition` schedule, and every
 `OnEnter`/`OnExit` schedule cost KB each.
 
 Opt-in plugins matter too. Moving buttons and IMU into `ControlsPlugin` saved Orbit 12 KB.
@@ -453,6 +466,15 @@ For Angler (`./flash.sh`), also check:
    if it's inverted.
 9. **Saves:** catch a fish, power-cycle, and the title's "CAUGHT n" and "GOLD n" (and the
    angler's hat) should persist. The boot log prints `save storage: found a save`.
+10. **Battery:** the 2 s stats line ends with `battery 76% 3.98 V, USB, charging` (or
+    `no cell, USB`). The title shows the same level at the top.
+11. **Idle:** leave it untouched for 30 s. The panel dims, and the stats line shows about
+    40 frames per 2 s (20 Hz). Any touch, button or turn brings it back.
+12. **Sleep:** hold BOOT. At 1.5 s "GOOD NIGHT" shows; let go and the panel goes dark, with
+    `sleeping; press BOOT to wake` in the log. A BOOT press boots afresh and logs
+    `woke from sleep`.
+13. **Audio:** after a catch (its flash save stalls the loop), the stats line may show
+    `audio restarted Nx`. Sound must keep working afterwards, and GUTEN must play.
 
 Then run these experiments, in this order:
 - **PSRAM atomics:** allocate an `AtomicU32` (and an `Arc`) in PSRAM via `ExternalMemory`, run
@@ -498,6 +520,13 @@ What shipped:
   queues at most one sound per update that matters: the last one.
 - **Queue bound:** `SoundQueue` keeps only its newest 16 commands when nothing drains it
   (the heap32 and QEMU harnesses have no speaker), so frequent effects can't grow the heap.
+- **Restarting the stream:** when the DMA runs out of descriptors it stops for good (esp-hal:
+  "the transfer must then be resumed or restarted"). So `AudioOut::pump` restarts whenever
+  `is_done()`. The first version also required the whole buffer to be free. An underrun that
+  landed mid-pump then left bytes in a dead transfer, and the speaker went silent until
+  reboot with nothing in the log; that was the GUTEN that once didn't play. A start the
+  driver refuses is kept and retried on the next pump. Restarts and failed starts are in the
+  2 s stats line.
 - **Firmware** (`firmware/src/speaker.rs`, adapted from the reference driver):
   - starts only when the game added `SoundPlugin`, after the first `app.update()`;
   - I2S0 with `DMA_CH1`, `Channels::STEREO` (the same sample in L and R), MCLK on GPIO42;
@@ -731,6 +760,49 @@ KEEP sits exactly where RESET was, so a reflexive double tap cancels; PWR cancel
 
 **Not built yet:** a reel crank by circling a finger on the rim.
 
+### 10.5 Power: battery, sleep, idle (built; compiled for the board, not yet run on it)
+
+The contract is `orbit_core::Power`, added by `ControlsPlugin` (so Orbit doesn't pay):
+- **Battery:** the platform writes `battery: Option<Battery {percent, external_power,
+  charging}>`. The firmware reads the AXP2101 every 5 s; the desktop reports USB power with
+  no cell.
+- **Indicator:** Angler draws an outline filled green/yellow/red, the percent (or USB) and a
+  bolt while charging, at the top of every menu. During play it shows only at 15% or less
+  and not charging.
+- **Sleep:** holding the zero button (BOOT) shows HOLD TO SLEEP with the rim filling. At
+  1.5 s the game calls `request_sleep()`, stops the speaker and shows GOOD NIGHT. The
+  firmware then:
+  - waits for BOOT to come up (it wakes on a low level);
+  - drives the amp enable low;
+  - sends touch to sleep and the IMU's sensors off (CTRL7 = 0);
+  - darkens the panel and sends DISPLAY_OFF (0x28) and SLEEP_IN (0x10);
+  - arms GPIO0 on its low-power wake path and enters deep sleep.
+
+  A BOOT press resets the chip, so the game boots afresh (saves are already in flash). PWR
+  can't wake it (section 3).
+- **Idle:** 30 s without a touch, a button or a 3-degree turn sets `idle`. The firmware dims
+  the panel to 0x40 and paces the loop at 20 Hz; the desktop dims and drops to 20 fps.
+- **CPU halt:** the spare part of every frame halts the CPU with `waiti` until a systimer
+  alarm interrupt (`firmware/src/idle.rs`). It used to spin in `Delay`. The display and
+  speaker DMA keep running, and frame pacing is unchanged.
+
+**Bevy settings and power** (as of Bevy 0.19, no_std): Bevy's own power knob is
+`WinitSettings` (reactive, low-power updates), which belongs to the winit/render stack this
+build doesn't have. Nothing else in `default_no_std` affects power. The frame loop is ours,
+so the levers are ours too:
+- The loop itself: halting between frames, and the slower idle rate, both built.
+- The panel: brightness, plus dark scenes, since a black AMOLED pixel is off. AMOLED draw
+  scales with brightness times lit pixels, and the lake scene is bright sky at 0xFF.
+- Peripherals: the sleep sequence above.
+
+Not done yet, roughly by value:
+- A brightness setting. The default is full; even 0xC0 should save noticeably.
+- Switching the NS4150B amp off after a second of silence. It costs a few mA at idle, but
+  waking it can clip a sound's start.
+- A 160 MHz CPU clock. It saves some power, but every frame gets 1.5x longer.
+- AXP2101 soft power-off (REG 10 bit 0) as a deeper "off": PWR would power it back on, BOOT
+  could not.
+
 ## 11. Gotchas (all hit or confirmed during bring-up)
 
 - **The touch crate's example uses the 1.75C reset pin** (GPIO2). This board uses GPIO40.
@@ -739,6 +811,11 @@ KEEP sits exactly where RESET was, so a reflexive double tap cancels; PWR cancel
   `Last` clears them. Tests must observe them from a system or through their effects, not by
   reading the resource after `app.update()`.
 - **Bevy states are heap-expensive on this chip** (§7). Prefer a phase enum resource.
+- **A dropped touch report looks like lift-then-touch, which is a new tap.** The firmware
+  keeps the finger through a failed read and needs two empty reads to lift it. Screens that
+  a tap dismisses should still ignore taps for a moment (GUTEN: 0.6 s).
+- **An I2S stream that underran is dead until restarted** (§10.2). Restart on `is_done()`
+  alone.
 - **Holding PWR long switches the board off** (the PMIC, not the firmware). Never design a
   mechanic that holds PWR for more than a few seconds.
 - **In QEMU, script by game time, not frame count** (§8).
