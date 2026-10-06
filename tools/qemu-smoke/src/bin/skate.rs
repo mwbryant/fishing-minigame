@@ -1,6 +1,7 @@
 //! Skate in QEMU: a steady rider pops (a counterclockwise turn) just before
-//! each obstacle for 20 s of game time as the street speeds up, then rolls
-//! into a cone; the best score is saved into emulated flash and read back.
+//! each obstacle for 30 s of game time as the street speeds up, through the
+//! halfpipe at 150 m and back out, then rolls into a cone; the best score is
+//! saved into emulated flash and read back.
 
 #![no_std]
 #![no_main]
@@ -33,12 +34,15 @@ fn main() -> ! {
     core::mem::forget(alloc::vec![0u32; 2048]);
     let mut saves = SlotStore::new(FlashStorage::new(flash), SAVE_FLASH_OFFSET);
     click_action(&mut smoke.app);
-    let until = smoke.app.world().resource::<Time>().elapsed_secs() + 20.0;
-    while smoke.app.world().resource::<Time>().elapsed_secs() < until {
+    let until = smoke.app.world().resource::<Time>().elapsed_secs() + 30.0;
+    let mut visited_halfpipe = false;
+    loop {
         let ride = smoke.app.world().resource::<Ride>();
-        if ride.phase != Phase::Riding {
+        let secs = smoke.app.world().resource::<Time>().elapsed_secs();
+        if ride.phase != Phase::Riding || (secs >= until && !ride.in_halfpipe()) {
             break;
         }
+        visited_halfpipe |= ride.in_halfpipe();
         let front = SKATER_X + BOARD_HALF;
         let close = ride
             .obstacles()
@@ -74,6 +78,8 @@ fn main() -> ! {
     let stored = SaveBlob::from_storage(saves.load());
     let failure = if !survived {
         Some("the steady rider bailed")
+    } else if !visited_halfpipe {
+        Some("the street never dropped into the halfpipe")
     } else if phase != Phase::Bailed {
         Some("the cone didn't stop the ride")
     } else if stored.section(b"SKAT").is_none() {
