@@ -237,6 +237,44 @@ pub static COWBOY_HAT: Sprite = Sprite {
     palette: &[(b'T', rgb(165, 110, 55)), (b'D', rgb(95, 60, 30))],
 };
 
+/// A bee costume: a striped dome, antennae, and little wings.
+pub static BEE_HAT: Sprite = Sprite {
+    rows: &[
+        "...K.....K",
+        "....K...K",
+        "....YYYYY",
+        "..WKKKKKKKW",
+        "...YYYYYYY",
+    ],
+    palette: &[
+        (b'Y', rgb(250, 205, 40)),
+        (b'K', rgb(30, 30, 30)),
+        (b'W', rgb(220, 235, 255)),
+    ],
+};
+
+/// A spider sitting on the head, legs draped down, eyes to the front.
+pub static SPIDER_HAT: Sprite = Sprite {
+    rows: &[
+        "..K.......K",
+        "...K.KKK.K",
+        "....KKKKK",
+        "..KKKKKRKKK",
+        ".K..K...K..K",
+    ],
+    palette: &[(b'K', rgb(44, 38, 50)), (b'R', rgb(230, 40, 40))],
+};
+
+/// A skateboard balanced wheels-up.
+pub static SKATE_HAT: Sprite = Sprite {
+    rows: &["..WW....WW", "...T....T", ".BBBBBBBBBB"],
+    palette: &[
+        (b'W', rgb(245, 245, 245)),
+        (b'T', rgb(150, 150, 165)),
+        (b'B', rgb(220, 120, 60)),
+    ],
+};
+
 pub static TOP_HAT: Sprite = Sprite {
     rows: &[
         "....KSKKK",

@@ -12,7 +12,7 @@ pub struct Hat {
 }
 
 /// The shop's shelf, cheapest first. The first hat is free and always owned.
-pub const HATS: [Hat; 8] = [
+pub const HATS: [Hat; 11] = [
     Hat {
         name: "STRAW HAT",
         price: 0,
@@ -34,14 +34,29 @@ pub const HATS: [Hat; 8] = [
         sprite: &sprites::BUCKET_HAT,
     },
     Hat {
+        name: "BEE HAT",
+        price: 70,
+        sprite: &sprites::BEE_HAT,
+    },
+    Hat {
         name: "COWBOY HAT",
         price: 90,
         sprite: &sprites::COWBOY_HAT,
     },
     Hat {
+        name: "SPIDER HAT",
+        price: 120,
+        sprite: &sprites::SPIDER_HAT,
+    },
+    Hat {
         name: "TOP HAT",
         price: 150,
         sprite: &sprites::TOP_HAT,
+    },
+    Hat {
+        name: "SKATE HAT",
+        price: 200,
+        sprite: &sprites::SKATE_HAT,
     },
     Hat {
         name: "FISH HAT",
@@ -196,6 +211,13 @@ mod tests {
         assert!(!inventory.wear(0), "already worn");
         assert!(inventory.wear(BEANIE));
         assert_eq!(inventory.gold, 0);
+    }
+
+    #[test]
+    fn the_shelf_has_hats_for_the_other_arcade_games() {
+        for name in ["SPIDER HAT", "SKATE HAT", "BEE HAT"] {
+            assert!(HATS.iter().any(|hat| hat.name == name), "{name}");
+        }
     }
 
     #[test]
