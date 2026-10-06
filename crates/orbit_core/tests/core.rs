@@ -183,13 +183,96 @@ fn power_starts_awake_with_no_battery_reading_until_the_platform_reports_one() {
     );
 }
 
+fn power(app: &App) -> Power {
+    *app.world().resource::<Power>()
+}
+
+fn hold_zero_for(app: &mut App, secs: f32) {
+    app.world_mut().resource_mut::<Buttons>().zero.set(true);
+    for _ in 0..(secs / DT).round() as u32 {
+        app.update();
+    }
+}
+
+fn wait(app: &mut App, secs: f32) {
+    for _ in 0..(secs / DT).round() as u32 {
+        app.update();
+    }
+}
+
 #[test]
-fn a_sleep_request_stays_set_for_the_platform_to_act_on() {
+fn holding_the_zero_button_says_good_night_then_asks_the_platform_to_sleep() {
     let mut app = app();
-    app.world_mut().resource_mut::<Power>().request_sleep();
+    hold_zero_for(&mut app, 0.3);
+    assert_eq!(
+        power(&app).sleep_progress(),
+        None,
+        "a press re-levels, no hint yet"
+    );
+    hold_zero_for(&mut app, 1.5);
+    let progress = power(&app)
+        .sleep_progress()
+        .expect("the hint shows while held");
+    assert!((0.3..0.7).contains(&progress), "{progress}");
+    hold_zero_for(&mut app, 1.3);
+    assert!(power(&app).saying_good_night());
+    assert!(!power(&app).sleep_requested(), "the goodbye stays up first");
+    app.world_mut().resource_mut::<Buttons>().zero.set(false);
+    wait(&mut app, 2.0);
+    assert!(!power(&app).sleep_requested());
+    wait(&mut app, 0.6);
+    assert!(power(&app).sleep_requested());
+}
+
+#[test]
+fn letting_go_of_the_zero_button_early_stays_awake() {
+    let mut app = app();
+    hold_zero_for(&mut app, 2.5);
+    app.world_mut().resource_mut::<Buttons>().zero.set(false);
+    wait(&mut app, 5.0);
+    let power = power(&app);
+    assert!(power.sleep_progress().is_none() && !power.saying_good_night());
+    assert!(!power.sleep_requested());
+}
+
+#[test]
+fn saying_good_night_silences_the_speaker() {
+    let mut app = App::new();
+    app.add_plugins((CorePlugin, ControlsPlugin, SoundPlugin))
+        .insert_resource(TimeUpdateStrategy::ManualDuration(Duration::from_secs_f32(
+            DT,
+        )));
+    app.finish();
+    app.cleanup();
     app.update();
+    app.world_mut().resource_mut::<SoundQueue>().play(&CHIRP);
+    hold_zero_for(&mut app, 3.1);
+    assert_eq!(
+        app.world().resource::<SoundQueue>().pending().last(),
+        Some(&SoundCommand::Stop)
+    );
+}
+
+#[test]
+fn half_a_minute_without_input_is_idle_and_any_input_wakes_it() {
+    let mut app = app();
+    wait(&mut app, 29.0);
+    assert!(!power(&app).idle);
+    wait(&mut app, 1.2);
+    assert!(power(&app).idle);
+    app.world_mut()
+        .resource_mut::<orbit_core::Touch>()
+        .set(Some(Vec2::ONE));
     app.update();
-    assert!(app.world().resource::<Power>().sleep_requested());
+    assert!(!power(&app).idle);
+    app.world_mut()
+        .resource_mut::<orbit_core::Touch>()
+        .set(None);
+    wait(&mut app, 31.0);
+    assert!(power(&app).idle);
+    app.world_mut().resource_mut::<Tilt>().steer_deg = 6.0;
+    app.update();
+    assert!(!power(&app).idle, "turning the device counts as input");
 }
 
 #[test]

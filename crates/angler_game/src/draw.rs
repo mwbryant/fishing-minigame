@@ -1,20 +1,21 @@
 use alloc::{format, string::String, vec::Vec};
 
 use bevy::{math::ops, prelude::*};
-use orbit_core::{Battery, Frame, Power, Tilt};
+use orbit_core::{Frame, Power, Tilt};
 use orbit_gfx::{Point, Rectangle, Rgb565, SCREEN_CENTER, Shape, Size, SpriteRef};
+use orbit_ui::{battery_level, button, framed_button, power_overlay, running_low};
 
 use crate::{
     audio::GUTEN_SPIN_SECS,
     cast::{self, Flight, scene::*},
     log::FishLog,
     reel::{FISH_HALF, Reel, TRACK_HEIGHT, TRACK_TOP, TRACK_WIDTH},
-    session::{Phase, RESULT_GUARD_SECS, SLEEP_HINT_SECS, SLEEP_HOLD_SECS, Session},
+    session::{Phase, RESULT_GUARD_SECS, Session},
     settings::Settings,
     shop::{HATS, Hat, Inventory},
     species::{Catch, SPECIES},
     sprites::{self, rgb},
-    ui::{self, Button},
+    ui,
 };
 
 pub const BACKGROUND: Rgb565 = rgb(0, 0, 0);
@@ -51,10 +52,6 @@ const HINT: Rgb565 = rgb(200, 215, 230);
 const GOLD: Rgb565 = rgb(255, 215, 70);
 const TOAST: Rgb565 = rgb(120, 230, 255);
 const DANGER: Rgb565 = rgb(240, 80, 60);
-const BATTERY_OK: Rgb565 = rgb(110, 220, 90);
-const BATTERY_LOW: Rgb565 = rgb(250, 210, 60);
-/// At or below this the battery shows during play too, unless it's charging.
-const LOW_BATTERY_PERCENT: u8 = 15;
 const MIRROR: Rgb565 = rgb(26, 56, 90);
 const MIRROR_SCALE: u32 = 5;
 const MIRROR_TOP: i32 = 138;
@@ -164,10 +161,6 @@ fn draw_frame(
             shapes.push(rect(0, 0, 466, 466, DEEP));
             shapes.push(label(220, "IT GOT AWAY...", 2, TEXT));
         }
-        Phase::Asleep => {
-            shapes.push(label(210, "GOOD NIGHT", 2, TEXT));
-            shapes.push(label(256, "PRESS BOOT TO WAKE", 1, HINT));
-        }
     }
     let menu = matches!(
         session.phase,
@@ -186,14 +179,11 @@ fn draw_frame(
     {
         battery_level(shapes, &battery);
     }
-    if session.zero_held_secs >= SLEEP_HINT_SECS && session.phase != Phase::Asleep {
-        let progress =
-            (session.zero_held_secs - SLEEP_HINT_SECS) / (SLEEP_HOLD_SECS - SLEEP_HINT_SECS);
-        sleep_hint(shapes, progress.clamp(0.0, 1.0));
-    }
-    if session.toast_secs > 0.0 && session.zero_held_secs < SLEEP_HINT_SECS {
+
+    if session.toast_secs > 0.0 && power.sleep_progress().is_none() {
         shapes.push(label(140, "LEVEL SET", 2, TOAST));
     }
+    power_overlay(shapes, &power);
 }
 
 /// The side-view scene: sky, hills, lake, dock, angler (in `hat`) and rod,
@@ -542,73 +532,6 @@ fn guten(shapes: &mut Vec<Shape>, t: f32) {
         ),
         flip_x: turn < 0.0,
     });
-}
-
-fn running_low(battery: &Battery) -> bool {
-    !battery.charging
-        && !battery.external_power
-        && battery
-            .percent
-            .is_some_and(|percent| percent <= LOW_BATTERY_PERCENT)
-}
-
-/// A battery outline filled to the charge, the percentage (or USB with no
-/// cell), and a bolt while charging, at the top of the glass.
-fn battery_level(shapes: &mut Vec<Shape>, battery: &Battery) {
-    let (x, y) = (196, 17);
-    shapes.push(rect(x, y, 24, 14, TEXT));
-    shapes.push(rect(x + 2, y + 2, 20, 10, BACKGROUND));
-    shapes.push(rect(x + 24, y + 4, 3, 6, TEXT));
-    if let Some(percent) = battery.percent {
-        let fill = (20 * u32::from(percent.min(100)) / 100).max(1);
-        let color = match percent {
-            0..=LOW_BATTERY_PERCENT => DANGER,
-            16..=40 => BATTERY_LOW,
-            _ => BATTERY_OK,
-        };
-        shapes.push(rect(x + 2, y + 2, fill, 10, color));
-    }
-    if battery.charging {
-        shapes.push(Shape::Sprite {
-            sprite: SpriteRef(&sprites::BOLT),
-            top_left: Point::new(x - 14, y + 1),
-            scale: 2,
-            flip_x: false,
-        });
-    }
-    let text = match battery.percent {
-        Some(percent) => format!("{percent}%"),
-        None => String::from("USB"),
-    };
-    shapes.push(label_at(Point::new(x + 54, y + 7), &text, 1, TEXT));
-}
-
-/// While the zero button is held: the rim fills until the board sleeps.
-fn sleep_hint(shapes: &mut Vec<Shape>, progress: f32) {
-    shapes.push(rect(93, 211, 280, 44, DEEP));
-    shapes.push(label(233, "HOLD TO SLEEP", 2, TOAST));
-    shapes.push(Shape::Arc {
-        center: SCREEN_CENTER,
-        radius: 226,
-        width: 6,
-        start_deg: -90.0,
-        sweep_deg: 360.0 * progress.max(0.01),
-        color: TOAST,
-    });
-}
-
-fn button(shapes: &mut Vec<Shape>, button: &Button) {
-    framed_button(shapes, button, HINT);
-}
-
-fn framed_button(shapes: &mut Vec<Shape>, button: &Button, frame: Rgb565) {
-    let area = button.area;
-    shapes.push(Shape::Rect { area, color: frame });
-    shapes.push(Shape::Rect {
-        area: area.offset(-2),
-        color: DEEP,
-    });
-    shapes.push(label_at(area.center(), button.text, 1, TEXT));
 }
 
 /// Gold-colored text with a coin in front.

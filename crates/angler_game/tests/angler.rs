@@ -1006,9 +1006,9 @@ fn the_menus_show_the_battery_level_with_a_bolt_while_charging() {
     );
     report_battery(&mut app, Some(76), false, false);
     assert!(shows(&app, "76%"));
-    assert!(!sprite_drawn(&app, &sprites::BOLT));
+    assert!(!sprite_drawn(&app, &orbit_ui::BOLT));
     report_battery(&mut app, Some(77), true, true);
-    assert!(shows(&app, "77%") && sprite_drawn(&app, &sprites::BOLT));
+    assert!(shows(&app, "77%") && sprite_drawn(&app, &orbit_ui::BOLT));
     open_shop(&mut app);
     assert!(shows(&app, "77%"));
 }
@@ -1038,23 +1038,23 @@ fn hold_zero(app: &mut App, frames: u32) {
 }
 
 #[test]
-fn holding_the_zero_button_puts_the_board_to_sleep() {
+fn holding_the_zero_button_says_good_night_then_sleeps() {
     let mut app = headless_app();
-    hold_zero(&mut app, 30);
+    hold_zero(&mut app, 45);
     assert!(shows(&app, "HOLD TO SLEEP"));
-    assert!(!power(&app).sleep_requested());
-    hold_zero(&mut app, 70);
-    assert!(power(&app).sleep_requested());
-    assert_eq!(phase(&app), Phase::Asleep);
+    hold_zero(&mut app, 100);
+    assert!(!shows(&app, "GOOD NIGHT"), "3 s, not 1.5 s");
+    hold_zero(&mut app, 45);
     assert!(shows(&app, "GOOD NIGHT") && shows(&app, "PRESS BOOT TO WAKE"));
+    assert!(!power(&app).sleep_requested());
     app.world_mut().resource_mut::<Buttons>().zero.set(false);
     click_action(&mut app);
     tap(&mut app, ui::SHOP.center());
-    assert_eq!(
-        phase(&app),
-        Phase::Asleep,
-        "nothing wakes it but the platform"
-    );
+    assert_eq!(phase(&app), Phase::Title, "the goodbye ignores input");
+    tick(&mut app, 120);
+    assert!(shows(&app, "GOOD NIGHT"), "it stays up for a while");
+    tick(&mut app, 40);
+    assert!(power(&app).sleep_requested());
 }
 
 #[test]
@@ -1072,23 +1072,6 @@ fn falling_asleep_silences_the_speaker() {
     let mut app = headless_app();
     open_settings(&mut app);
     tap(&mut app, ui::GUTEN.center());
-    hold_zero(&mut app, 100);
+    hold_zero(&mut app, 190);
     assert_eq!(last_sound(&app), Some(SoundCommand::Stop));
-}
-
-#[test]
-fn half_a_minute_without_input_goes_idle_and_any_input_wakes_it() {
-    let mut app = headless_app();
-    tick(&mut app, 60 * 29);
-    assert!(!power(&app).idle);
-    tick(&mut app, 70);
-    assert!(power(&app).idle);
-    tap(&mut app, SCREEN_CENTER);
-    assert!(!power(&app).idle);
-
-    tick(&mut app, 60 * 31);
-    assert!(power(&app).idle);
-    set_tilt(&mut app, 6.0, 0.0);
-    app.update();
-    assert!(!power(&app).idle, "turning the device counts as input");
 }

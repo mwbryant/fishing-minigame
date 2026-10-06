@@ -25,7 +25,9 @@ pub use buttons::{ButtonState, Buttons};
 pub use motion::{ImuFeed, Tilt};
 pub use orbit_audio::{Clip, ClipRef, SoundCommand};
 pub use orbit_motion::ImuSample;
-pub use power::{Battery, Power};
+pub use power::{
+    Battery, GOOD_NIGHT_SECS, IDLE_SECS, IDLE_TILT_DEG, Power, SLEEP_HINT_SECS, SLEEP_HOLD_SECS,
+};
 pub use rng::Rng;
 pub use save::SaveBlob;
 pub use sound::SoundQueue;
@@ -75,7 +77,6 @@ pub struct ControlsPlugin;
 
 impl Plugin for ControlsPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<Power>()
-            .add_plugins((buttons::plugin, motion::plugin));
+        app.add_plugins((buttons::plugin, motion::plugin, power::plugin));
     }
 }
