@@ -32,9 +32,11 @@ cargo run -p orbit_desktop -- angler snapshot screenshots   # headless PNGs of e
 #   Desktop saves live in ~/.logic-orbit/<game>.flash (device flash format).
 
 # device firmware (separate crate, Xtensa toolchain; one binary per game)
-cd firmware && . ~/export-esp.sh
+./flash.sh [angler|orbit]                            # from the repo root: build, flash, serial log
+./flash.sh monitor [game]                            # reopen the serial log only
+#   every session's log is saved in logs/<game>-<timestamp>.log
+cd firmware && . ~/export-esp.sh                     # by hand:
 cargo run --release --bin angler                     # build, flash over USB-C, serial monitor
-cargo run --release --bin orbit
 cargo clippy --release && cargo fmt
 
 # verification without a board
@@ -401,16 +403,21 @@ Other memory facts:
 
 ## 9. When the board arrives
 
-First flash (`cd firmware && . ~/export-esp.sh && cargo run --release --bin orbit`, the simpler game, then `--bin angler`). Watch the serial log:
+First flash: `./flash.sh` from the repo root builds and flashes Angler, then shows the
+serial log, which is also saved in `logs/`. `./flash.sh orbit` flashes the simpler game.
+If espflash can't connect, force download mode: unplug, hold BOOT, plug in, release BOOT,
+flash, then replug to boot. Watch the serial log:
 1. **`display ready`, then the title on the glass.**
    - Black screen: try the Arduino init list (§3).
    - Shifted image: adjust `COLUMN_OFFSET`.
 2. **`bevy app built entirely in internal SRAM`.**
-3. **Tap and the paddle follows the finger.** If it goes the wrong way, flip
-   `TOUCH_MIRROR_X/Y`. If the log shows `CST9217 touch init failed`, check that this isn't a 1.75C.
+3. **Touch:** in Angler, tapping LOG on the title opens the fish log. If SETTINGS opens
+   instead, flip `TOUCH_MIRROR_X`; if nothing happens, flip `TOUCH_MIRROR_Y`. In Orbit, the
+   paddle follows the finger. If the log shows `CST9217 touch init failed`, check that this
+   isn't a 1.75C.
 4. **The 2 s stats line:** frame time (average and worst), bytes per frame, heap.
 
-For Angler (`cargo run --release --bin angler`), also check:
+For Angler (`./flash.sh`), also check:
 5. **IMU:** the title screen has a bubble level (a dot in a ring). Turn the device like a
    wheel: the dot should move sideways. Tip the top away: it should move up. Press BOOT:
    "LEVEL SET" appears and the dot recentres. If the axes are wrong, fix `imu_to_screen` in

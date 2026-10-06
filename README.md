@@ -79,6 +79,27 @@ traffic would take on the real link.
 
 ## Firmware
 
+### Flashing the board
+
+Plug the board into the Mac with a USB-C data cable, then from the repo root:
+
+```sh
+./flash.sh            # Angler: build, flash, then show the board's serial log
+./flash.sh orbit      # Orbit instead
+./flash.sh monitor    # reopen the serial log without flashing
+```
+
+In the log, Ctrl+C quits and Ctrl+R restarts the board. Every session's log is saved in
+`logs/`. Reflashing keeps the board's saves (catches, gold, hats, difficulty). The build
+prints a harmless "LOAD segment with RWX permissions" warning.
+
+If flashing fails, the script lists fixes. The usual causes are a charge-only cable, or a
+board that won't enter download mode by itself. To force download mode: unplug the board,
+hold BOOT (the lower button), plug it back in, release BOOT, and run `./flash.sh` again.
+Then unplug and replug the board so it boots the game.
+
+### Building by hand
+
 One-time setup (already done on this machine): `cargo install espup espflash`
 then `espup install --targets esp32s3`.
 
@@ -97,9 +118,9 @@ mode; PSRAM needs it, and unoptimized Bevy is far too slow.
 ### Bring-up checklist (first flash)
 
 The board itself hasn't been run yet; everything below is from Waveshare's
-sources plus an emulator run. Watch the serial log:
+sources plus an emulator run. Run `./flash.sh` and watch the serial log:
 
-1. **`display ready`, then the ORBIT title on the panel.** If the panel stays
+1. **`display ready`, then the GONE FISHIN title on the panel.** If the panel stays
    black, the init list in `firmware/src/co5300.rs` is the place to look. It is
    Waveshare's ESP-IDF BSP sequence for this board. Their Arduino demo uses a
    shorter one (`11`, wait 120 ms, `FE 00`, `C4 80`, `3A 55`, `53 20`, `63 FF`,
@@ -107,10 +128,10 @@ sources plus an emulator run. Watch the serial log:
 2. **Image shifted or wrapped horizontally:** adjust `COLUMN_OFFSET` (6) in `co5300.rs`.
 3. **`bevy app built entirely in internal SRAM`.** If it instead warns that Bevy
    spilled into PSRAM, see Memory below.
-4. **Tap the screen and the paddle jumps to your finger.** If it jumps to the
-   opposite side or a mirrored spot, flip `TOUCH_MIRROR_X` / `TOUCH_MIRROR_Y` in
-   `firmware/src/lib.rs`. If the log says `CST9217 touch init failed`, check
-   the touch reset pin (below).
+4. **Tap LOG on the title and the fish log opens.** If SETTINGS opens instead, flip
+   `TOUCH_MIRROR_X` in `firmware/src/lib.rs`; if nothing happens, flip
+   `TOUCH_MIRROR_Y`. If the log says `CST9217 touch init failed`, check
+   the touch reset pin (below). In Orbit, the paddle should jump to your finger.
 5. Every 2 s the log prints frame count, average and worst frame time, bytes
    per frame, and heap use.
 

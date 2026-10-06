@@ -22,6 +22,8 @@ Rules that bite:
 - `firmware/` and `tools/*` are excluded from the workspace. Build the firmware with
   `cd firmware && . ~/export-esp.sh && cargo build --release` (always release). There is one
   binary per game: `--bin angler` or `--bin orbit`.
+- The user flashes with `./flash.sh [game]`, which saves every serial session to
+  `logs/<game>-<timestamp>.log`. When they report a hardware problem, read the newest log.
 - New games: add `CorePlugin` (plus `ControlsPlugin` for buttons/tilt and `SoundPlugin` for
   the speaker, only if used), drive
   the flow with a phase enum resource rather than Bevy states (states cost device heap), and
