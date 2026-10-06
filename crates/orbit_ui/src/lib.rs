@@ -11,7 +11,7 @@ mod dial;
 use alloc::{format, string::String, vec::Vec};
 
 use bevy::math::Vec2;
-use orbit_core::{Battery, Power};
+use orbit_core::{Battery, Clip, Power};
 use orbit_gfx::{Point, Rectangle, Rgb565, SCREEN_CENTER, Shape, Size, Sprite, SpriteRef};
 
 pub use dial::{DIAL_GAIN, dial_angle, dial_choice, dial_point, dial_pointer};
@@ -62,14 +62,28 @@ pub fn button(shapes: &mut Vec<Shape>, button: &Button) {
 }
 
 pub fn framed_button(shapes: &mut Vec<Shape>, button: &Button, frame: Rgb565) {
+    labelled_button(shapes, button, button.text, frame);
+}
+
+/// A button showing `text` instead of its own, e.g. a toggle's state.
+pub fn labelled_button(shapes: &mut Vec<Shape>, button: &Button, text: &str, frame: Rgb565) {
     let area = button.area;
     shapes.push(Shape::Rect { area, color: frame });
     shapes.push(Shape::Rect {
         area: area.offset(-2),
         color: DEEP,
     });
-    shapes.push(label_at(area.center(), button.text, 1, TEXT));
+    shapes.push(label_at(area.center(), text, 1, TEXT));
 }
+
+/// A tap or press that did something (copied from Angler's sound set).
+pub static CLICK: Clip = Clip {
+    pcm: include_bytes!("../assets/click.pcm"),
+};
+/// A tap or press that can't do anything.
+pub static THUD: Clip = Clip {
+    pcm: include_bytes!("../assets/thud.pcm"),
+};
 
 /// Text centered across the screen at height `y`.
 pub fn label(y: i32, text: &str, scale: u32, color: Rgb565) -> Shape {

@@ -14,6 +14,7 @@ pub mod preferences;
 mod rng;
 mod save;
 mod sound;
+pub mod testing;
 mod touch;
 
 use alloc::vec::Vec;
@@ -32,6 +33,11 @@ pub use rng::Rng;
 pub use save::SaveBlob;
 pub use sound::SoundQueue;
 pub use touch::Touch;
+
+/// Present when a menu launched the game: games offer a HOME button that
+/// ends the app with `AppExit`, and the platform returns to the menu.
+#[derive(Resource, Default, Debug)]
+pub struct Launcher;
 
 /// This frame's display list, back to front.
 #[derive(Resource, Default, Debug)]

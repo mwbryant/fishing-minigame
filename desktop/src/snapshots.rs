@@ -8,7 +8,9 @@ use angler_game::{
     cast::{self, CHARGE_SECS, Flight},
     testing as angler, ui,
 };
+use arcade::ArcadePlugin;
 use bevy::prelude::*;
+use orbit_core::testing as core_testing;
 use orbit_core::{Battery, Buttons, Frame, Power, SaveBlob};
 use orbit_game::{
     Screen,
@@ -43,9 +45,32 @@ pub fn run(game: Game, dir: &Path) {
         presenter: Presenter::new(vec![0u8; BAND_BYTES], game.background()),
     };
     match game {
+        Game::Arcade => arcade(&mut camera),
         Game::Orbit => orbit(&mut camera),
         Game::Angler => angler(&mut camera),
     }
+}
+
+fn arcade(camera: &mut Camera) {
+    let mut app = core_testing::headless(
+        |app| {
+            app.add_plugins(ArcadePlugin);
+        },
+        None,
+    );
+    battery(&mut app, 76);
+    camera.shoot(&app, "arcade_angler");
+    core_testing::set_tilt(&mut app, 30.0, 0.0);
+    app.update();
+    camera.shoot(&app, "arcade_spider");
+    core_testing::set_tilt(&mut app, 52.0, 0.0);
+    app.update();
+    camera.shoot(&app, "arcade_skate");
+    core_testing::set_tilt(&mut app, -30.0, 0.0);
+    core_testing::click_action(&mut app);
+    core_testing::set_tilt(&mut app, 4.0, 0.0);
+    core_testing::click_action(&mut app);
+    camera.shoot(&app, "arcade_settings");
 }
 
 fn orbit(camera: &mut Camera) {
@@ -149,6 +174,7 @@ fn reel(app: &mut App, frames: u32) {
 impl Game {
     pub fn background(self) -> Rgb565 {
         match self {
+            Game::Arcade => arcade::BACKGROUND,
             Game::Orbit => orbit_game::BACKGROUND,
             Game::Angler => angler_game::BACKGROUND,
         }

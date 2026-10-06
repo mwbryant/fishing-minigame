@@ -3,7 +3,7 @@
 //! CO5300, and the IMU is a virtual device driven from the keyboard.
 //!
 //! ```text
-//! cargo run -p orbit_desktop -- [angler|orbit]                 play (default angler)
+//! cargo run -p orbit_desktop -- [arcade|angler|orbit]          play (default arcade)
 //!   Holding Z (BOOT) sleeps the board like the firmware does; Z again wakes it.
 //! cargo run -p orbit_desktop -- [angler|orbit] snapshot <dir>  scripted PNGs, headless
 //! ```
@@ -20,9 +20,12 @@ use std::{
 };
 
 use angler_game::AnglerPlugin;
+use arcade::{ArcadePlugin, Menu};
 use bevy::prelude::*;
 use minifb::{Key, MouseButton, MouseMode, Window, WindowOptions};
-use orbit_core::{Battery, Buttons, Frame, ImuFeed, Power, Rng, SaveBlob, SoundQueue, Touch};
+use orbit_core::{
+    Battery, Buttons, Frame, ImuFeed, Launcher, Power, Rng, SaveBlob, SoundQueue, Touch,
+};
 use orbit_game::OrbitPlugin;
 use orbit_gfx::Presenter;
 
@@ -39,8 +42,11 @@ const QSPI_BYTES_PER_SEC: f64 = 40e6 * 4.0 / 8.0;
 /// How fast ←/→ turn the virtual device.
 const TURN_DEG_PER_SEC: f32 = 60.0;
 
-#[derive(Clone, Copy)]
+/// What the simulator boots: the arcade menu (which launches the others) or
+/// one game on its own, like the firmware's binaries.
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub enum Game {
+    Arcade,
     Orbit,
     Angler,
 }
@@ -48,18 +54,44 @@ pub enum Game {
 impl Game {
     fn name(self) -> &'static str {
         match self {
+            Game::Arcade => "arcade",
             Game::Orbit => "orbit",
             Game::Angler => "angler",
         }
     }
+
+    fn add_to(self, app: &mut App) {
+        match self {
+            Game::Arcade => app.add_plugins(ArcadePlugin),
+            Game::Orbit => app.add_plugins(OrbitPlugin),
+            Game::Angler => app.add_plugins(AnglerPlugin),
+        };
+    }
+
+    /// The menu's pick, if this build has that game.
+    fn picked(game: arcade::Game) -> Option<Self> {
+        match game {
+            arcade::Game::Angler => Some(Game::Angler),
+            arcade::Game::Spider | arcade::Game::Skate => None,
+        }
+    }
+}
+
+/// How one run of an app ended.
+enum Ended {
+    Closed,
+    Slept,
+    /// The app sent `AppExit`; the menu says which game it picked.
+    Exited(Option<Game>),
 }
 
 fn main() {
     let args: Vec<String> = env::args().skip(1).collect();
     let (game, rest) = match args.first().map(String::as_str) {
+        Some("arcade") => (Game::Arcade, &args[1..]),
         Some("orbit") => (Game::Orbit, &args[1..]),
         Some("angler") => (Game::Angler, &args[1..]),
-        _ => (Game::Angler, &args[..]),
+        _ => (Game::Arcade, &args[..]),
     };
     match rest.first().map(String::as_str) {
         Some("snapshot") => snapshots::run(
@@ -70,43 +102,61 @@ fn main() {
     }
 }
 
-fn play(game: Game) {
+fn play(boot: Game) {
     println!(
         "{}: mouse = finger | Space = action (PWR) | Z = zero (BOOT; hold to sleep, press to wake) | \
          left/right = turn the device | hold up/down = lean | C = straighten | Esc = quit",
-        game.name()
+        boot.name()
     );
     let mut window =
         Window::new("Orbit board", SIZE, SIZE, WindowOptions::default()).expect("open window");
     window.set_target_fps(60);
-    let mut save = SaveFile::open(game.name());
+    let mut save = SaveFile::open(boot.name());
     let mut speaker = None;
     let mut pixels = vec![0u32; SIZE * SIZE];
-    while run(game, &mut window, &mut save, &mut speaker, &mut pixels) {
-        println!("asleep: press Z (BOOT) to wake");
-        if !sleep_until_woken(&mut window, &pixels) {
-            return;
+    let mut next = boot;
+    loop {
+        let launched = boot == Game::Arcade && next != Game::Arcade;
+        match run(
+            next,
+            launched,
+            &mut window,
+            &mut save,
+            &mut speaker,
+            &mut pixels,
+        ) {
+            Ended::Closed => return,
+            Ended::Slept => {
+                println!("asleep: press Z (BOOT) to wake");
+                if !sleep_until_woken(&mut window, &pixels) {
+                    return;
+                }
+                next = boot;
+            }
+            Ended::Exited(picked) => next = picked.unwrap_or(boot),
         }
     }
 }
 
-/// One boot of the game, like the board's: runs until the window closes
-/// (false) or the game asks to sleep (true).
+/// One app, like one boot of the board: runs until the window closes, the
+/// app asks to sleep, or it exits (the menu picked a game, or a game went
+/// home). `launched` games offer HOME.
 fn run(
     game: Game,
+    launched: bool,
     window: &mut Window,
     save: &mut SaveFile,
     speaker: &mut Option<Speaker>,
     pixels: &mut [u32],
-) -> bool {
+) -> Ended {
     let seed = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map_or(1, |d| d.subsec_nanos());
     let mut app = App::new();
-    match game {
-        Game::Orbit => app.add_plugins(OrbitPlugin),
-        Game::Angler => app.add_plugins(AnglerPlugin),
-    };
+    game.add_to(&mut app);
+    if launched {
+        app.insert_resource(Launcher);
+    }
     app.insert_resource(Rng::new(seed))
         .insert_resource(SaveBlob::from_storage(save.load()));
     app.finish();
@@ -163,10 +213,14 @@ fn run(
             .update_with_buffer(pixels, SIZE, SIZE)
             .expect("present window");
         if power.sleep_requested() {
-            return true;
+            return Ended::Slept;
+        }
+        if app.should_exit().is_some() {
+            let picked = app.world().get_resource::<Menu>().and_then(Menu::chosen);
+            return Ended::Exited(picked.and_then(Game::picked));
         }
     }
-    false
+    Ended::Closed
 }
 
 /// Keeps the last frame up until Z (BOOT) is released, then a dark panel

@@ -8,6 +8,7 @@ license.workspace = true
 bevy.workspace = true
 orbit_game.workspace = true
 angler_game.workspace = true
+arcade.workspace = true
 orbit_core.workspace = true
 orbit_save.workspace = true
 orbit_audio.workspace = true
