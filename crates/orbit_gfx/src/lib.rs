@@ -9,6 +9,7 @@
 
 extern crate alloc;
 
+mod arc;
 mod canvas;
 mod dirty;
 mod present;

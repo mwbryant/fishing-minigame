@@ -6,12 +6,13 @@ use embedded_graphics::{
     mono_font::{MonoTextStyle, ascii::FONT_10X20},
     pixelcolor::Rgb565,
     prelude::*,
-    primitives::{Arc, Circle, Line, PrimitiveStyle, Rectangle},
+    primitives::{Circle, Line, PrimitiveStyle, Rectangle},
     text::{Baseline, Text},
 };
 
 use crate::{
     Canvas,
+    arc::draw_arc,
     sprite::{SpriteRef, draw_sprite, draw_sprite_fit, sprite_rect},
 };
 
@@ -141,9 +142,16 @@ impl Shape {
                 start_deg,
                 sweep_deg,
                 color,
-            } => Arc::with_center(*center, radius * 2 + 1, start_deg.deg(), sweep_deg.deg())
-                .into_styled(PrimitiveStyle::with_stroke(*color, *width))
-                .draw(canvas),
+            } => draw_arc(
+                canvas,
+                arc_bounds(*center, *radius, *width, *start_deg, *sweep_deg),
+                *center,
+                *radius,
+                *width,
+                *start_deg,
+                *sweep_deg,
+                *color,
+            ),
             Shape::Label {
                 center,
                 text,
@@ -412,6 +420,39 @@ mod tests {
                     "{shape:?} drew {p:?} outside {bounds:?}"
                 );
             }
+        }
+    }
+
+    #[test]
+    fn clipping_an_arc_to_its_bounds_never_loses_a_pixel() {
+        for (start, sweep) in [
+            (0.0, 40.0),
+            (350.0, 40.0),
+            (-30.0, 75.0),
+            (170.0, -60.0),
+            (85.0, 100.0),
+            (100.0, 70.0),
+            (166.5, 3.5),
+            (0.0, 360.0),
+        ] {
+            let shape = arc(start, sweep);
+            let unclipped = {
+                let rect = screen_rect();
+                let mut buf = vec![0u8; rect.size.width as usize * rect.size.height as usize * 2];
+                let mut canvas = Canvas::new(rect, &mut buf);
+                let Ok(()) = draw_arc(
+                    &mut canvas,
+                    rect,
+                    SCREEN_CENTER,
+                    200,
+                    12,
+                    start,
+                    sweep,
+                    Rgb565::WHITE,
+                );
+                buf
+            };
+            assert!(full_screen(&[shape]) == unclipped, "{start}+{sweep}");
         }
     }
 
