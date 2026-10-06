@@ -2,8 +2,9 @@
 
 A 3D-printable case for the Waveshare ESP32-S3-Touch-AMOLED-1.75, made to look like a fly-fishing
 reel. The screen is the spool, the rim is fishing line wound between two flanges, and the back is
-the drag knob: a spouting whale, a speaker grille and "HAPPY BIRTHDAY ETHAN". PWR, BOOT, USB-C and
-the microSD slot all stay reachable.
+the drag knob: a spouting whale inside a speaker grille, with raised "HAPPY BIRTHDAY" and "ETHAN"
+running around the outer edge between the screw heads. PWR, BOOT, USB-C and the microSD slot all
+stay reachable.
 
 ![front](previews/front.png)
 ![back, art in a second colour](previews/back.png)
@@ -21,7 +22,7 @@ Waveshare's own STEP model of the board (in `../docs/`).
   |  |  three M2 standoffs onto three posts  |  |   PWR / BOOT plungers (2 and 4 o'clock)
   |  |       [ speaker, face down ]          |  |   microSD slot (3 o'clock)
   |__|_______o o o grille o o o_____________|__|
-       back: whale, text, 3 screw heads
+       back: raised whale and text, 3 screw heads
 ```
 
 - The case is one cup. The board drops in glass-up and three M2 screws through the back go into
@@ -38,12 +39,12 @@ Waveshare's own STEP model of the board (in `../docs/`).
 | `reel_case.3mf` | Print plate: the USB-powered case plus three plungers (one spare) |
 | `reel_case_battery.3mf` | The same for the battery case (thicker: the cell lies under the board) |
 | `reel_case*.stl`, `button.stl` | The same parts as plain meshes |
-| `reel_case*_art.stl` | Optional second-colour inlay for the back (needs an AMS) |
+| `reel_case*_two_colour.3mf` | The same plates with the raised art as its own part, for a second filament on an AMS |
 | `*.step` | Solid models that open in Fusion 360, Onshape, FreeCAD or Bambu Studio |
 | `fit_test_ring.stl` | Top 10 mm of the case: a short print to try the glass, USB-C and buttons first |
 
-Sizes: the USB case is D53.9 x 17.9 mm; the battery case is 22.6 mm thick.
-Without the speaker (`SPEAKER = None`) the case is 15.8 mm thick.
+Sizes: the USB case is D53.9 x 18.2 mm; the battery case is 22.9 mm thick.
+Without the speaker (`SPEAKER = None`) the case is 16.3 mm thick.
 
 ## Printing on the P2S
 
@@ -51,13 +52,14 @@ Without the speaker (`SPEAKER = None`) the case is 15.8 mm thick.
 - **Profile:** 0.16 mm layers, 3 walls, 15 % infill, no supports, no brim. Open the 3MF and
   everything is already lying the way it should print: the case on its back and the plungers on
   their round ends.
-- **Back finish:** a textured PEI plate gives the back a satin finish. The debossed art prints
-  cleanly face down.
+- **Raised art, face down:** the background around the art is recessed 0.7 mm. The art and the
+  outer rim are the first layers on the plate and take its texture. The background is printed as
+  short bridges, so it comes out slightly striated, which makes the lettering stand out.
 - **Two-tone rim (no AMS needed):** in the preview, add a filament change at the two heights that
-  `build.py` prints (2.0 mm and 15.7 mm for the USB case). The line between the flanges then comes
+  `build.py` prints (2.0 mm and 16.0 mm for the USB case). The line between the flanges then comes
   out in a second colour.
-- **Two-colour back (AMS):** import `reel_case.stl` and `reel_case_art.stl` together. When asked,
-  load them as one object with multiple parts, then give the art part your second filament.
+- **Two-colour back (AMS):** open `reel_case_two_colour.3mf` instead. The case comes in as one
+  object in two parts; give the "raised art" part your second filament.
 
 ## What you need
 
@@ -95,7 +97,7 @@ uv run render.py   # PNG previews in previews/
 
 | File | Contents |
 |---|---|
-| `params.py` | Everything you might tune, with comments: text, font, fit gaps, wall and flange sizes, line pitch, button size, speaker and battery sizes |
+| `params.py` | Everything you might tune, with comments: text, font, fit gaps, wall and flange sizes, line pitch, button size, speaker and battery sizes. If a word no longer fits between its screws, `build.py` stops and says so |
 | `board.py` | Board facts measured from the STEP model (positions, depths, keys, ports) |
 | `parts.py` | The geometry, one small function per feature (body, posts, rails, grille, cutouts, art, plungers) |
 | `check.py` | Fit tests: no overlaps, board lowers straight in, buttons hit their switches, the battery/speaker/plugs fit, safe screw lengths |
@@ -117,7 +119,7 @@ CAD program, but those edits don't flow back into the Python.
 - **Button feel.** If a button is pressed all the time, raise `BUTTON_ACTUATOR_GAP`. If it is
   mushy, lower it.
 - **Which way is up.** The docs put USB-C at 9 o'clock when the game is upright, and the back art
-  reads upright on that basis when the device is turned over left to right. If the screen turns
-  out rotated, set `ART_ROTATION`.
+  reads upright on that basis when the device is turned over left to right. The text is laid out
+  around the screw heads. If the screen turns out rotated, `WHALE_ROTATION` turns the whale.
 - **Tolerances.** Tolerances are tuned for a Bambu printer: a 0.3 mm gap at the glass and 0.15 mm
   around the plungers. If the glass is tight in the fit ring, raise `GLASS_GAP`.

@@ -187,7 +187,8 @@ def speaker_grille(battery: bool) -> Part:
             p.GRILLE_HOLE_D / 2, zf - zb + 2, align=BOTTOM
         )
     chamber_r = p.GRILLE_R + p.GRILLE_HOLE_D / 2 + 0.6
-    return holes + Pos(0, 0, zf - 0.6) * Cylinder(chamber_r, 1.0, align=BOTTOM)
+    chamber = Cylinder(chamber_r, p.GRILLE_CHAMBER + 0.4, align=BOTTOM)
+    return holes + Pos(0, 0, zf - p.GRILLE_CHAMBER) * chamber
 
 
 def port_cutouts() -> Part:
@@ -246,52 +247,103 @@ def whale(n: float) -> Sketch:
         arm = at(cx, 0.36) * (Circle((0.08 + w / 2) * n) - Circle((0.08 - w / 2) * n))
         shape += arm & at(cx, 0.46) * Rectangle(0.3 * n, 0.2 * n)
         shape += at(cx - side * 0.08, 0.34) * Circle(0.035 * n)
-    shape -= at(-0.33, 0.05) * Circle(0.03 * n)
-    mouth = at(-0.3, 0.25) * Circle(0.33 * n) - at(-0.3, 0.285) * Circle(0.33 * n)
+    shape -= at(-0.33, 0.05) * Circle(0.035 * n)
+    mouth = at(-0.3, 0.25) * Circle(0.33 * n) - at(-0.3, 0.3) * Circle(0.33 * n)
     shape -= mouth & at(-0.34, -0.07) * Ellipse(0.1 * n, 0.08 * n)
     box = shape.bounding_box()
     return Pos(-(box.min.X + box.max.X) / 2, -(box.min.Y + box.max.Y) / 2) * shape
 
 
-def arc_text(txt: str, radius: float, top: bool) -> Sketch:
-    """Text centred on 12 o'clock (top) or 6 o'clock (bottom), reading left to right, upright."""
-    half = p.TEXT_SPAN / 2
+def ring(r: float, w: float) -> Sketch:
+    return Circle(r + w / 2) - Circle(r - w / 2)
+
+
+def text_span(txt: str) -> float:
+    """Degrees of the text circle that `txt` covers."""
+    width = Text(txt, p.TEXT_SIZE, font=p.FONT).bounding_box().size.X
+    return math.degrees(width / p.TEXT_RADIUS)
+
+
+def arc_text(txt: str, centre: float, top: bool) -> Sketch:
+    """`txt` centred on `centre` degrees, upright: clockwise over the top, anticlockwise below."""
+    span = text_span(txt) + 20
     if top:
-        path = CenterArc((0, 0), radius, 90 + half, -p.TEXT_SPAN)
+        path = CenterArc((0, 0), p.TEXT_RADIUS, centre + span / 2, -span)
     else:
-        path = CenterArc((0, 0), radius, 270 - half, p.TEXT_SPAN)
+        path = CenterArc((0, 0), p.TEXT_RADIUS, centre - span / 2, span)
     return Text(txt, p.TEXT_SIZE, font=p.FONT, path=path, position_on_path=0.5)
 
 
-def back_art_sketch() -> Sketch:
-    """Everything debossed into the back, as seen from behind (+x right, +y up)."""
-    r, w = p.KNOB_RING_R, p.KNOB_RING_W
-    art = Circle(r + w / 2) - Circle(r - w / 2)
-    for i in range(p.KNOB_TICKS):
-        a = 360 * i / p.KNOB_TICKS
-        art += Rot(0, 0, a) * Pos(r + w / 2 + 0.35, 0) * RectangleRounded(0.9, 0.5, 0.2)
-    if p.OUTER_RING_R:
-        art += Circle(p.OUTER_RING_R + w / 2) - Circle(p.OUTER_RING_R - w / 2)
-    art += whale(p.WHALE_SIZE)
-    if p.TEXT_TOP:
-        art += arc_text(p.TEXT_TOP, p.TEXT_RADIUS, top=True)
+def screws_from_behind() -> list[tuple[float, float, float]]:
+    """(x, y, angle) of each screw as seen on the back, which mirrors left and right."""
+    return [(-x, y, math.degrees(math.atan2(y, -x)) % 360) for x, y in board.STANDOFFS]
+
+
+def screw_clearance(x: float, y: float) -> float:
+    """Degrees of the text circle to keep free either side of a screw head's bezel."""
+    keep = p.SCREW_HEAD_D / 2 + p.BEZEL_W + p.SCREW_GAP
+    return math.degrees(2 * math.asin(keep / (2 * math.hypot(x, y))))
+
+
+def text_layout() -> list[tuple[str, float, bool]]:
+    """(word, centre angle, over the top) for each word, fitted between the screw heads."""
+    lower_left, lower_right, top = sorted(screws_from_behind(), key=lambda s: (s[1], s[0]))
+    gap = {s: screw_clearance(s[0], s[1]) for s in (lower_left, lower_right, top)}
+    left, right = p.TEXT_TOP
+    words = []
+    if left:
+        start = top[2] + gap[top]
+        room = lower_left[2] - gap[lower_left] - start
+        words.append((left, start + text_span(left) / 2, True, room))
+    if right:
+        start = top[2] - gap[top]
+        room = start - (lower_right[2] - 360 + gap[lower_right])
+        words.append((right, start - text_span(right) / 2, True, room))
     if p.TEXT_BOTTOM:
-        art += arc_text(p.TEXT_BOTTOM, p.TEXT_RADIUS, top=False)
-    return Rot(0, 0, -p.ART_ROTATION) * art
+        room = lower_right[2] - gap[lower_right] - (lower_left[2] + gap[lower_left])
+        words.append((p.TEXT_BOTTOM, (lower_left[2] + lower_right[2]) / 2, False, room))
+    for word, _, _, room in words:
+        if text_span(word) > room:
+            raise ValueError(
+                f"{word!r} needs {text_span(word):.0f} deg of the text circle but only "
+                f"{room:.0f} deg fit between its screws: shorten it or lower TEXT_SIZE"
+            )
+    return [(word, centre, over) for word, centre, over, _ in words]
 
 
-def art(battery: bool = False, overcut: float = 0.0) -> Part:
-    """The back artwork as a solid that exactly fills its deboss: an optional second-colour part."""
-    solid = Pos(0, 0, -overcut) * extrude(back_art_sketch(), amount=p.ART_DEPTH + overcut)
+def back_art_sketch() -> Sketch:
+    """The raised art on the back, as seen from behind (+x right, +y up)."""
+    r, w = p.KNOB_RING_R, p.KNOB_RING_W
+    art = ring(r, w) + Rot(0, 0, -p.WHALE_ROTATION) * whale(p.WHALE_SIZE)
+    length, width = p.TICK
+    tick = Pos(r + w / 2 + 0.4 + length / 2, 0) * RectangleRounded(length, width, width / 2 - 0.05)
+    for i in range(p.KNOB_TICKS):
+        art += Rot(0, 0, 360 * i / p.KNOB_TICKS) * tick
+    if p.BORDER_R:
+        art += ring(p.BORDER_R, w)
+    for x, y, _ in screws_from_behind():
+        art += Pos(x, y) * ring(p.SCREW_HEAD_D / 2 + p.BEZEL_W / 2, p.BEZEL_W)
+    for word, centre, over in text_layout():
+        art += arc_text(word, centre, over)
+    return art
+
+
+def art(battery: bool = False) -> Part:
+    """The raised art as a solid: what stands above the recessed background."""
+    solid = extrude(back_art_sketch(), amount=p.ART_DEPTH)
     return Pos(0, 0, back_z(battery)) * mirror(solid, about=Plane.YZ)
+
+
+def background(battery: bool) -> Part:
+    """The recessed field around the raised art."""
+    field = Cylinder(p.FIELD_R, p.ART_DEPTH + 0.1, align=BOTTOM)
+    return Pos(0, 0, back_z(battery) - 0.1) * field - art(battery)
 
 
 def case(battery: bool = False) -> Part:
     """The cup, in the case frame. Its back face is down, which is also how it prints."""
     body = spool(battery) + screw_posts(battery) + stack_rails(battery)
-    cuts = (
-        screw_holes(battery) + port_cutouts() + speaker_grille(battery) + art(battery, overcut=0.1)
-    )
+    cuts = screw_holes(battery) + port_cutouts() + speaker_grille(battery) + background(battery)
     return body - cuts
 
 

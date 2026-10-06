@@ -15,7 +15,7 @@ BUTTON_ACTUATOR_GAP = 0.10  # gap between a button and the switch at rest
 
 # --- Body ---------------------------------------------------------------------------------
 WALL = 1.5  # thinnest side wall, at the bottom of the line grooves
-FLOOR = 2.2  # back plate thickness
+FLOOR = 2.5  # back plate thickness
 FRONT_FLANGE = 2.2  # smooth reel flange around the glass (height)
 BACK_FLANGE = 2.0  # smooth reel flange at the back (height)
 FLANGE_PROUD = 0.30  # flanges stand this far proud of the line
@@ -48,23 +48,29 @@ USB_OPENING_ROUND = 2.5
 SD_SLOT = True
 SD_SLOT_SIZE = (13.0, 2.0)
 
-# --- Back plate artwork (debossed, so it prints face down with no supports) ---------------
-TEXT_TOP = "HAPPY BIRTHDAY"  # empty for none
-TEXT_BOTTOM = "ETHAN"
+# --- Back plate artwork ------------------------------------------------------------------
+# The art is raised: the background around it is recessed by ART_DEPTH, so the case still
+# prints face down without supports (the art is the first layers on the plate).
+TEXT_TOP = ("HAPPY", "BIRTHDAY")  # either side of the top screw; "" leaves a side empty
+TEXT_BOTTOM = "ETHAN"  # between the two lower screws
 FONT = "Arial Rounded MT Bold"
-TEXT_SIZE = 3.6
-TEXT_RADIUS = 13.6  # radius of the text centreline
-TEXT_SPAN = 200.0  # degrees of arc each line may use at most
-ART_DEPTH = 0.6
-ART_ROTATION = 0.0  # turn the whole back design (degrees) if the screen's "up" isn't +Y
-KNOB_RING_R = 10.6  # the "drag knob" ring around the whale
-KNOB_RING_W = 0.7
+TEXT_SIZE = 7.0  # build.py stops with a message if a word no longer fits between the screws
+TEXT_RADIUS = 21.8  # text centreline, on the same circle as the screw heads
+SCREW_GAP = 1.0  # between a word and a screw's raised bezel
+BEZEL_W = 0.8  # raised ring around each screw head
+ART_DEPTH = 0.7  # height of the raised art (depth of the recessed background)
+FIELD_R = 24.9  # the recessed background ends here; outside it is a flat rim
+KNOB_RING_R = 12.2  # the "drag knob" ring around the whale
+KNOB_RING_W = 0.8
 KNOB_TICKS = 36
+TICK = (1.4, 0.7)  # length x width of each raised tick outside the knob ring
+BORDER_R = 16.6  # ring between the knob and the text; 0 to drop it
 WHALE_SIZE = 13.0  # nose to tail; must stay inside the grille ring (check.py)
-OUTER_RING_R = 16.9  # thin ring just inside the screw heads; 0 to drop it
+WHALE_ROTATION = 0.0  # turn the whale (degrees) if the screen's "up" isn't +Y
 GRILLE_R = 8.6  # speaker grille: a ring of holes around the whale, like a reel's ported knob
 GRILLE_HOLES = 24
 GRILLE_HOLE_D = 1.6
+GRILLE_CHAMBER = 0.5  # recess inside the floor so the speaker can breathe into the holes
 
 # --- What lies under the board ----------------------------------------------------------
 # Both lie flat in the middle, wires out of the top end towards the BAT and SPK sockets at
