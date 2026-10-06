@@ -8,7 +8,10 @@ Facts are marked
 **[verified]** (built, tested, read in source, or run in the emulator) or
 **[unverified]** (from vendor sources or inference; not yet seen on hardware).
 
-Status as of 2026-10-06: the board has **arrived**. The first Angler session
+Status as of 2026-10-06: the board has **arrived**. Since this section was written it boots
+the **arcade** (section 10.6): a rotation-dial menu over Angler, Spider Roulette, Skate and
+Bees???. The arcade and the three new games are built, tested on the host and in QEMU, but
+not yet run on the board. The first Angler session
 (`logs/angler-20261006-153858.log`) shows octal PSRAM (8 MB) up, `display ready`,
 Bevy built entirely in internal SRAM (about 72 KB of internal heap free during play),
 the ES8311 answering `0x83 0x11`, and several minutes of casts and fights played at
@@ -23,26 +26,27 @@ Both games, the renderer, and the simulator are tested on the host and in Espres
 ```sh
 # host workspace (game + renderer + simulator)
 cargo test --workspace && cargo clippy --workspace --all-targets && cargo fmt
-cargo run -p orbit_desktop -- angler                 # play Angler (the default) ...
-cargo run -p orbit_desktop -- orbit                  # ... or Orbit
-cargo run -p orbit_desktop -- angler snapshot screenshots   # headless PNGs of each screen
-#   desktop controls: mouse = finger, Space = action (PWR), Z = zero (BOOT; hold 1.5 s
-#   to sleep, press to wake: the window goes dark, then the game boots afresh),
+cargo run -p orbit_desktop                           # the arcade menu (the default) ...
+cargo run -p orbit_desktop -- bees                   # ... or one game: angler spider skate bees orbit
+cargo run -p orbit_desktop -- skate snapshot screenshots   # headless PNGs of a game's screens
+#   desktop controls: mouse = finger, Space = action (PWR), Z = zero (BOOT; hold 3 s
+#   to sleep, press to wake: the window goes dark, then it boots afresh),
 #   left/right = turn the virtual device (it stays turned), hold up/down = lean it
 #   15 degrees (it springs back level when released), C = straighten, Esc = quit.
-#   Desktop saves live in ~/.logic-orbit/<game>.flash (device flash format).
+#   Desktop saves live in ~/.logic-orbit/<mode>.flash (device flash format; the arcade
+#   and its games share arcade.flash, one section each, like the board).
 
-# device firmware (separate crate, Xtensa toolchain; one binary per game)
-./flash.sh [angler|orbit]                            # from the repo root: build, flash, serial log
+# device firmware (separate crate, Xtensa toolchain; the arcade plus one binary per game)
+./flash.sh [arcade|angler|spider|skate|bees|orbit]  # from the repo root (default arcade)
 ./flash.sh monitor [game]                            # reopen the serial log only
 #   every session's log is saved in logs/<game>-<timestamp>.log
 cd firmware && . ~/export-esp.sh                     # by hand:
-cargo run --release --bin angler                     # build, flash over USB-C, serial monitor
+cargo run --release --bin arcade                     # build, flash over USB-C, serial monitor
 cargo clippy --release && cargo fmt
 
 # verification without a board
-tools/heap32/run.sh [orbit|angler]          # 32-bit heap vs the firmware's SRAM budget
-tools/qemu-smoke/run.sh [secs] ["orbit angler"]   # runtime in Espressif QEMU; SMOKE PASS/FAIL
+tools/heap32/run.sh [orbit|angler|arcade|spider|skate|bees]   # 32-bit heap vs SRAM budget
+tools/qemu-smoke/run.sh [secs] ["orbit angler spider skate bees arcade"]   # QEMU; PASS/FAIL
 ```
 
 Installed on the dev Mac: `espup` 0.18, `espflash` 4.6, the `esp` Rust toolchain
@@ -59,18 +63,26 @@ crates/orbit_save    #![no_std] power-fail-safe two-sector record store over emb
                      flash, plus `RamFlash` (tests, desktop).
 crates/orbit_audio   #![no_std] 16 kHz mono PCM clips in flash + a one-voice `Mixer`; both
                      platforms pull samples from it. No Bevy.
-crates/orbit_core    #![no_std] shared Bevy plumbing. `CorePlugin`: Frame, Touch, Rng, SaveBlob.
-                     `ControlsPlugin` (opt-in): Buttons {action, zero}, ImuFeed -> Tilt,
-                     zero button re-levels the IMU from any screen.
-                     `SoundPlugin` (opt-in): `SoundQueue` of play/stop commands.
-crates/orbit_game    #![no_std] Orbit (circular pong, touch only; uses Bevy states).
+crates/orbit_core    #![no_std] shared Bevy plumbing. `CorePlugin`: Frame, Touch, Rng, SaveBlob
+                     (one record, a section per game), `Launcher`, `testing` helpers.
+                     `ControlsPlugin` (opt-in): Buttons {action, zero}, ImuFeed -> Tilt (zero
+                     re-levels), `Power` (battery, idle, hold-BOOT sleep).
+                     `SoundPlugin` (opt-in): `SoundQueue` (mutable), `preferences` (mute).
+crates/orbit_ui      #![no_std] shared drawing: Button, battery level, sleep overlay, the
+                     rotation dial, CLICK/THUD.
+crates/arcade        #![no_std] the boot menu: a dial over the games and SETTINGS (mute).
 crates/angler_game   #![no_std] Angler (fishing; one phase-machine resource, no Bevy states).
-desktop/             std simulator for either game (minifb window, RAM model of the panel,
-                     virtual IMU, file-backed save flash, PNG snapshots).
-firmware/            ESP32-S3: lib (board bring-up + shared frame loop + drivers) and one
-                     binary per game (src/bin/{orbit,angler}.rs). Excluded from the workspace.
-tools/heap32/        wasm32 heap measurement of either game (excluded from workspace).
-tools/qemu-smoke/    QEMU runtime smoke test of either game (excluded from workspace).
+crates/spider_game   #![no_std] Spider Roulette (twelve eggs, one spider).
+crates/skate_game    #![no_std] Skate (rotation pops and lands ollies).
+crates/bees_game     #![no_std] Bees??? (the Moon's honey jar; bees wear Angler's hat).
+crates/orbit_game    #![no_std] Orbit (circular pong, touch only; uses Bevy states).
+desktop/             std simulator for the arcade or any one game (minifb window, RAM model
+                     of the panel, virtual IMU, file-backed save flash, PNG snapshots).
+firmware/            ESP32-S3: lib (`Board`: bring-up once, then `run` one app at a time,
+                     + drivers), the arcade binary and one binary per game. Excluded from
+                     the workspace.
+tools/heap32/        wasm32 heap measurement of every app (excluded from workspace).
+tools/qemu-smoke/    QEMU runtime smoke test of every game and the arcade (excluded).
 docs/reference/      researched, compile-checked code not wired in yet (ES8311 audio).
 ```
 
@@ -329,12 +341,22 @@ Measured **[verified]** with `tools/heap32/run.sh`:
 
 | Game | After build | During play | Peak | Headroom in 284 KB (with the 7 KB band) |
 |---|---|---|---|---|
-| Orbit | 197 KB | 206 KB | 265 KB | **11 KB** |
-| Angler | 197 KB | 200 KB | 201 KB | **76 KB** |
+| Orbit | 205 KB | 213 KB | 265 KB | **12 KB** |
+| Angler | 199 KB | 203 KB | 204 KB | **73 KB** |
+| Bees??? | 188 KB | 192 KB | 192 KB | **84 KB** |
+| Skate | 187 KB | 190 KB | 191 KB | **86 KB** |
+| Spider Roulette | 182 KB | 184 KB | 185 KB | **91 KB** |
+| Arcade menu | 179 KB | 181 KB | 182 KB | **95 KB** |
+
+The arcade firmware drops each app before building the next (`Board::run` returns the app,
+the caller drops it), so its worst case is its biggest game. The QEMU arcade smoke checks
+the internal heap after every return to the menu doesn't creep. Not counted above: the
+speaker's 8 KB stream buffer, taken from the heap the first time a game makes sound.
 
 Angler is 67 KB leaner at peak because it uses **one phase-machine resource and four systems
 instead of Bevy states**. The hat shop (one `Inventory` resource, a `Phase::Shop`, no new
-systems) cost it 3 KB, and `Power` (battery, idle, sleep) another 3 KB. `StatesPlugin`, the `StateTransition` schedule, and every
+systems) cost it 3 KB, `Power` (battery, idle, sleep) another 3 KB, and the shared
+sleep/idle system plus the mute preference 3 KB more. `StatesPlugin`, the `StateTransition` schedule, and every
 `OnEnter`/`OnExit` schedule cost KB each.
 
 Opt-in plugins matter too. Moving buttons and IMU into `ControlsPlugin` saved Orbit 12 KB.
@@ -379,8 +401,10 @@ If a game outgrows the budget, the options, in order of preference:
    `ExternalMemory` allocator (needs `allocator-api2`).
 
 **Flash (storage) is not a constraint** [verified, `espflash save-image`, 2026-10-06]:
-- The 16 MB chip's factory app partition is 16,384,000 B. Angler's image is 1,523,104 B
-  (**9.3%**), Orbit's 952,480 B (5.8%), so about 14.8 MB is free.
+- The 16 MB chip's factory app partition is 16,384,000 B. The arcade image (every game) is
+  1,767,824 B (**10.8%**), Angler alone 1,562,768 B (9.5%), Orbit 952,480 B (5.8%), so
+  about 14.6 MB is free.
+- The `.stack` is what DRAM is left: about 69 KB for the arcade, 70 KB for one game.
 - Angler's image is about 800 KB of code (`.text`, mostly Bevy) and 696 KB of read-only
   data. That data is 485 KB for the GUTEN song, 117 KB of sound effects, and the rest
   fonts, sprites and strings.
@@ -413,17 +437,30 @@ Other memory facts:
 - **`tools/qemu-smoke/run.sh`:**
   - **Setup it handles:** downloads Espressif QEMU `esp-develop-9.2.2-20260417`
     (`-machine esp32s3`, needs `brew install libgcrypt`).
-  - **What it runs:** one binary per game (`src/bin/{orbit,angler}.rs`) over a shared
-    `Smoke` harness (`src/lib.rs`): the firmware's heap layout, a byte-counting panel, and
-    scripted input. The two `.stack` sizes are printed; keep them within about 1 KB.
+  - **What it runs:** one binary per game plus the arcade (`src/bin/*.rs`) over a shared
+    `Smoke` harness (`src/lib.rs`): the firmware's heap layout, a byte-counting panel,
+    scripted input, `relaunch` (drop the app, build the next, as the arcade does) and
+    `wait(secs)`. The two `.stack` sizes are printed; keep them within about 1 KB by
+    adjusting the harness's `INTERNAL_HEAP_BYTES` (237 KB since the CPU-halt handler moved
+    about 5 KB into IRAM).
   - **Pass criteria:**
     - Orbit: two or more starts, one or more losses, and 0 B in PSRAM.
     - Angler: two fish landed by a scripted steady-hand player, their gold spent in the hat
       shop (MENU from aiming, then SHOP and BUY), the log, settings and inventory written
       through `esp-storage` into emulated flash at 0x9000 and read back equal, and 0 B in PSRAM.
+    - Spider Roulette: rotation aims at each egg in turn and PWR cracks it until the hidden
+      spider pounces exactly where it was hidden; the SPDR section reaches flash.
+    - Skate: a rider who pops just before each obstacle survives 20 s of game time, a cone
+      then bails it, and the SKAT section reaches flash.
+    - Bees???: a steady hand keeps 90%+ of the honey for 20 s, tipping empties the jar, and
+      the BEES section reaches flash.
+    - Arcade: the menu launches each game by rotation and PWR, HOME returns, twice round;
+      the internal heap after each return to the menu stays within 2 KB of the first.
   - **Scripting rule:** emulated frames are much shorter than real ones (about 170 fps of game
-    time), so drive scripts by **game time**, never frame counts. That covers charge-until-power,
-    waiting out the result guard, and bounding fights by seconds.
+    time, and it varies from run to run), so drive scripts by **game time**, never frame
+    counts. That covers charge-until-power, waiting out the result guard, and bounding fights
+    by seconds. The Orbit script was frame-based until a run got 4.7 s of game time out of
+    its 2,000 frames (26 s the time before) and the round never restarted.
   - **Emulator-only workarounds, all applied automatically:**
     1. esp-hal's `bbpll_cal_done` wait is patched out of a private esp-hal copy in
        `.patched/`, because QEMU never sets the bit.
@@ -727,7 +764,8 @@ tests check behaviour, not values, so retune freely and rerun `cargo test -p ang
   - Fish speed is a time-warp: spring × s², top speed and dart rate × s, retarget pauses ÷ s.
   - NORMAL is the tuning the reel tests pin.
   - A test checks that the same hesitant player lands more on EASY and fewer on HARD.
-- **Save format** (`save.rs`): `FLOG` version 3 = the fish log, a difficulty byte, gold (u32),
+- **Save format** (`save.rs`): Angler's `SaveBlob` section `FLOG` (the record's other
+  sections belong to the other games). `FLOG` version 3 = the fish log, a difficulty byte, gold (u32),
   the owned-hat bitmask (u32) and the worn hat (u8). Version-1 saves load at NORMAL, and
   version-1 and -2 saves load with no gold and the straw hat. Owned bits for hats a build
   lacks are dropped, and a worn hat that isn't owned falls back to the straw hat. Every
@@ -766,20 +804,22 @@ The contract is `orbit_core::Power`, added by `ControlsPlugin` (so Orbit doesn't
 - **Battery:** the platform writes `battery: Option<Battery {percent, external_power,
   charging}>`. The firmware reads the AXP2101 every 5 s; the desktop reports USB power with
   no cell.
-- **Indicator:** Angler draws an outline filled green/yellow/red, the percent (or USB) and a
-  bolt while charging, at the top of every menu. During play it shows only at 15% or less
-  and not charging.
-- **Sleep:** holding the zero button (BOOT) shows HOLD TO SLEEP with the rim filling. At
-  1.5 s the game calls `request_sleep()`, stops the speaker and shows GOOD NIGHT. The
-  firmware then:
+- **Indicator:** `orbit_ui::battery_level`, an outline filled green/yellow/red, the
+  percent (or USB) and a bolt while charging, at the top of every menu in every game. During
+  play it shows only at 15% or less and not charging (`running_low`).
+- **Sleep:** one `ControlsPlugin` system handles it for every game. Holding the zero
+  button (BOOT) for half a second shows HOLD TO SLEEP with the rim filling
+  (`orbit_ui::power_overlay`). At 3 s (`SLEEP_HOLD_SECS`) the speaker stops and GOOD NIGHT
+  replaces the frame; games ignore input while `Power::saying_good_night()`. After
+  `GOOD_NIGHT_SECS` (2.5 s) `Power::sleep_requested()` is set, and the firmware:
   - waits for BOOT to come up (it wakes on a low level);
   - drives the amp enable low;
   - sends touch to sleep and the IMU's sensors off (CTRL7 = 0);
   - darkens the panel and sends DISPLAY_OFF (0x28) and SLEEP_IN (0x10);
   - arms GPIO0 on its low-power wake path and enters deep sleep.
 
-  A BOOT press resets the chip, so the game boots afresh (saves are already in flash). PWR
-  can't wake it (section 3).
+  A BOOT press resets the chip, so the board boots afresh into the arcade menu (saves are
+  already in flash). PWR can't wake it (section 3).
 - **Idle:** 30 s without a touch, a button or a 3-degree turn sets `idle`. The firmware dims
   the panel to 0x40 and paces the loop at 20 Hz; the desktop dims and drops to 20 fps.
 - **CPU halt:** the spare part of every frame halts the CPU with `waiti` until a systimer
@@ -802,6 +842,72 @@ Not done yet, roughly by value:
 - A 160 MHz CPU clock. It saves some power, but every frame gets 1.5x longer.
 - AXP2101 soft power-off (REG 10 bit 0) as a deeper "off": PWR would power it back on, BOOT
   could not.
+
+### 10.6 The arcade and its games (built; compiled for the board, run in QEMU, not yet on it)
+
+**Flow:** `firmware/src/bin/arcade.rs` loops. `Board::run` builds the menu app (`crates/arcade`)
+and runs it until it sends Bevy's `AppExit`. The caller reads `Menu::chosen()` and drops
+the menu, then builds the picked game with `orbit_core::Launcher` inserted. The game's title
+then offers HOME, which sends `AppExit`, and the loop goes back to the menu. One app exists
+at a time. The desktop's `play` does the same.
+
+**Saves:** one `orbit_save` record holds every game's state as `SaveBlob` sections
+(`ORBC | count | (key | len u16 | bytes)*`): `FLOG` Angler, `SPDR` Spider Roulette, `SKAT`
+Skate, `BEES` Bees???, and `PREF` the shared preferences (mute). A record from before
+sections loads as the section named by its first four bytes, so old Angler saves (which
+start `FLOG`) carry over. A section can be read by another game: Bees??? reads `FLOG` for
+the hat the angler wears.
+
+**Rotation first:** turning the device selects and steers everywhere; PWR confirms; touch is
+secondary.
+- `orbit_ui::dial_choice(steer, n)` picks one of `n` options spaced round the glass from 12
+  o'clock, with the pointer at 3x the turn (`DIAL_GAIN`), so +-60 degrees reaches all of
+  them. The menu and Spider Roulette draw it as a gold arc on the rim.
+- The menu and every game re-level (`Tilt::request_zero`) when they start a round, so
+  however the device is held is "level".
+
+**The menu** (`crates/arcade`): rings for ANGLER, SPIDER ROULETTE, SKATE, BEES??? and
+SETTINGS, 72 degrees apart at radius 160. The pointed ring lights and its name fills the
+middle. SETTINGS is a two-option dial, SOUND ON/OFF (`preferences::set_muted`, applied by
+`SoundPlugin` at every game's startup) and BACK. The black background is free on an AMOLED.
+
+**Spider Roulette** (`crates/spider_game`):
+- **Board:** twelve eggs on a web at radius 160; one hides the spider, re-hidden each round.
+  PWR or a tap cracks the aimed egg.
+- **Tension:** safe eggs show a shell and shorten the odds in the middle ("1 IN 12" down to
+  "1 IN 2"). A heartbeat speeds up from 1.25 s to 0.35 s between beats.
+- **Endings:** the spider's egg pounces (three bounds over a red flash, a screech, then GOT
+  YOU!). Eleven safe eggs trap it. The best run of safe picks persists.
+
+**Skate** (`crates/skate_game`):
+- **Controls:** a counterclockwise turn past `POP_DEG` (15) pops an ollie. The next pop
+  needs the turn back past `REARM_DEG` (7). In the air the board follows the turn, and
+  landing more than `LAND_DEG` (25) off level bails.
+- **Physics:** gravity 1500 px/s², pop 560 px/s (about 0.75 s of air). Speed goes from 220
+  to 420 px/s.
+- **Obstacles:** cones 18x21, benches 120x36 (land level on top to grind, 25 points/s). They
+  spawn at random gaps scaled by speed.
+- **Score:** metres (30 px each), plus 10 per clean landing, plus grind time. The best
+  persists.
+- **Playability is pinned by a test:** a rider who pops 0-55 px before each obstacle
+  survives 20 s.
+- **Render cost:** only the rider, obstacles and lane dashes move over the static night city.
+
+**Bees???** (`crates/bees_game`):
+- **The jar:** the Moon is an open jar orbiting the Earth at radius 150, mouth outward,
+  speeding from 45 to 100 degrees/s.
+- **Wobble:** an unseen wobble eases toward random targets whose reach grows from 35 to 80
+  degrees over 90 s. The device's turn counters it at `CONTROL_GAIN` 2.
+- **Spilling:** honey pours once the tilt passes `spill_limit_deg(honey)`, 40 degrees full
+  and 100 nearly empty, at up to 30%/s. The drops fall to Earth.
+- **The bees:** three circle the jar, and one flies a 5% refill up every 3.5 s. They wear
+  the angler's hat at scale 2, seated by the hat's head columns (4-8 on the angler's grid)
+  over the bee's head, and mirrored when a bee flies left.
+- **Score:** the game ends when the jar is empty; the best number of orbits persists.
+
+**Sounds:** each game synthesizes its own with a small `assets/sfx.py`, importing Angler's
+generator helpers (standard library only, seeded). That is 61 KB for Spider Roulette, 21 KB
+for Skate and 42 KB for Bees???.
 
 ## 11. Gotchas (all hit or confirmed during bring-up)
 

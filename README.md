@@ -1,8 +1,12 @@
 # Orbit board games
 
 `no_std` **Bevy 0.19** games for the Waveshare **ESP32-S3-Touch-AMOLED-1.75**
-(466x466 round AMOLED, CO5300 over QSPI, CST9217 touch, QMI8658 IMU, two buttons):
+(466x466 round AMOLED, CO5300 over QSPI, CST9217 touch, QMI8658 IMU, two buttons).
+Turning the device like a steering wheel is the main control everywhere; PWR confirms.
 
+- **The arcade** (what the board boots into): turning the device sweeps a dial round the
+  rim over ANGLER, SPIDER ROULETTE, SKATE, BEES??? and SETTINGS (sound on/off for every
+  game), and PWR picks. Each game's title has HOME to come back.
 - **Angler**, a fishing game:
   - **Aim:** turn the device like a steering wheel.
   - **Cast:** a dotted line shows where a full-power cast lands. Hold PWR and release at the
@@ -16,33 +20,50 @@
     Gold and hats are saved.
   - **Re-level:** BOOT re-zeroes the IMU at any time, and it re-levels by itself after
     each fish.
-  - **Sleep:** hold BOOT for 1.5 s to sleep (panel, touch, IMU and amp off, chip in deep
-    sleep); press BOOT to wake. After 30 s untouched the panel dims and the loop slows to
-    20 Hz. The battery level shows at the top of the menus.
+  - **Battery:** the level shows at the top of the menus, and during play when it's low.
   - **Sound:** effects for the cast, splash, bite, reel clicks, catch, escape, the shop's
     till and menu taps, synthesized by a small script.
   - **Menus:** the title has LOG, SHOP and SETTINGS touch buttons, and MENU on the aiming
     screen goes back to it. Settings has EASY / NORMAL / HARD
     difficulty (saved), RESET (erases the log, gold and hats after a confirm) and **GUTEN**, a riff on logic-fish: a rainbow trout spins to "Guten
     Morgen, Sonnenschein" for 15 s through the board's speaker.
-- **Orbit**, circular pong: drag anywhere to swing the paddle around the rim.
+- **Spider Roulette:** twelve eggs ring a web and one hides a spider. Turn to aim, PWR to
+  crack. Each safe egg shortens the odds and quickens the heartbeat; the spider's egg
+  pounces. Crack all eleven safe ones to trap it.
+- **Skate:** an endless night-street side-scroller. Turn left (nose up) to ollie; in the air
+  the board follows your turn, so level out to land. Clear cones; clear benches or land on
+  them to grind. The street speeds up.
+- **Bees???:** the Moon is a hollow jar of honey orbiting the Earth. Something keeps tipping
+  it; turn to tip it back before honey pours out (the fuller the jar, the less it takes).
+  Bees, wearing the hat from Angler's shop, circle it and fly refills up from Earth.
+- **Orbit**, circular pong (touch, its own firmware binary): drag to swing the paddle.
+- **Everywhere:** hold BOOT 3 s and the board says GOOD NIGHT and deep-sleeps (panel,
+  touch, IMU and amp off); press BOOT to wake. After 30 s untouched the panel dims and the
+  loop slows to 20 Hz. Each game's best run persists in its own section of one flash record.
 
 The same Bevy apps run in a desktop simulator and on the board, and both draw
 through the same software renderer, so the simulator shows the exact pixels the
 panel will get.
 
-![Angler aiming](screenshots/angler_aim.png) ![Angler fight](screenshots/angler_reel.png) ![Angler catch](screenshots/angler_caught.png) ![Angler hat shop](screenshots/angler_shop.png)
+![Arcade menu](screenshots/arcade_spider.png) ![Angler aiming](screenshots/angler_aim.png) ![Angler hat shop](screenshots/angler_shop.png)
+![Spider Roulette](screenshots/spider_pick.png) ![Skate grind](screenshots/skate_grind.png) ![Bees orbit](screenshots/bees_orbit.png)
 
 ```
 crates/orbit_gfx     no_std rasterizer (embedded-graphics + pixel-art sprites), dirty rects, bands
 crates/orbit_motion  no_std IMU fusion (Mahony) with zeroing -> steer/lean
 crates/orbit_save    no_std power-fail-safe flash records
 crates/orbit_audio   no_std PCM clips + mixer (board speaker and desktop audio play the same)
-crates/orbit_core    shared Bevy plumbing: frame, touch, rng, saves; opt-in buttons + tilt, sound
-crates/orbit_game    Orbit
+crates/orbit_core    shared Bevy plumbing: frame, touch, rng, save sections, mute; opt-in buttons,
+                     tilt, power (battery, sleep, idle), sound
+crates/orbit_ui      shared drawing: buttons, battery, sleep overlay, the rotation dial
+crates/arcade        the boot menu
 crates/angler_game   Angler
-desktop/             minifb simulator for either game + headless PNG snapshots (std)
-firmware/            ESP32-S3: board support lib + one binary per game
+crates/spider_game   Spider Roulette
+crates/skate_game    Skate
+crates/bees_game     Bees???
+crates/orbit_game    Orbit
+desktop/             minifb simulator for the arcade or any one game + headless PNG snapshots (std)
+firmware/            ESP32-S3: board support lib, the arcade binary, and one binary per game
 case/                3D-printable fly-reel case (Python/build123d), see case/README.md
 ```
 
@@ -63,8 +84,9 @@ dirty-rect path never leaves stale pixels.
 ## Desktop
 
 ```sh
-cargo run -p orbit_desktop -- angler                    # or: -- orbit
-cargo run -p orbit_desktop -- angler snapshot screenshots   # every screen as a PNG, headless
+cargo run -p orbit_desktop                              # the arcade (menu -> game -> HOME)
+cargo run -p orbit_desktop -- skate                     # or one game: angler spider skate bees orbit
+cargo run -p orbit_desktop -- spider snapshot screenshots   # a game's screens as PNGs, headless
 cargo test --workspace
 cargo clippy --workspace --all-targets && cargo fmt
 ```
@@ -90,8 +112,8 @@ traffic would take on the real link.
 Plug the board into the Mac with a USB-C data cable, then from the repo root:
 
 ```sh
-./flash.sh            # Angler: build, flash, then show the board's serial log
-./flash.sh orbit      # Orbit instead
+./flash.sh            # the arcade: build, flash, then show the board's serial log
+./flash.sh skate      # one game on its own (angler, spider, skate, bees, orbit)
 ./flash.sh monitor    # reopen the serial log without flashing
 ```
 
@@ -112,8 +134,8 @@ then `espup install --targets esp32s3`.
 ```sh
 cd firmware
 . ~/export-esp.sh                # every new shell: puts the Xtensa linker on PATH
-cargo run --release --bin angler # build, flash over USB-C, open the serial monitor
-cargo run --release --bin orbit
+cargo run --release --bin arcade # build, flash over USB-C, open the serial monitor
+cargo run --release --bin orbit  # or any one game: angler spider skate bees orbit
 cargo clippy --release && cargo fmt
 ```
 
@@ -151,9 +173,10 @@ GPIO40). The 1.75C variant uses GPIO1 and GPIO2 for those two resets.
 ### Memory
 
 Bevy's own bookkeeping (schedules, per-resource tables) dominates. Measured
-with a counting allocator on a 32-bit target, peak heap is 265 KB for Orbit and
-198 KB for Angler. Angler is leaner because it uses one phase resource instead
-of Bevy states.
+with a counting allocator on a 32-bit target, peak heap is 265 KB for Orbit, 204 KB for
+Angler, 192 for Bees???, 191 for Skate, 185 for Spider Roulette and 182 for the menu. The
+newer games are leaner because they use one phase resource instead of Bevy states. The arcade
+drops each app before building the next, so only one is ever in memory.
 The firmware gives Bevy about 284 KB of internal SRAM (`INTERNAL_HEAP_BYTES` plus
 the 72 KB reclaimed region) and keeps about 74 KB of stack. PSRAM is
 registered last, only as a safety net. On the ESP32-S3, atomic
@@ -167,9 +190,9 @@ buffers (sprites, framebuffers) in PSRAM explicitly with `esp_alloc::ExternalMem
   against the firmware's internal-SRAM budget. Run it after adding Bevy plugins,
   systems or resources.
 - `tools/qemu-smoke/run.sh` boots each game's firmware runtime in Espressif's QEMU
-  with scripted input and prints `SMOKE PASS`/`SMOKE FAIL`. The Angler run lands
-  two fish, spends the gold in the hat shop, and round-trips the log, settings and
-  inventory through emulated flash.
+  with scripted input and prints `SMOKE PASS`/`SMOKE FAIL`. Each game is played by a
+  scripted player and its save round-trips through emulated flash; the arcade run goes
+  menu -> each game -> HOME twice and fails if the heap creeps between apps.
 
 The full platform handbook is `docs/ESP32_PLATFORM.md`.
 
