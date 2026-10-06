@@ -12,11 +12,27 @@ const MAX_PENDING: usize = 16;
 #[derive(Resource, Default, Debug)]
 pub struct SoundQueue {
     commands: Vec<SoundCommand>,
+    muted: bool,
 }
 
 impl SoundQueue {
+    /// Ignored while muted.
     pub fn play(&mut self, clip: &'static Clip) {
-        self.push(SoundCommand::Play(ClipRef(clip)));
+        if !self.muted {
+            self.push(SoundCommand::Play(ClipRef(clip)));
+        }
+    }
+
+    /// Muting also stops whatever is playing.
+    pub fn set_muted(&mut self, muted: bool) {
+        if muted && !self.muted {
+            self.push(SoundCommand::Stop);
+        }
+        self.muted = muted;
+    }
+
+    pub fn muted(&self) -> bool {
+        self.muted
     }
 
     pub fn stop(&mut self) {

@@ -12,6 +12,11 @@ use crate::{
     species::SPECIES,
 };
 
+use orbit_core::SaveBlob;
+
+/// Angler's section of the board's save record. It is also the magic its
+/// bytes start with, so records from before sections load as this section.
+pub const KEY: [u8; 4] = *MAGIC;
 const MAGIC: &[u8; 4] = b"FLOG";
 const VERSION: u8 = 3;
 const HEADER_BYTES: usize = 10;
@@ -35,6 +40,13 @@ pub fn encode(log: &FishLog, settings: &Settings, inventory: &Inventory) -> Vec<
     out.extend_from_slice(&inventory.owned_mask().to_le_bytes());
     out.push(inventory.worn() as u8);
     out
+}
+
+/// Angler's state from a whole stored record, as the platform writes it.
+pub fn decode_stored(record: &[u8]) -> Option<(FishLog, Settings, Inventory)> {
+    SaveBlob::from_storage(Some(record.to_vec()))
+        .section(&KEY)
+        .and_then(decode)
 }
 
 /// Saves from builds with more or fewer species load what overlaps.

@@ -2,7 +2,8 @@ use core::{f32::consts::FRAC_PI_2, time::Duration};
 
 use bevy::{prelude::*, time::TimeUpdateStrategy};
 use orbit_core::{
-    Battery, Buttons, ControlsPlugin, CorePlugin, ImuFeed, ImuSample, Power, SaveBlob, Tilt,
+    Battery, Buttons, ControlsPlugin, CorePlugin, ImuFeed, ImuSample, Power, SaveBlob,
+    SoundCommand, SoundPlugin, SoundQueue, Tilt, preferences,
 };
 
 const DT: f32 = 1.0 / 60.0;
@@ -192,10 +193,80 @@ fn a_sleep_request_stays_set_for_the_platform_to_act_on() {
 }
 
 #[test]
-fn pending_saves_are_handed_over_once() {
-    let mut blob = SaveBlob::from_storage(Some(vec![1, 2]));
-    assert_eq!(blob.loaded(), Some(&[1u8, 2][..]));
-    blob.request_save(vec![9]);
-    assert_eq!(blob.take_pending(), Some(vec![9]));
-    assert_eq!(blob.take_pending(), None);
+fn games_keep_their_saves_in_separate_sections_of_one_record() {
+    let mut blob = SaveBlob::from_storage(None);
+    assert_eq!(blob.section(b"FLOG"), None);
+    assert_eq!(blob.take_pending(), None, "nothing to write yet");
+    blob.save_section(*b"FLOG", vec![1, 2, 3]);
+    blob.save_section(*b"SKAT", vec![9]);
+    blob.save_section(*b"FLOG", vec![4]);
+    let record = blob.take_pending().expect("a changed section is written");
+    assert_eq!(blob.take_pending(), None, "handed over once");
+    let rebooted = SaveBlob::from_storage(Some(record));
+    assert_eq!(rebooted.section(b"FLOG"), Some(&[4u8][..]));
+    assert_eq!(rebooted.section(b"SKAT"), Some(&[9u8][..]));
+}
+
+#[test]
+fn a_record_from_before_sections_loads_as_the_section_named_by_its_magic() {
+    let old = b"FLOG\x02 an old fish log".to_vec();
+    let blob = SaveBlob::from_storage(Some(old.clone()));
+    assert_eq!(blob.section(b"FLOG"), Some(&old[..]));
+}
+
+#[test]
+fn a_damaged_record_keeps_the_sections_before_the_damage() {
+    let mut blob = SaveBlob::from_storage(None);
+    blob.save_section(*b"AAAA", vec![1]);
+    blob.save_section(*b"BBBB", vec![2, 2]);
+    let mut record = blob.take_pending().unwrap();
+    record.truncate(record.len() - 1);
+    let loaded = SaveBlob::from_storage(Some(record));
+    assert_eq!(loaded.section(b"AAAA"), Some(&[1u8][..]));
+    assert_eq!(loaded.section(b"BBBB"), None);
+}
+
+fn sound_app(saved: Option<Vec<u8>>) -> App {
+    let mut app = App::new();
+    app.add_plugins((CorePlugin, SoundPlugin))
+        .insert_resource(SaveBlob::from_storage(saved));
+    app.finish();
+    app.cleanup();
+    app.update();
+    app
+}
+
+static CHIRP: orbit_core::Clip = orbit_core::Clip { pcm: &[1, 0] };
+
+#[test]
+fn muting_stops_the_current_sound_and_drops_new_ones() {
+    let mut queue = SoundQueue::default();
+    queue.play(&CHIRP);
+    queue.set_muted(true);
+    queue.play(&CHIRP);
+    assert_eq!(
+        queue.drain().collect::<Vec<_>>(),
+        vec![
+            SoundCommand::Play(orbit_core::ClipRef(&CHIRP)),
+            SoundCommand::Stop
+        ]
+    );
+    queue.set_muted(false);
+    queue.play(&CHIRP);
+    assert_eq!(queue.pending().len(), 1);
+}
+
+#[test]
+fn the_mute_preference_is_saved_and_applies_at_the_next_boot() {
+    let mut app = sound_app(None);
+    assert!(!app.world().resource::<SoundQueue>().muted());
+    app.world_mut()
+        .resource_scope(|world, mut blob: Mut<SaveBlob>| {
+            preferences::set_muted(&mut blob, &mut world.resource_mut::<SoundQueue>(), true);
+        });
+    assert!(app.world().resource::<SoundQueue>().muted());
+    let record = app.world_mut().resource_mut::<SaveBlob>().take_pending();
+    let rebooted = sound_app(record);
+    assert!(rebooted.world().resource::<SoundQueue>().muted());
+    assert!(preferences::muted(rebooted.world().resource::<SaveBlob>()));
 }

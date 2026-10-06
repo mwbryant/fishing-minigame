@@ -10,6 +10,7 @@ extern crate alloc;
 mod buttons;
 mod motion;
 mod power;
+pub mod preferences;
 mod rng;
 mod save;
 mod sound;
@@ -51,13 +52,19 @@ impl Plugin for CorePlugin {
     }
 }
 
-/// Sound requests for the platform's speaker. Opt-in like [`ControlsPlugin`].
+/// Sound requests for the platform's speaker, muted at startup if the
+/// shared preferences say so. Opt-in like [`ControlsPlugin`].
 pub struct SoundPlugin;
 
 impl Plugin for SoundPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<SoundQueue>();
+        app.init_resource::<SoundQueue>()
+            .add_systems(Startup, apply_preferences);
     }
+}
+
+fn apply_preferences(blob: Res<SaveBlob>, mut sound: ResMut<SoundQueue>) {
+    sound.set_muted(preferences::muted(&blob));
 }
 
 /// The physical buttons, IMU tilt (with the zero button re-levelling it) and

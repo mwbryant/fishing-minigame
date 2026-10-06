@@ -296,7 +296,9 @@ fn reeling_the_fish_in_shows_it_and_saves_the_log() {
     assert_eq!(log.total, 1);
     let saved = app.world_mut().resource_mut::<SaveBlob>().take_pending();
     assert_eq!(
-        saved.and_then(|b| save::decode(&b)).map(|(log, ..)| log),
+        saved
+            .and_then(|b| save::decode_stored(&b))
+            .map(|(log, ..)| log),
         Some(log)
     );
 }
@@ -414,7 +416,7 @@ fn the_arrows_step_the_difficulty_and_each_change_is_saved() {
         .world_mut()
         .resource_mut::<SaveBlob>()
         .take_pending()
-        .and_then(|b| save::decode(&b));
+        .and_then(|b| save::decode_stored(&b));
     assert_eq!(
         saved.map(|(_, settings, _)| settings.difficulty),
         Some(Difficulty::Hard)
@@ -541,7 +543,7 @@ fn give_gold(app: &mut App, gold: u32) {
 fn saved_inventory(app: &mut App) -> Option<Inventory> {
     let pending = app.world_mut().resource_mut::<SaveBlob>().take_pending();
     pending
-        .and_then(|bytes| save::decode(&bytes))
+        .and_then(|bytes| save::decode_stored(&bytes))
         .map(|(.., inventory)| inventory)
 }
 

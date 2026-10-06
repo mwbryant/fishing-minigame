@@ -104,7 +104,7 @@ fn main() -> ! {
         *smoke.app.world().resource::<Settings>(),
         *smoke.app.world().resource::<Inventory>(),
     );
-    let reloaded = saves.load().and_then(|bytes| save::decode(&bytes));
+    let reloaded = saves.load().and_then(|bytes| save::decode_stored(&bytes));
     info!(
         "landed {landed}; log total {}; gold {}, hat {}; flash holds {:?}",
         expected.0.total,

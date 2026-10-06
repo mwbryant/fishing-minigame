@@ -148,7 +148,8 @@ fn load_save(
     mut settings: ResMut<Settings>,
     mut inventory: ResMut<Inventory>,
 ) {
-    if let Some((saved_log, saved_settings, saved_inventory)) = blob.loaded().and_then(save::decode)
+    if let Some((saved_log, saved_settings, saved_inventory)) =
+        blob.section(&save::KEY).and_then(save::decode)
     {
         *log = saved_log;
         *settings = saved_settings;
@@ -365,7 +366,7 @@ fn play(
         *inventory = Inventory::default();
     }
     if difficulty_change.is_some() || inventory_changed || erase {
-        blob.request_save(save::encode(&log, &settings, &inventory));
+        blob.save_section(save::KEY, save::encode(&log, &settings, &inventory));
     }
     if let Some(phase) = next {
         session.enter(phase);
@@ -411,7 +412,7 @@ fn simulate(
                 ReelOutcome::Landed => {
                     let milestones = log.record(catch);
                     inventory.earn(catch.gold());
-                    blob.request_save(save::encode(&log, &settings, &inventory));
+                    blob.save_section(save::KEY, save::encode(&log, &settings, &inventory));
                     sound.play(&audio::CATCH);
                     Phase::Caught {
                         catch: *catch,
