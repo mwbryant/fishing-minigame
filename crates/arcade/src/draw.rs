@@ -29,7 +29,7 @@ pub(crate) fn draw_frame(
     power_overlay(shapes, &power);
 }
 
-/// Four rings on the compass points, the one the device points at lit, a
+/// A ring per choice around the dial, the one the device points at lit, a
 /// gold arc on the rim following the turn, and the pick's name in the middle.
 fn dial(shapes: &mut Vec<Shape>, steer_deg: f32) {
     let pointed = dial_choice(steer_deg, CHOICES.len());
@@ -84,6 +84,7 @@ fn icon_for(choice: Choice) -> &'static Sprite {
         Choice::Play(Game::Angler) => &sprites::FISH,
         Choice::Play(Game::Spider) => &sprites::SPIDER,
         Choice::Play(Game::Skate) => &sprites::SKATEBOARD,
+        Choice::Play(Game::Bees) => &sprites::BEE,
         Choice::Settings => &sprites::GEAR,
     }
 }

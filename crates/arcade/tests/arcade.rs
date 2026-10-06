@@ -30,9 +30,11 @@ fn holding_level_points_at_angler_and_turning_sweeps_the_dial() {
         "{:?}",
         labels(&app)
     );
-    turn(&mut app, 60.0);
+    turn(&mut app, 48.0);
     assert!(shows(&app, "SKATE"));
-    turn(&mut app, -30.0);
+    turn(&mut app, -48.0);
+    assert!(shows(&app, "BEES???"));
+    turn(&mut app, -24.0);
     assert!(shows(&app, "SETTINGS"));
     assert_eq!(chosen(&app), None, "turning alone launches nothing");
 }

@@ -11,6 +11,7 @@ angler_game.workspace = true
 arcade.workspace = true
 spider_game.workspace = true
 skate_game.workspace = true
+bees_game.workspace = true
 orbit_core.workspace = true
 orbit_save.workspace = true
 orbit_audio.workspace = true

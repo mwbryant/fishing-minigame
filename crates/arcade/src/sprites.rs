@@ -62,3 +62,20 @@ pub static GEAR: Sprite = Sprite {
     ],
     palette: &[(b'S', rgb(190, 195, 205))],
 };
+
+pub static BEE: Sprite = Sprite {
+    rows: &[
+        "...WW.....",
+        "..WWWW....",
+        ".YKYYKYKH.",
+        "SYKYYKYKHH",
+        ".YKYYKYKH.",
+    ],
+    palette: &[
+        (b'W', rgb(215, 232, 255)),
+        (b'Y', rgb(250, 205, 40)),
+        (b'K', rgb(30, 30, 30)),
+        (b'H', rgb(90, 80, 70)),
+        (b'S', rgb(120, 120, 120)),
+    ],
+};

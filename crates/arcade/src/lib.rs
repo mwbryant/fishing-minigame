@@ -1,4 +1,4 @@
-//! The boot menu. Turning the device sweeps a dial over the three games and
+//! The boot menu. Turning the device sweeps a dial over the four games and
 //! the settings; PWR (or a tap) picks. Picking a game ends this app with
 //! `AppExit`, and the platform builds that game in its place.
 
@@ -26,6 +26,7 @@ pub enum Game {
     Angler,
     Spider,
     Skate,
+    Bees,
 }
 
 /// What the dial offers, clockwise from 12 o'clock.
@@ -35,10 +36,11 @@ pub enum Choice {
     Settings,
 }
 
-pub const CHOICES: [Choice; 4] = [
+pub const CHOICES: [Choice; 5] = [
     Choice::Play(Game::Angler),
     Choice::Play(Game::Spider),
     Choice::Play(Game::Skate),
+    Choice::Play(Game::Bees),
     Choice::Settings,
 ];
 
@@ -49,6 +51,7 @@ impl Choice {
             Choice::Play(Game::Angler) => ["ANGLER", ""],
             Choice::Play(Game::Spider) => ["SPIDER", "ROULETTE"],
             Choice::Play(Game::Skate) => ["SKATE", ""],
+            Choice::Play(Game::Bees) => ["BEES???", ""],
             Choice::Settings => ["SETTINGS", ""],
         }
     }

@@ -50,6 +50,7 @@ pub fn run(game: Game, dir: &Path) {
         Game::Angler => angler(&mut camera),
         Game::Spider => spider(&mut camera),
         Game::Skate => skate(&mut camera),
+        Game::Bees => bees(&mut camera),
     }
 }
 
@@ -65,9 +66,12 @@ fn arcade(camera: &mut Camera) {
     core_testing::set_tilt(&mut app, 30.0, 0.0);
     app.update();
     camera.shoot(&app, "arcade_spider");
-    core_testing::set_tilt(&mut app, 52.0, 0.0);
+    core_testing::set_tilt(&mut app, 48.0, 0.0);
     app.update();
     camera.shoot(&app, "arcade_skate");
+    core_testing::set_tilt(&mut app, -48.0, 0.0);
+    app.update();
+    camera.shoot(&app, "arcade_bees");
     core_testing::set_tilt(&mut app, -30.0, 0.0);
     core_testing::click_action(&mut app);
     core_testing::set_tilt(&mut app, 4.0, 0.0);
@@ -130,6 +134,47 @@ fn skate(camera: &mut Camera) {
         .place(Kind::Cone, SKATER_X + 40.0);
     core_testing::tick(&mut app, 70);
     camera.shoot(&app, "skate_bailed");
+}
+
+/// Bees??? with the angler wearing the cowboy hat, so the bees do too.
+fn bees(camera: &mut Camera) {
+    use bees_game::{CONTROL_GAIN, Orbit};
+    let mut inventory = angler_game::Inventory::default();
+    inventory.earn(1000);
+    let cowboy = angler_game::HATS
+        .iter()
+        .position(|hat| hat.name == "COWBOY HAT")
+        .unwrap_or(0);
+    inventory.buy(cowboy);
+    let mut blob = SaveBlob::from_storage(None);
+    blob.save_section(
+        angler_game::save::KEY,
+        angler_game::save::encode(
+            &angler_game::FishLog::default(),
+            &angler_game::Settings::default(),
+            &inventory,
+        ),
+    );
+    let mut app = core_testing::headless(
+        |app| {
+            app.add_plugins(bees_game::BeesPlugin);
+        },
+        blob.take_pending(),
+    );
+    battery(&mut app, 76);
+    camera.shoot(&app, "bees_title");
+    core_testing::click_action(&mut app);
+    for _ in 0..60 * 3 {
+        let steer = app.world().resource::<Orbit>().drift_deg / CONTROL_GAIN;
+        core_testing::set_tilt(&mut app, steer, 0.0);
+        app.update();
+    }
+    camera.shoot(&app, "bees_orbit");
+    core_testing::set_tilt(&mut app, 60.0, 0.0);
+    core_testing::tick(&mut app, 50);
+    camera.shoot(&app, "bees_spilling");
+    core_testing::tick(&mut app, 60 * 12);
+    camera.shoot(&app, "bees_empty");
 }
 
 fn orbit(camera: &mut Camera) {
@@ -238,6 +283,7 @@ impl Game {
             Game::Angler => angler_game::BACKGROUND,
             Game::Spider => spider_game::BACKGROUND,
             Game::Skate => skate_game::BACKGROUND,
+            Game::Bees => bees_game::BACKGROUND,
         }
     }
 }

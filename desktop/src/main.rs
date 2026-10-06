@@ -3,7 +3,7 @@
 //! CO5300, and the IMU is a virtual device driven from the keyboard.
 //!
 //! ```text
-//! cargo run -p orbit_desktop -- [arcade|angler|spider|skate|orbit] play (default arcade)
+//! cargo run -p orbit_desktop -- [arcade|angler|spider|skate|bees|orbit]  play (default arcade)
 //!   Holding Z (BOOT) sleeps the board like the firmware does; Z again wakes it.
 //! cargo run -p orbit_desktop -- [angler|orbit] snapshot <dir>  scripted PNGs, headless
 //! ```
@@ -21,6 +21,7 @@ use std::{
 
 use angler_game::AnglerPlugin;
 use arcade::{ArcadePlugin, Menu};
+use bees_game::BeesPlugin;
 use bevy::prelude::*;
 use minifb::{Key, MouseButton, MouseMode, Window, WindowOptions};
 use orbit_core::{
@@ -53,6 +54,7 @@ pub enum Game {
     Angler,
     Spider,
     Skate,
+    Bees,
 }
 
 impl Game {
@@ -63,6 +65,7 @@ impl Game {
             Game::Angler => "angler",
             Game::Spider => "spider",
             Game::Skate => "skate",
+            Game::Bees => "bees",
         }
     }
 
@@ -73,6 +76,7 @@ impl Game {
             Game::Angler => app.add_plugins(AnglerPlugin),
             Game::Spider => app.add_plugins(SpiderPlugin),
             Game::Skate => app.add_plugins(SkatePlugin),
+            Game::Bees => app.add_plugins(BeesPlugin),
         };
     }
 
@@ -82,6 +86,7 @@ impl Game {
             arcade::Game::Angler => Some(Game::Angler),
             arcade::Game::Spider => Some(Game::Spider),
             arcade::Game::Skate => Some(Game::Skate),
+            arcade::Game::Bees => Some(Game::Bees),
         }
     }
 }
@@ -102,6 +107,7 @@ fn main() {
         Some("angler") => (Game::Angler, &args[1..]),
         Some("spider") => (Game::Spider, &args[1..]),
         Some("skate") => (Game::Skate, &args[1..]),
+        Some("bees") => (Game::Bees, &args[1..]),
         _ => (Game::Arcade, &args[..]),
     };
     match rest.first().map(String::as_str) {
