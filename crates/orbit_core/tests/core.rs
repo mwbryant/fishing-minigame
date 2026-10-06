@@ -145,6 +145,21 @@ fn sound_requests_queue_in_order_until_the_platform_drains_them() {
 }
 
 #[test]
+fn an_undrained_queue_keeps_only_its_newest_commands() {
+    static TICK: orbit_core::Clip = orbit_core::Clip { pcm: &[1, 0] };
+    let mut queue = orbit_core::SoundQueue::default();
+    for _ in 0..100 {
+        queue.play(&TICK);
+    }
+    queue.stop();
+    assert_eq!(queue.pending().len(), 16);
+    assert_eq!(
+        queue.pending().last(),
+        Some(&orbit_core::SoundCommand::Stop)
+    );
+}
+
+#[test]
 fn pending_saves_are_handed_over_once() {
     let mut blob = SaveBlob::from_storage(Some(vec![1, 2]));
     assert_eq!(blob.loaded(), Some(&[1u8, 2][..]));

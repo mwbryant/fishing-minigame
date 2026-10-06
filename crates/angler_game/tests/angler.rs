@@ -1,5 +1,5 @@
 use angler_game::{
-    Catch, Difficulty, FishLog, GUTEN_MORGEN, HATS, Inventory, Phase, Session, Settings,
+    Catch, Difficulty, FishLog, GUTEN_MORGEN, HATS, Inventory, Phase, Session, Settings, audio,
     cast::{self, CHARGE_SECS, Flight, scene::WATER_Y},
     reel::{LEAN_DEAD_ZONE_DEG, LEAN_FULL_DEG},
     save,
@@ -484,8 +484,8 @@ fn guten_plays_the_song_and_spins_the_trout() {
     tap(&mut app, ui::GUTEN.center());
     assert_eq!(phase(&app), Phase::Guten);
     assert_eq!(
-        sounds(&app),
-        vec![SoundCommand::Play(ClipRef(&GUTEN_MORGEN))]
+        sounds(&app).last(),
+        Some(&SoundCommand::Play(ClipRef(&GUTEN_MORGEN)))
     );
     assert!(shows(&app, "GUTEN MORGEN"));
     let trout_width = |app: &App| {
@@ -838,4 +838,134 @@ fn a_fish_that_got_away_re_levels_the_device_too() {
     tick(&mut app, (ESCAPED_SECS * 60.0) as u32 + 2);
     assert!(matches!(phase(&app), Phase::Aim { .. }));
     assert_eq!(pose(&app), (0.0, 0.0));
+}
+
+fn clear_sounds(app: &mut App) {
+    app.world_mut()
+        .resource_mut::<SoundQueue>()
+        .drain()
+        .for_each(drop);
+}
+
+fn play(clip: &'static orbit_core::Clip) -> SoundCommand {
+    SoundCommand::Play(ClipRef(clip))
+}
+
+fn heard(app: &App, clip: &'static orbit_core::Clip) -> usize {
+    sounds(app).iter().filter(|s| **s == play(clip)).count()
+}
+
+fn last_sound(app: &App) -> Option<SoundCommand> {
+    sounds(app).last().copied()
+}
+
+#[test]
+fn a_cast_whooshes_and_a_perfect_one_chimes() {
+    for (power, clip) in [(0.6, &audio::CAST), (1.0, &audio::PERFECT_CAST)] {
+        let mut app = headless_app();
+        start_aiming(&mut app);
+        clear_sounds(&mut app);
+        hold_action(&mut app, frames_for(power));
+        release_action(&mut app);
+        assert_eq!(last_sound(&app), Some(play(clip)), "power {power}");
+    }
+}
+
+#[test]
+fn the_bobber_plops_on_the_water_and_thuds_on_the_dock() {
+    let mut app = headless_app();
+    start_aiming(&mut app);
+    cast_onto_spot(&mut app, 0.0, 0.7);
+    assert!(run_until(&mut app, 600, |p| matches!(
+        p,
+        Phase::Waiting { .. }
+    )));
+    assert_eq!(last_sound(&app), Some(play(&audio::PLOP)));
+
+    let mut app = headless_app();
+    start_aiming(&mut app);
+    set_tilt(&mut app, -45.0, 0.0);
+    hold_action(&mut app, frames_for(0.1));
+    release_action(&mut app);
+    assert!(run_until(&mut app, 600, |p| *p == Phase::Notice("ON THE DOCK!")));
+    assert_eq!(last_sound(&app), Some(play(&audio::THUD)));
+}
+
+#[test]
+fn a_bite_sounds_the_alarm() {
+    let mut app = headless_app();
+    hook_a_fish(&mut app);
+    assert_eq!(heard(&app, &audio::BITE), 1);
+}
+
+fn progress(app: &App) -> f32 {
+    let Phase::Reel { reel, .. } = phase(app) else {
+        panic!("expected a fight, got {:?}", phase(app));
+    };
+    reel.progress
+}
+
+#[test]
+fn the_reel_clicks_while_the_catch_meter_rises_and_goes_quiet_while_it_drains() {
+    let mut app = headless_app();
+    hook_a_fish(&mut app);
+    set_tilt(&mut app, 0.0, 0.0);
+    clear_sounds(&mut app);
+    tick(&mut app, 30);
+    assert!(
+        heard(&app, &audio::REEL) >= 3,
+        "{} ticks",
+        heard(&app, &audio::REEL)
+    );
+
+    let mut app = headless_app();
+    hook_a_fish(&mut app);
+    set_tilt(&mut app, 0.0, LEAN_DEAD_ZONE_DEG + LEAN_FULL_DEG);
+    tick(&mut app, 30);
+    clear_sounds(&mut app);
+    let before = progress(&app);
+    tick(&mut app, 20);
+    assert!(progress(&app) < before, "the meter should be draining");
+    assert_eq!(heard(&app, &audio::REEL), 0);
+}
+
+#[test]
+fn landing_a_fish_plays_the_jingle_and_losing_one_the_sad_trombone() {
+    let mut app = headless_app();
+    hook_a_fish(&mut app);
+    reel_skillfully(&mut app);
+    assert!(matches!(phase(&app), Phase::Caught { .. }));
+    assert_eq!(last_sound(&app), Some(play(&audio::CATCH)));
+
+    let mut app = headless_app();
+    hook_a_fish(&mut app);
+    set_tilt(&mut app, 0.0, 0.0);
+    assert!(run_until(&mut app, 60 * 30, |p| *p == Phase::Escaped));
+    assert_eq!(last_sound(&app), Some(play(&audio::ESCAPE)));
+}
+
+#[test]
+fn menu_buttons_click_buying_rings_the_till_and_a_tap_that_cannot_do_anything_thuds() {
+    let mut app = headless_app();
+    give_gold(&mut app, HATS[BEANIE].price);
+    open_shop(&mut app);
+    assert_eq!(last_sound(&app), Some(play(&audio::CLICK)));
+    tap(&mut app, ui::NEXT_HAT.center());
+    assert_eq!(last_sound(&app), Some(play(&audio::CLICK)));
+    tap(&mut app, ui::BUY.center());
+    assert_eq!(last_sound(&app), Some(play(&audio::COIN)));
+    tap(&mut app, ui::NEXT_HAT.center());
+    clear_sounds(&mut app);
+    tap(&mut app, ui::BUY.center());
+    assert_eq!(
+        last_sound(&app),
+        Some(play(&audio::THUD)),
+        "can't afford it"
+    );
+    tap(&mut app, SCREEN_CENTER);
+    assert_eq!(
+        heard(&app, &audio::CLICK),
+        0,
+        "taps off the buttons are silent"
+    );
 }

@@ -11,7 +11,7 @@
 
 extern crate alloc;
 
-mod audio;
+pub mod audio;
 pub mod cast;
 mod draw;
 pub mod log;

@@ -1,11 +1,13 @@
 //! The whole game flow as one phase machine resource (no Bevy states: every
 //! state schedule costs heap the ESP32 doesn't have).
 
+use core::cell::Cell;
+
 use bevy::prelude::*;
-use orbit_core::{Buttons, Rng, SaveBlob, SoundQueue, Tilt, Touch};
+use orbit_core::{Buttons, Clip, Rng, SaveBlob, SoundQueue, Tilt, Touch};
 
 use crate::{
-    audio::GUTEN_MORGEN,
+    audio::{self, GUTEN_MORGEN},
     cast::{self, Flight, scene::*},
     log::{FishLog, Milestones},
     reel::{Reel, ReelOutcome},
@@ -24,6 +26,8 @@ pub const BITE_SHOW_SECS: f32 = 0.7;
 pub const NOTHING_BITES_SECS: f32 = 9.0;
 pub const NOTICE_SECS: f32 = 1.4;
 pub const TOAST_SECS: f32 = 1.2;
+/// The reel clicks each time the catch meter rises by this much.
+pub const REEL_CLICK_STEP: f32 = 0.03;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Phase {
@@ -159,7 +163,12 @@ fn play(
 
     let action = buttons.action;
     let tap = touch.just_pressed();
-    let tapped = |button: &ui::Button| tap && touch.position().is_some_and(|at| button.hit(at));
+    let hit_button = Cell::new(false);
+    let tapped = |button: &ui::Button| {
+        let hit = tap && touch.position().is_some_and(|at| button.hit(at));
+        hit_button.set(hit_button.get() || hit);
+        hit
+    };
     let elapsed = session.phase_secs;
     let results_open = elapsed >= RESULT_GUARD_SECS;
     let tuning = settings.difficulty.tuning();
@@ -167,6 +176,7 @@ fn play(
     let mut difficulty_change = None;
     let mut inventory_changed = false;
     let mut erase = false;
+    let mut sfx: Option<&'static Clip> = None;
     let next = match &mut session.phase {
         Phase::Title if action.pressed() => Some(aim()),
         Phase::Title if tapped(&ui::LOG) => Some(Phase::Log),
@@ -184,7 +194,7 @@ fn play(
             None
         }
         Phase::Settings if tapped(&ui::GUTEN) => {
-            sound.play(&GUTEN_MORGEN);
+            sfx = Some(&GUTEN_MORGEN);
             Some(Phase::Guten)
         }
         Phase::Settings if tapped(&ui::RESET) => Some(Phase::ConfirmReset),
@@ -205,7 +215,13 @@ fn play(
         // BUY and WEAR share a spot: buying puts the hat on, and an owned
         // hat is just worn.
         Phase::Shop { hat } if tapped(&ui::BUY) => {
-            inventory_changed = inventory.buy(*hat) || inventory.wear(*hat);
+            let bought = inventory.buy(*hat);
+            inventory_changed = bought || inventory.wear(*hat);
+            sfx = Some(match (bought, inventory_changed) {
+                (true, _) => &audio::COIN,
+                (false, true) => &audio::CLICK,
+                (false, false) => &audio::THUD,
+            });
             None
         }
         Phase::Shop { .. } if tapped(&ui::BACK) || action.pressed() => Some(Phase::Title),
@@ -232,9 +248,17 @@ fn play(
             Some(secs) => {
                 *charging_secs = None;
                 let power = cast::release_power(secs, tuning.perfect_power);
-                (power >= cast::MIN_CAST_POWER).then(|| Phase::Flight {
-                    flight: Flight::launch(cast::elevation_deg(tilt.steer_deg), power),
-                    perfect: power == 1.0,
+                let perfect = power == 1.0;
+                (power >= cast::MIN_CAST_POWER).then(|| {
+                    sfx = Some(if perfect {
+                        &audio::PERFECT_CAST
+                    } else {
+                        &audio::CAST
+                    });
+                    Phase::Flight {
+                        flight: Flight::launch(cast::elevation_deg(tilt.steer_deg), power),
+                        perfect,
+                    }
                 })
             }
             None => None,
@@ -247,10 +271,13 @@ fn play(
             distance,
             ..
         } => match bite_in {
-            Some(at) if elapsed >= *at => Some(Phase::Bite {
-                bobber_x: *bobber_x,
-                catch: roll_catch(&mut rng, *accuracy, *distance),
-            }),
+            Some(at) if elapsed >= *at => {
+                sfx = Some(&audio::BITE);
+                Some(Phase::Bite {
+                    bobber_x: *bobber_x,
+                    catch: roll_catch(&mut rng, *accuracy, *distance),
+                })
+            }
             None if elapsed >= NOTHING_BITES_SECS => Some(Phase::Notice("NOTHING BITES")),
             _ => None,
         },
@@ -271,6 +298,9 @@ fn play(
         Phase::Notice(_) if elapsed >= NOTICE_SECS => Some(aim()),
         _ => None,
     };
+    if let Some(clip) = sfx.or(hit_button.get().then_some(&audio::CLICK)) {
+        sound.play(clip);
+    }
     if next_fish {
         session.move_spot(&mut rng);
         tilt.request_zero();
@@ -300,14 +330,17 @@ fn simulate(
     mut log: ResMut<FishLog>,
     mut inventory: ResMut<Inventory>,
     mut blob: ResMut<SaveBlob>,
+    mut sound: ResMut<SoundQueue>,
 ) {
     let dt = time.delta_secs();
     let spot_x = session.spot_x;
     let next = match &mut session.phase {
         Phase::Flight { flight, .. } => flight.step(dt).map(|land_x| {
             if land_x < SHORE_X {
+                sound.play(&audio::THUD);
                 return Phase::Notice("ON THE DOCK!");
             }
+            sound.play(&audio::PLOP);
             let accuracy = cast::accuracy(land_x, spot_x);
             Phase::Waiting {
                 bobber_x: land_x,
@@ -317,19 +350,27 @@ fn simulate(
             }
         }),
         Phase::Reel { reel, catch } => {
-            reel.step(tilt.lean_deg, dt, &mut rng)
-                .map(|outcome| match outcome {
-                    ReelOutcome::Landed => {
-                        let milestones = log.record(catch);
-                        inventory.earn(catch.gold());
-                        blob.request_save(save::encode(&log, &settings, &inventory));
-                        Phase::Caught {
-                            catch: *catch,
-                            milestones,
-                        }
+            let before = reel.progress;
+            let outcome = reel.step(tilt.lean_deg, dt, &mut rng);
+            if (reel.progress / REEL_CLICK_STEP) as u32 > (before / REEL_CLICK_STEP) as u32 {
+                sound.play(&audio::REEL);
+            }
+            outcome.map(|outcome| match outcome {
+                ReelOutcome::Landed => {
+                    let milestones = log.record(catch);
+                    inventory.earn(catch.gold());
+                    blob.request_save(save::encode(&log, &settings, &inventory));
+                    sound.play(&audio::CATCH);
+                    Phase::Caught {
+                        catch: *catch,
+                        milestones,
                     }
-                    ReelOutcome::Escaped => Phase::Escaped,
-                })
+                }
+                ReelOutcome::Escaped => {
+                    sound.play(&audio::ESCAPE);
+                    Phase::Escaped
+                }
+            })
         }
         _ => None,
     };
