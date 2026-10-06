@@ -73,7 +73,7 @@ crates/orbit_ui      #![no_std] shared drawing: Button, battery level, sleep ove
 crates/arcade        #![no_std] the boot menu: a dial over the games and SETTINGS (mute).
 crates/angler_game   #![no_std] Angler (fishing; one phase-machine resource, no Bevy states).
 crates/spider_game   #![no_std] Spider Roulette (twelve eggs, one spider).
-crates/skate_game    #![no_std] Skate (rotation pops and lands ollies).
+crates/skate_game    #![no_std] Skate (rotation pops and lands ollies; halfpipe tricks).
 crates/bees_game     #![no_std] Bees??? (the Moon's honey jar; bees wear Angler's hat).
 crates/orbit_game    #![no_std] Orbit (circular pong, touch only; uses Bevy states).
 desktop/             std simulator for the arcade or any one game (minifb window, RAM model
@@ -343,9 +343,9 @@ Measured **[verified]** with `tools/heap32/run.sh`:
 |---|---|---|---|---|
 | Orbit | 205 KB | 213 KB | 265 KB | **12 KB** |
 | Angler | 199 KB | 203 KB | 204 KB | **73 KB** |
+| Skate | 190 KB | 194 KB | 194 KB | **82 KB** |
 | Bees??? | 188 KB | 192 KB | 192 KB | **84 KB** |
-| Skate | 187 KB | 190 KB | 191 KB | **86 KB** |
-| Spider Roulette | 182 KB | 184 KB | 185 KB | **91 KB** |
+| Spider Roulette | 184 KB | 186 KB | 187 KB | **90 KB** |
 | Arcade menu | 179 KB | 181 KB | 182 KB | **95 KB** |
 
 The arcade firmware drops each app before building the next (`Board::run` returns the app,
@@ -448,10 +448,12 @@ Other memory facts:
     - Angler: two fish landed by a scripted steady-hand player, their gold spent in the hat
       shop (MENU from aiming, then SHOP and BUY), the log, settings and inventory written
       through `esp-storage` into emulated flash at 0x9000 and read back equal, and 0 B in PSRAM.
-    - Spider Roulette: rotation aims at each egg in turn and PWR cracks it until the hidden
-      spider pounces exactly where it was hidden; the SPDR section reaches flash.
-    - Skate: a rider who pops just before each obstacle survives 20 s of game time, a cone
-      then bails it, and the SKAT section reaches flash.
+    - Spider Roulette: PWR spins again and again (each spin rigged to stop on the next egg)
+      until the spider pounces from exactly the egg it was hidden in; the SPDR section
+      reaches flash.
+    - Skate: a rider who pops just before each obstacle survives 30 s of game time, through
+      the halfpipe at 150 m and back out; a cone then bails it, and the SKAT section reaches
+      flash.
     - Bees???: a steady hand keeps 90%+ of the honey for 20 s, tipping empties the jar, and
       the BEES section reaches flash.
     - Arcade: the menu launches each game by rotation and PWR, HOME returns, twice round;
@@ -862,7 +864,9 @@ the hat the angler wears.
 secondary.
 - `orbit_ui::dial_choice(steer, n)` picks one of `n` options spaced round the glass from 12
   o'clock, with the pointer at 3x the turn (`DIAL_GAIN`), so +-60 degrees reaches all of
-  them. The menu and Spider Roulette draw it as a gold arc on the rim.
+  them. The menu draws it as a gold arc on the rim.
+- Rotation is the default, not a rule: Spider Roulette is pure chance, so PWR (or a tap)
+  just spins.
 - The menu and every game re-level (`Tilt::request_zero`) when they start a round, so
   however the device is held is "level".
 
@@ -873,11 +877,16 @@ middle. SETTINGS is a two-option dial, SOUND ON/OFF (`preferences::set_muted`, a
 
 **Spider Roulette** (`crates/spider_game`):
 - **Board:** twelve eggs on a web at radius 160; one hides the spider, re-hidden each round.
-  PWR or a tap cracks the aimed egg.
-- **Tension:** safe eggs show a shell and shorten the odds in the middle ("1 IN 12" down to
-  "1 IN 2"). A heartbeat speeds up from 1.25 s to 0.35 s between beats.
-- **Endings:** the spider's egg pounces (three bounds over a red flash, a screech, then GOT
-  YOU!). Eleven safe eggs trap it. The best run of safe picks persists.
+  A purple spider dances in the middle: it bobs and sways to the heartbeat and turns round
+  every four beats.
+- **The spin:** PWR or a tap spins a pointer round the ring, `SPIN_TURNS` (3) turns plus the
+  way to an egg picked uniformly among the whole ones, with a cubic ease-out over
+  `SPIN_SECS` (2.4 s). A tick sounds at each egg it passes. The egg it stops on cracks.
+- **Tension:** safe eggs show a shell and shorten the odds at the top ("SAFE n | 1 IN 12"
+  down to "1 IN 2"). A heartbeat speeds up from 1.25 s to 0.35 s between beats.
+- **Endings:** on the spider's egg, the dancer pounces at the glass (three bounds over a red
+  flash, a screech, then GOT YOU!). Eleven safe eggs trap it. The best run of safe eggs
+  persists.
 
 **Skate** (`crates/skate_game`):
 - **Controls:** a counterclockwise turn past `POP_DEG` (15) pops an ollie. The next pop
@@ -889,8 +898,16 @@ middle. SETTINGS is a two-option dial, SOUND ON/OFF (`preferences::set_muted`, a
   spawn at random gaps scaled by speed.
 - **Score:** metres (30 px each), plus 10 per clean landing, plus grind time. The best
   persists.
+- **Halfpipe:** every `HALFPIPE_EVERY_M` (150 m) the street empties (no spawns in the last
+  20 m) and drops into a halfpipe, the bottom half of a 175 px circle. The rider swings
+  wall to wall like a pendulum and leaves each coping at `AIR_SPEED` (520 px/s, about 0.7 s
+  of air). In the air the spin is the device's turn since takeoff times `SPIN_GAIN` (6), so
+  60 degrees of wrist is a 360. Landing within `LAND_SPIN_DEG` (50) of a half turn scores by
+  half turns (AIR 5, 180 15, 360 35, 540 60, 720 90); otherwise it's a SLAM, which scores
+  nothing but doesn't end the run. After `HALFPIPE_SECS` (7) it rolls out at the bottom onto
+  the street; distance and speed are frozen inside.
 - **Playability is pinned by a test:** a rider who pops 0-55 px before each obstacle
-  survives 20 s.
+  survives 30 s, through the halfpipe.
 - **Render cost:** only the rider, obstacles and lane dashes move over the static night city.
 
 **Bees???** (`crates/bees_game`):

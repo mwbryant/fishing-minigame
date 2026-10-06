@@ -240,3 +240,38 @@ Images are in `img/`. Newest beats go at the bottom.
   | Skate | 191 KB |
   | Bees??? | 192 KB |
   | Angler | 204 KB |
+
+## 20. Spider Roulette becomes a real roulette
+
+- **The feedback:** "it doesn't need orbit select and the button should start the spin,
+  there should just be a dancing spider in the middle."
+- **The lesson:** rotation-first is a default, not a rule. Aiming at an egg made a chance
+  game feel like a skill game, and it was fiddly.
+- **The spin:**
+  - PWR whirls a pointer round the ring: three turns plus the way to a random whole egg,
+    easing out over 2.4 s;
+  - a tick at every egg it passes, so the slowdown is audible;
+  - wherever it stops cracks.
+- **The dancer:** a purple spider in the middle bobs and sways to the heartbeat and turns
+  round every four beats. When its egg comes up, it's the one that pounces at the glass.
+- **Testable chance:** `rig_next_spin(egg)` lets tests and the QEMU smoke choose where a
+  spin stops, so "the spider was where it was hidden" is still checked end to end.
+- Images: `20-spider-dancer.png`, `20-spider-spin.png`.
+
+## 21. Skate: a halfpipe every 150 m
+
+- **The ask:** "every 150 units or so in skateboard there should be a drop into a halfpipe
+  freestyle section for like 7s."
+- **The drop:** the street stops spawning 20 m early so the rider never drops in
+  mid-ollie, then the scene swaps to a halfpipe carved into concrete under the night sky.
+- **The ride:** a pendulum on a 175 px circle. Each coping launches the same 0.7 s air, so
+  every wall is a fair chance at a trick.
+- **Rotation again:** in the air, the skater spins 6x the device's turn since takeoff, so
+  about 60 degrees of wrist is a 360. Land near a whole half turn for AIR, 180, 360, 540 or
+  720 (5 to 90 points). Land crooked and it's a SLAM: no points, but the run goes on.
+- **A rotatable skater:** the street skater is a sprite, which can't turn. In the pipe it's
+  lines and discs instead, built around a "board up" vector, and airs spin about the hips
+  so a 180 doesn't swing the head off the round glass.
+- **Cost:** no new systems or resources, just fields on `Ride`. Peak heap went from 191 to
+  194 KB.
+- Images: `21-skate-drop-in.png`, `21-skate-air.png`, `21-skate-360.png`.

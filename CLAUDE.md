@@ -3,8 +3,8 @@
 no_std Bevy 0.19 games for the Waveshare ESP32-S3-Touch-AMOLED-1.75 (466x466 round
 AMOLED, touch, IMU, two buttons). The board boots the **arcade** (`crates/arcade`), a
 rotation dial over **Angler** (fishing: tilt-aimed cast, lean-to-reel fight, fish log,
-gold for a hat shop), **Spider Roulette** (crack eggs, one hides a spider), **Skate**
-(rotation pops and lands ollies) and **Bees???** (keep the Moon's honey jar from
+gold for a hat shop), **Spider Roulette** (PWR spins a pointer round twelve eggs, one hides a spider),
+**Skate** (rotation pops and lands ollies; a halfpipe freestyle every 150 m) and **Bees???** (keep the Moon's honey jar from
 spilling; the bees wear Angler's hat), plus SETTINGS (mute). **Orbit** (circular pong) is
 a separate binary.
 A desktop simulator shares the renderer and the motion/save code.
@@ -40,8 +40,8 @@ Rules that bite:
   `tools/qemu-smoke/src/bin/<game>.rs` (and the arcade smoke), a `measure_<game>` in
   `tools/heap32`, and a desktop `Game` with snapshots.
 - The heap budget is tight: Bevy must fit in about 284 KB of internal SRAM, because
-  PSRAM atomics are unreliable on the S3. Peak headroom: Orbit 12 KB, Angler 73, Bees??? 84,
-  Skate 86, Spider Roulette 91, the menu 95. The arcade drops each app before building the
+  PSRAM atomics are unreliable on the S3. Peak headroom: Orbit 12 KB, Angler 73, Skate 82,
+  Bees??? 84, Spider Roulette 90, the menu 95. The arcade drops each app before building the
   next, so only one is ever in memory.
   After adding plugins, systems, resources or states, run `tools/heap32/run.sh`.
   `tools/qemu-smoke/run.sh` checks the full firmware runtime of every game and the arcade's

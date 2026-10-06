@@ -27,12 +27,14 @@ Turning the device like a steering wheel is the main control everywhere; PWR con
     screen goes back to it. Settings has EASY / NORMAL / HARD
     difficulty (saved), RESET (erases the log, gold and hats after a confirm) and **GUTEN**, a riff on logic-fish: a rainbow trout spins to "Guten
     Morgen, Sonnenschein" for 15 s through the board's speaker.
-- **Spider Roulette:** twelve eggs ring a web and one hides a spider. Turn to aim, PWR to
-  crack. Each safe egg shortens the odds and quickens the heartbeat; the spider's egg
-  pounces. Crack all eleven safe ones to trap it.
+- **Spider Roulette:** twelve eggs ring a web and one hides a spider, which dances in the
+  middle. PWR spins a pointer round the ring; it ticks past the eggs, slows, and cracks the
+  one it stops on. Each safe egg shortens the odds and quickens the heartbeat; the spider's
+  egg pounces. Crack all eleven safe ones to trap it.
 - **Skate:** an endless night-street side-scroller. Turn left (nose up) to ollie; in the air
   the board follows your turn, so level out to land. Clear cones; clear benches or land on
-  them to grind. The street speeds up.
+  them to grind. The street speeds up. Every 150 m it drops into a halfpipe for a 7 s
+  freestyle: air off each wall and turn the device to spin a 180, 360, 540 or 720.
 - **Bees???:** the Moon is a hollow jar of honey orbiting the Earth. Something keeps tipping
   it; turn to tip it back before honey pours out (the fuller the jar, the less it takes).
   Bees, wearing the hat from Angler's shop, circle it and fly refills up from Earth.
@@ -46,7 +48,7 @@ through the same software renderer, so the simulator shows the exact pixels the
 panel will get.
 
 ![Arcade menu](screenshots/arcade_spider.png) ![Angler aiming](screenshots/angler_aim.png) ![Angler hat shop](screenshots/angler_shop.png)
-![Spider Roulette](screenshots/spider_pick.png) ![Skate grind](screenshots/skate_grind.png) ![Bees orbit](screenshots/bees_orbit.png)
+![Spider Roulette](screenshots/spider_spin.png) ![Skate halfpipe](screenshots/skate_halfpipe_360.png) ![Bees orbit](screenshots/bees_orbit.png)
 
 ```
 crates/orbit_gfx     no_std rasterizer (embedded-graphics + pixel-art sprites), dirty rects, bands
@@ -174,7 +176,7 @@ GPIO40). The 1.75C variant uses GPIO1 and GPIO2 for those two resets.
 
 Bevy's own bookkeeping (schedules, per-resource tables) dominates. Measured
 with a counting allocator on a 32-bit target, peak heap is 265 KB for Orbit, 204 KB for
-Angler, 192 for Bees???, 191 for Skate, 185 for Spider Roulette and 182 for the menu. The
+Angler, 194 for Skate, 192 for Bees???, 187 for Spider Roulette and 182 for the menu. The
 newer games are leaner because they use one phase resource instead of Bevy states. The arcade
 drops each app before building the next, so only one is ever in memory.
 The firmware gives Bevy about 284 KB of internal SRAM (`INTERNAL_HEAP_BYTES` plus
