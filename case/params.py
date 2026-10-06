@@ -82,8 +82,8 @@ GRILLE_CHAMBER = 0.5  # recess inside the floor so the speaker can breathe into 
 # 12 o'clock. The speaker lies face down on the floor behind the grille; in the battery case
 # the cell lies on top of it. Measure yours: the floor drops to fit whatever you set here.
 SPEAKER = (20.0, 30.0, 4.5)  # the 8 ohm speaker from the box; None for a thinner, silent case
-BATTERY = (20.0, 30.0, 6.0)  # battery case only; 20 x 30 LiPo cells (402030 ... 802030) are common
-BAY_CENTER_Y = -1.8
+BATTERY = (20.5, 32.0, 6.7)  # battery case only: a real 602030 with its protection board
+BAY_CENTER_Y = -1.0
 STACK_GAP = 0.6  # around and above each item (LiPo pouches swell)
 PLUG_ROOM = 3.5  # below the BAT/SPK sockets, for a mated plug and its wires bending away
 RAIL_WALL = 1.0  # two low rails keep the stack over the grille

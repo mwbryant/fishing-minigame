@@ -44,7 +44,7 @@ Waveshare's own STEP model of the board (in `../docs/`).
 | `*.step` | Solid models that open in Fusion 360, Onshape, FreeCAD or Bambu Studio |
 | `fit_test_ring.stl` | Top 10 mm of the case: a short print to try the glass, USB-C and buttons first |
 
-Sizes: the USB case is D53.9 x 18.2 mm; the battery case is 22.9 mm thick.
+Sizes: the USB case is D53.9 x 18.2 mm; the battery case is 23.6 mm thick.
 Without the speaker (`SPEAKER = None`) the case is 16.3 mm thick.
 
 ## Printing on the P2S
@@ -97,9 +97,10 @@ and PWR turns the device on and off.
 - **Capacity: 300 mAh or more.** The AXP2101 charges at 300 mA unless firmware changes it
   (register 0x62, default 300 mA to 4.2 V). The firmware here leaves that alone, and a cell
   should charge at no more than its own capacity per hour.
-- **Size for the battery case:** a 20 x 30 mm footprint, 6 mm thick or less. A 602030 is about
-  300 to 400 mAh. A thicker 802030 (about 500 mAh) also works: set `BATTERY = (20.0, 30.0, 8.0)`
-  in `params.py` and the case grows 2 mm.
+- **Size for the battery case:** a 602030 cell, 300 to 400 mAh. With its protection board it
+  measures about 20.5 x 32 x 6.7 mm, which is what `BATTERY` is set to. Measure yours when it
+  arrives and update `BATTERY`, then run `check.py`. A thicker 802030 (about 500 mAh) also works:
+  set the thickness to 8.7 and the case grows 2 mm.
 - **Runtime:** expect roughly 2 to 3 hours from 300 to 400 mAh. That figure is an estimate from
   typical ESP32-S3 and AMOLED draw, not a measurement.
 
