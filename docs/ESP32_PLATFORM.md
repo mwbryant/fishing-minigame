@@ -8,13 +8,13 @@ Facts are marked
 **[verified]** (built, tested, read in source, or run in the emulator) or
 **[unverified]** (from vendor sources or inference; not yet seen on hardware).
 
-Status as of 2026-10-05: the board has **not arrived**. Both games, the
-renderer, and the simulator are tested on the host. Both firmware binaries
-build and link for the ESP32-S3, and both ran in Espressif's QEMU (Angler
-including a save round-trip through emulated flash). The display, touch, IMU,
-buttons, flash, and speaker have never run on real hardware. Audio is wired in
-(`firmware/src/speaker.rs`, ES8311 over I2S) but has only been compiled, not
-heard.
+Status as of 2026-10-06: the board has **arrived**. The first Angler session
+(`logs/angler-20261006-153858.log`) shows octal PSRAM (8 MB) up, `display ready`,
+Bevy built entirely in internal SRAM (about 72 KB of internal heap free during play),
+the ES8311 answering `0x83 0x11`, and several minutes of casts and fights played at
+60 fps. Its frame stats exposed the arc render cost (section 6), since fixed. Saves
+surviving a power cycle, and the speaker being audible, aren't confirmed from the logs yet.
+Both games, the renderer, and the simulator are tested on the host and in Espressif's QEMU.
 
 ---
 
@@ -282,13 +282,25 @@ tilt demos. Expected at rest:
   **about 22 ms** on the wire. Full-screen animation therefore tops out around 30 fps before
   render time is counted.
 - **Typical Orbit frame:** about 25 KB, roughly 1.3 ms of link time.
-- **Render CPU time on device:** unmeasured. The firmware logs average and worst frame time
-  every 2 s.
+- **Frame time on device** [verified, first Angler log; the firmware logs average and
+  worst every 2 s]:
+  - a frame with nothing to redraw: about 5.4 ms (input polling plus the Bevy update);
+  - waiting for a bite or fighting a fish: 6-7 ms at about 11 KB/frame;
+  - a full-screen change: 34-98 ms (the lake scene about 35 ms), a one-frame hitch;
+  - charging a cast **was 0.3-0.5 s per frame** (2-3 fps) before arcs got their own
+    rasterizer; now about 25 us on the host versus 2.7 ms before, same ratio on device.
 - **Dirty-rect rules:**
   - Static content costs nothing after the first frame.
   - Anything that changes repaints its whole bounding box, plus every shape that overlaps it.
   - `Shape::bounds()` must be tight and conservative. Arc bounds are computed by hand,
     because embedded-graphics reports an arc's whole circle.
+  - **A shape's draw cost must scale with the band, not with the shape.** The presenter
+    draws every overlapping shape once per band (about 58 bands for a full screen).
+    embedded-graphics' `Arc` tests every point of its whole circle's bounding box on every
+    call (its own `PERF` note), about 190k points for the r=212 rim gauge; that was the
+    charging lag. `orbit_gfx::arc` walks only the band's rows inside the arc's bounds and
+    the annulus spans per row; whole circles match embedded-graphics pixel for pixel.
+    Circles, rects, lines, text and sprites already scale with the band.
   - Shapes are compared with `PartialEq` every frame. Keep shape payloads small: refer to big
     data by id, not by value.
 - **Bands:** 8 rows × 466 px = 7,456 B, one DMA transfer each. The CO5300 driver keeps two
@@ -352,6 +364,16 @@ If a game outgrows the budget, the options, in order of preference:
 4. **Big plain data never goes on the Bevy heap.** Sprites and audio live in flash
    (`include_bytes!`, zero RAM). Large scratch buffers go in PSRAM explicitly with esp-alloc's
    `ExternalMemory` allocator (needs `allocator-api2`).
+
+**Flash (storage) is not a constraint** [verified, `espflash save-image`, 2026-10-06]:
+- The 16 MB chip's factory app partition is 16,384,000 B. Angler's image is 1,523,104 B
+  (**9.3%**), Orbit's 952,480 B (5.8%), so about 14.8 MB is free.
+- Angler's image is about 800 KB of code (`.text`, mostly Bevy) and 696 KB of read-only
+  data. That data is 485 KB for the GUTEN song, 117 KB of sound effects, and the rest
+  fonts, sprites and strings.
+- Anything that can be a `static` (sprites, sounds, level data, text) lives in flash at no
+  RAM cost: about 7.7 minutes of 16 kHz audio would still fit. The limits for more game are
+  internal SRAM (the heap headroom above) and frame time.
 
 Other memory facts:
 - esp-alloc allows at most 3 regions and is first-fit in registration order.
@@ -467,12 +489,15 @@ tight `bounds()`. The original plan notes follow.
     (ripples, the bobber) instead.
 - **Simulator:** shows sprites unchanged, because it uses the same renderer.
 
-### 10.2 Sound (built; compiled for the board, played on desktop, never heard on hardware)
+### 10.2 Sound (built; the codec answers on the board, played on desktop)
 
 What shipped:
 - **Format:** `orbit_audio` clips are mono s16le PCM at `SAMPLE_RATE` = 16 kHz, embedded with
   `include_bytes!` (flash, no RAM). Both platforms run at that rate, so nothing resamples.
-- **Mixer:** one voice; `SoundCommand::Play` restarts, `Stop` silences.
+- **Mixer:** one voice; `SoundCommand::Play` restarts, `Stop` silences. A game therefore
+  queues at most one sound per update that matters: the last one.
+- **Queue bound:** `SoundQueue` keeps only its newest 16 commands when nothing drains it
+  (the heap32 and QEMU harnesses have no speaker), so frequent effects can't grow the heap.
 - **Firmware** (`firmware/src/speaker.rs`, adapted from the reference driver):
   - starts only when the game added `SoundPlugin`, after the first `app.update()`;
   - I2S0 with `DMA_CH1`, `Channels::STEREO` (the same sample in L and R), MCLK on GPIO42;
@@ -571,8 +596,10 @@ codec.init(22_050, &mut amp)?;   // after I2S so MCLK is already running; raises
 Title → Log | Shop | Settings | Aim → Flight → Waiting → Bite → Reel → Caught | Escaped, plus
 Notice messages ("ON THE DOCK!", "NOTHING BITES", "REELED IN", "LET GO!"). Every result
 returns to Aim; the MENU button on the aiming screen (shown until the charge starts) is the
-only way back to the title without a reboot. `Update` handles input-driven steps; flight and
-reel physics run in `FixedUpdate` at 60 Hz.
+only way back to the title without a reboot. Continuing after a fish (caught or got away)
+re-levels the IMU quietly via `Tilt::request_zero()`, so each cast starts at the base angle
+from however the device is held. `Update` handles input-driven steps; flight and reel
+physics run in `FixedUpdate` at 60 Hz.
 
 **Cast** (`cast.rs`, Angry Birds-style side view):
 - **Aim:** `elevation = clamp(40 - steer, 10, 80)`. Counterclockwise raises the rod. While
@@ -690,8 +717,19 @@ KEEP sits exactly where RESET was, so a reflexive double tap cancels; PWR cancel
   `Shape::SpriteFit`: width × |cos θ|, mirrored past 90°.
 - A tap or a PWR press stops it early. Either way it queues `Stop` and returns to settings.
 
-**Not built yet:** sound effects for the game itself (plop, reel, catch; the mixer and queue
-are ready), and a reel crank by circling a finger on the rim.
+**Sound effects** (`audio.rs`, synthesized by `assets/sfx.py`, 117 KB of flash):
+- CAST whoosh, or PERFECT_CAST (whoosh plus chime) on release.
+- PLOP on the water, or THUD on the dock.
+- BITE, a double chirp.
+- REEL, a click each time the catch meter rises another `REEL_CLICK_STEP` (0.03), so the
+  reel goes quiet while the fish is out of the zone.
+- CATCH jingle, or ESCAPE "wah-wah".
+- In the shop: COIN for buying, CLICK for wearing, THUD for a BUY that can't do anything.
+- CLICK for any tap that lands on a button (taps elsewhere are silent).
+- With one voice, `play` picks one effect per update (the event's own sound first, else
+  the click), and the catch jingle is queued after the final reel click.
+
+**Not built yet:** a reel crank by circling a finger on the rim.
 
 ## 11. Gotchas (all hit or confirmed during bring-up)
 

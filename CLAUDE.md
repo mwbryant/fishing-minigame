@@ -32,6 +32,9 @@ Rules that bite:
   PSRAM atomics are unreliable on the S3. Peak headroom is Orbit 11 KB and Angler 79 KB.
   After adding plugins, systems, resources or states, run `tools/heap32/run.sh`.
   `tools/qemu-smoke/run.sh` checks the full firmware runtime of both games in QEMU.
-- Shapes are diffed with `PartialEq` every frame and must report tight `bounds()`.
+- Shapes are diffed with `PartialEq` every frame and must report tight `bounds()`. The
+  presenter draws every overlapping shape once per 8-row band, so a shape's draw cost must
+  scale with the band: never draw embedded-graphics `Arc`s directly (they test their whole
+  circle per call); `Shape::Arc` uses `orbit_gfx::arc`.
 - Workflow: red-green TDD with behavioral test names, then `cargo clippy` + `cargo fmt`,
   and a commit per feature. UI strings are ASCII only.

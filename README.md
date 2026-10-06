@@ -14,7 +14,10 @@
   - **Shop:** spend the gold on hats for the angler (beanie, ball cap, cowboy hat, top hat,
     a fish, a crown...). Try them on in the shop's mirror; the one you wear shows on the dock.
     Gold and hats are saved.
-  - **Re-level:** BOOT re-zeroes the IMU at any time.
+  - **Re-level:** BOOT re-zeroes the IMU at any time, and it re-levels by itself after
+    each fish.
+  - **Sound:** effects for the cast, splash, bite, reel clicks, catch, escape, the shop's
+    till and menu taps, synthesized by a small script.
   - **Menus:** the title has LOG, SHOP and SETTINGS touch buttons, and MENU on the aiming
     screen goes back to it. Settings has EASY / NORMAL / HARD
     difficulty (saved), RESET (erases the log, gold and hats after a confirm) and **GUTEN**, a riff on logic-fish: a rainbow trout spins to "Guten
