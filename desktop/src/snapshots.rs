@@ -80,6 +80,7 @@ fn arcade(camera: &mut Camera) {
 }
 
 fn spider(camera: &mut Camera) {
+    use spider_game::Table;
     let mut app = core_testing::headless(
         |app| {
             app.add_plugins(spider_game::SpiderPlugin);
@@ -87,21 +88,22 @@ fn spider(camera: &mut Camera) {
         None,
     );
     battery(&mut app, 76);
+    core_testing::tick(&mut app, 7);
     camera.shoot(&app, "spider_title");
     core_testing::click_action(&mut app);
-    app.world_mut()
-        .resource_mut::<spider_game::Table>()
-        .hide_spider(6);
-    for steer in [0.0, 10.0, 20.0, -10.0] {
-        core_testing::set_tilt(&mut app, steer, 0.0);
+    app.world_mut().resource_mut::<Table>().hide_spider(6);
+    for egg in [0, 3, 8, 10] {
+        app.world_mut().resource_mut::<Table>().rig_next_spin(egg);
         core_testing::click_action(&mut app);
+        core_testing::tick(&mut app, 60 * 4);
     }
-    core_testing::set_tilt(&mut app, 48.0, 0.0);
-    app.update();
+    core_testing::tick(&mut app, 9);
     camera.shoot(&app, "spider_pick");
-    core_testing::set_tilt(&mut app, 60.0, 0.0);
+    app.world_mut().resource_mut::<Table>().rig_next_spin(6);
     core_testing::click_action(&mut app);
-    core_testing::tick(&mut app, 10);
+    core_testing::tick(&mut app, 40);
+    camera.shoot(&app, "spider_spin");
+    core_testing::tick(&mut app, 140);
     camera.shoot(&app, "spider_pounce");
     core_testing::tick(&mut app, 120);
     camera.shoot(&app, "spider_bitten");

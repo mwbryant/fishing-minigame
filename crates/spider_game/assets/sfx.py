@@ -23,6 +23,14 @@ def crack():
     )
 
 
+def tick():
+    """The roulette pointer passing an egg: a short wooden ratchet click."""
+    return mix(
+        (0.0, noise(0.012, 3500, high_pass=True, decay=0.003), 0.8),
+        (0.0, tone(0.03, 1300, decay=0.006), 0.6),
+    )
+
+
 def heartbeat():
     """Lub-dub, low and soft."""
     beat = lambda f: tone(0.12, glide(f, f * 0.6, 0.1), decay=0.04)
@@ -47,6 +55,7 @@ def win():
 if __name__ == "__main__":
     os.chdir(HERE)
     write("crack", crack(), 0.5)
+    write("tick", tick(), 0.4)
     write("heartbeat", heartbeat(), 0.6)
     write("screech", screech(), 0.6)
     write("win", win(), 0.55)

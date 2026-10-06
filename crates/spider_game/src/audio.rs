@@ -15,3 +15,7 @@ pub static SCREECH: Clip = Clip {
 pub static WIN: Clip = Clip {
     pcm: include_bytes!("../assets/sfx/win.pcm"),
 };
+/// The pointer passing an egg.
+pub static TICK: Clip = Clip {
+    pcm: include_bytes!("../assets/sfx/tick.pcm"),
+};

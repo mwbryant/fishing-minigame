@@ -1,6 +1,7 @@
 use bevy::{app::AppExit, prelude::*};
-use orbit_core::{ClipRef, Launcher, SaveBlob, SoundCommand, SoundQueue, testing::*};
-use spider_game::{EGGS, Phase, SpiderPlugin, Table, audio, ui};
+use orbit_core::{ClipRef, Frame, Launcher, SaveBlob, SoundCommand, SoundQueue, testing::*};
+use orbit_gfx::{Shape, SpriteRef};
+use spider_game::{EGGS, Phase, SpiderPlugin, Table, audio, sprites, ui};
 
 fn game(saved: Option<Vec<u8>>) -> App {
     headless(
@@ -19,103 +20,163 @@ fn sounds(app: &App) -> Vec<SoundCommand> {
     app.world().resource::<SoundQueue>().pending().to_vec()
 }
 
-fn last_sound(app: &App) -> Option<SoundCommand> {
-    sounds(app).last().copied()
-}
-
 fn play(clip: &'static orbit_core::Clip) -> SoundCommand {
     SoundCommand::Play(ClipRef(clip))
 }
 
-/// Starts a round with the spider in `egg`.
+/// From the title to the first spin, with the spider in `egg`.
 fn round_with_spider_in(app: &mut App, egg: usize) {
     click_action(app);
-    assert_eq!(table(app).phase, Phase::Pick);
+    assert_eq!(table(app).phase, Phase::Ready);
     app.world_mut().resource_mut::<Table>().hide_spider(egg);
 }
 
-/// Turns the device so the dial points at `egg` (30 degrees of dial each,
-/// a third of that on the device), then presses PWR.
-fn crack(app: &mut App, egg: usize) {
-    let dial_deg = egg as f32 * 360.0 / EGGS as f32;
-    let steer = if dial_deg > 180.0 {
-        (dial_deg - 360.0) / 3.0
-    } else {
-        dial_deg / 3.0
-    };
-    set_tilt(app, steer, 0.0);
+/// Spins (making it land on `egg`) and waits for the egg to crack.
+fn spin_onto(app: &mut App, egg: usize) {
+    app.world_mut().resource_mut::<Table>().rig_next_spin(egg);
     click_action(app);
+    assert_eq!(table(app).phase, Phase::Spinning);
+    tick(app, 60 * 4);
+}
+
+fn dancer_frames(app: &App) -> Vec<(SpriteRef, i32)> {
+    app.world()
+        .resource::<Frame>()
+        .shapes
+        .iter()
+        .filter_map(|shape| match shape {
+            Shape::Sprite {
+                sprite, top_left, ..
+            } if *sprite == SpriteRef(&sprites::DANCER[0])
+                || *sprite == SpriteRef(&sprites::DANCER[1]) =>
+            {
+                Some((*sprite, top_left.y))
+            }
+            _ => None,
+        })
+        .collect()
 }
 
 #[test]
-fn the_title_explains_the_game_and_pwr_starts_a_round_at_one_in_twelve() {
+fn the_title_has_a_spider_dancing_in_the_middle_and_pwr_starts_a_round() {
     let mut app = game(None);
     assert!(shows(&app, "SPIDER") && shows(&app, "ROULETTE"));
-    assert!(shows(&app, "TURN TO AIM, PWR TO CRACK"));
+    assert!(shows(&app, "PRESS PWR TO SPIN"));
+    let mut seen = Vec::new();
+    for _ in 0..40 {
+        app.update();
+        seen.extend(dancer_frames(&app));
+    }
+    assert!(
+        seen.iter()
+            .any(|(s, _)| *s == SpriteRef(&sprites::DANCER[0]))
+    );
+    assert!(
+        seen.iter()
+            .any(|(s, _)| *s == SpriteRef(&sprites::DANCER[1])),
+        "it dances"
+    );
+    assert!(seen.iter().any(|(_, y)| *y != seen[0].1), "and bobs");
     click_action(&mut app);
-    assert_eq!(table(&app).phase, Phase::Pick);
-    assert!(shows(&app, "1 IN 12"), "{:?}", labels(&app));
+    assert_eq!(table(&app).phase, Phase::Ready);
 }
 
 #[test]
-fn cracking_a_safe_egg_counts_it_and_shortens_the_odds() {
+fn pwr_spins_the_pointer_round_until_it_stops_on_an_egg_that_cracks() {
     let mut app = game(None);
     round_with_spider_in(&mut app, 7);
-    crack(&mut app, 0);
-    assert!(table(&app).cracked(0));
+    app.world_mut().resource_mut::<Table>().rig_next_spin(3);
+    click_action(&mut app);
+    let start = table(&app).pointer_deg;
+    tick(&mut app, 30);
+    assert!(table(&app).pointer_deg > start + 360.0, "it whirls round");
+    assert!(
+        sounds(&app)
+            .iter()
+            .filter(|s| **s == play(&audio::TICK))
+            .count()
+            >= 3
+    );
+    tick(&mut app, 60 * 4);
+    assert_eq!(table(&app).phase, Phase::Ready);
+    assert!(table(&app).cracked(3), "it stopped on the rigged egg");
     assert_eq!(table(&app).safe, 1);
-    assert!(shows(&app, "1 IN 11") && shows(&app, "SAFE 1"));
-    assert_eq!(last_sound(&app), Some(play(&audio::CRACK)));
-    crack(&mut app, 2);
-    assert!(table(&app).cracked(2) && !table(&app).cracked(1));
-    assert!(shows(&app, "1 IN 10"));
+    assert!(shows(&app, "SAFE 1 | 1 IN 11"), "{:?}", labels(&app));
 }
 
 #[test]
-fn an_egg_already_cracked_only_thuds() {
+fn turning_the_device_does_nothing() {
     let mut app = game(None);
     round_with_spider_in(&mut app, 7);
-    crack(&mut app, 4);
-    crack(&mut app, 4);
-    assert_eq!(table(&app).safe, 1);
-    assert_eq!(last_sound(&app), Some(play(&orbit_ui::THUD)));
+    let before = table(&app).pointer_deg;
+    set_tilt(&mut app, 40.0, 0.0);
+    tick(&mut app, 30);
+    assert_eq!(table(&app).pointer_deg, before);
+    assert_eq!(table(&app).phase, Phase::Ready);
 }
 
 #[test]
-fn tapping_an_egg_cracks_it_too() {
+fn a_spin_in_progress_ignores_more_presses() {
     let mut app = game(None);
     round_with_spider_in(&mut app, 7);
-    tap(&mut app, ui::egg_center(5));
-    assert!(table(&app).cracked(5));
+    spin_onto(&mut app, 2);
+    app.world_mut().resource_mut::<Table>().rig_next_spin(5);
+    click_action(&mut app);
+    tick(&mut app, 10);
+    click_action(&mut app);
+    tick(&mut app, 60 * 4);
+    let cracked = (0..EGGS).filter(|&egg| table(&app).cracked(egg)).count();
+    assert_eq!(cracked, 2, "one egg per spin");
 }
 
 #[test]
-fn the_spider_egg_pounces_then_shows_how_far_you_got() {
+fn the_wheel_only_ever_stops_on_a_whole_egg() {
     let mut app = game(None);
-    round_with_spider_in(&mut app, 3);
-    crack(&mut app, 0);
-    crack(&mut app, 3);
-    assert_eq!(table(&app).phase, Phase::Pounce);
-    assert_eq!(last_sound(&app), Some(play(&audio::SCREECH)));
-    tick(&mut app, 80);
+    click_action(&mut app);
+    let mut whole = EGGS;
+    for _ in 0..EGGS {
+        if table(&app).phase != Phase::Ready {
+            break;
+        }
+        click_action(&mut app);
+        tick(&mut app, 60 * 4);
+        let now = (0..EGGS).filter(|&egg| !table(&app).cracked(egg)).count();
+        assert_eq!(now, whole - 1, "each spin cracks exactly one new egg");
+        whole = now;
+    }
+    assert!(matches!(
+        table(&app).phase,
+        Phase::Pounce | Phase::Bitten | Phase::Won
+    ));
+}
+
+#[test]
+fn landing_on_the_spiders_egg_makes_it_pounce() {
+    let mut app = game(None);
+    round_with_spider_in(&mut app, 4);
+    spin_onto(&mut app, 1);
+    spin_onto(&mut app, 4);
+    assert!(matches!(table(&app).phase, Phase::Pounce | Phase::Bitten));
+    assert!(sounds(&app).contains(&play(&audio::SCREECH)));
+    tick(&mut app, 60 * 2);
     assert_eq!(table(&app).phase, Phase::Bitten);
     assert!(shows(&app, "GOT YOU!") && shows(&app, "SAFE PICKS 1"));
     tick(&mut app, 60);
     click_action(&mut app);
-    assert_eq!(table(&app).phase, Phase::Pick, "PWR plays again");
+    assert_eq!(table(&app).phase, Phase::Ready, "PWR plays again");
     assert_eq!(table(&app).safe, 0);
 }
 
 #[test]
-fn cracking_every_safe_egg_traps_the_spider() {
+fn eleven_safe_spins_trap_the_spider() {
     let mut app = game(None);
     round_with_spider_in(&mut app, 11);
     for egg in 0..EGGS - 1 {
-        crack(&mut app, egg);
+        spin_onto(&mut app, egg);
     }
     assert_eq!(table(&app).phase, Phase::Won);
     assert!(shows(&app, "SPIDER TRAPPED!"));
-    assert_eq!(last_sound(&app), Some(play(&audio::WIN)));
+    assert!(sounds(&app).contains(&play(&audio::WIN)));
 }
 
 #[test]
@@ -123,10 +184,10 @@ fn the_best_run_is_saved_and_survives_a_reboot() {
     let mut app = game(None);
     round_with_spider_in(&mut app, 9);
     for egg in 0..4 {
-        crack(&mut app, egg);
+        spin_onto(&mut app, egg);
     }
-    crack(&mut app, 9);
-    tick(&mut app, 80);
+    spin_onto(&mut app, 9);
+    tick(&mut app, 120);
     assert!(shows(&app, "NEW BEST!"));
     let record = app.world_mut().resource_mut::<SaveBlob>().take_pending();
     let rebooted = game(record);
@@ -157,13 +218,21 @@ fn the_heartbeat_quickens_as_the_eggs_run_out() {
     round_with_spider_in(&mut app, 11);
     let calm = beats(&mut app);
     for egg in 0..9 {
-        crack(&mut app, egg);
+        spin_onto(&mut app, egg);
     }
     let tense = beats(&mut app);
     assert!(
         tense > calm + 3,
         "{calm} beats at 1 in 12, {tense} at 1 in 3"
     );
+}
+
+#[test]
+fn a_tap_spins_too() {
+    let mut app = game(None);
+    round_with_spider_in(&mut app, 7);
+    tap(&mut app, Vec2::splat(233.0));
+    assert_eq!(table(&app).phase, Phase::Spinning);
 }
 
 #[test]

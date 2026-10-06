@@ -153,7 +153,7 @@ pub extern "C" fn measure_arcade() -> *const u32 {
     report(app, built)
 }
 
-/// Spider Roulette: three rounds of cracking eggs round the dial.
+/// Spider Roulette: three rounds of spins until each ends.
 #[unsafe(no_mangle)]
 pub extern "C" fn measure_spider() -> *const u32 {
     start_clock();
@@ -163,12 +163,9 @@ pub extern "C" fn measure_spider() -> *const u32 {
     let built = CURRENT.load(Relaxed);
     for _ in 0..3 {
         core_testing::click_action(&mut app);
-        for egg in 0..spider_game::EGGS {
-            let dial = egg as f32 * 30.0;
-            let steer = if dial > 180.0 { dial - 360.0 } else { dial } / 3.0;
-            core_testing::set_tilt(&mut app, steer, 0.0);
-            core_testing::tick(&mut app, 20);
+        for _ in 0..spider_game::EGGS {
             core_testing::click_action(&mut app);
+            core_testing::tick(&mut app, 60 * 3 + 20);
         }
         core_testing::tick(&mut app, 150);
     }

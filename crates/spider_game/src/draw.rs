@@ -1,22 +1,23 @@
 use alloc::{format, vec::Vec};
 
-use bevy::prelude::*;
-use orbit_core::{Frame, Launcher, Power, Tilt};
+use bevy::{math::ops, prelude::*};
+use orbit_core::{Frame, Launcher, Power};
 use orbit_gfx::{Point, SCREEN_CENTER, Shape, Sprite, SpriteRef};
 use orbit_ui::{
-    DANGER, GOLD, HINT, TEXT, battery_level, button, dial_angle, dial_choice, dial_point, label,
-    power_overlay, rect, rgb, running_low,
+    DANGER, GOLD, HINT, TEXT, battery_level, button, dial_point, label, power_overlay, rect, rgb,
+    running_low,
 };
 
-use crate::{EGGS, Phase, Table, sprites, ui};
+use crate::{EGG_DEG, EGGS, Phase, RESULT_GUARD_SECS, Table, sprites, ui};
 
 const WEB: orbit_gfx::Rgb565 = rgb(58, 58, 70);
 const FLASH: orbit_gfx::Rgb565 = rgb(170, 10, 10);
 const BLOOD: orbit_gfx::Rgb565 = rgb(70, 0, 0);
+const DANCER_SCALE: u32 = 5;
+const POSE_SECS: f32 = 0.22;
 
 pub(crate) fn draw_frame(
     table: Res<Table>,
-    tilt: Res<Tilt>,
     power: Res<Power>,
     launcher: Option<Res<Launcher>>,
     mut frame: ResMut<Frame>,
@@ -27,29 +28,32 @@ pub(crate) fn draw_frame(
     match table.phase {
         Phase::Title => {
             web(shapes);
-            shapes.push(label(170, "SPIDER", 3, TEXT));
-            shapes.push(label(228, "ROULETTE", 3, TEXT));
-            shapes.push(label(282, "ONE EGG HIDES A SPIDER", 1, HINT));
-            shapes.push(label(306, "TURN TO AIM, PWR TO CRACK", 1, HINT));
-            shapes.push(label(350, "PRESS PWR", 1, GOLD));
+            shapes.push(label(100, "SPIDER", 3, TEXT));
+            shapes.push(label(160, "ROULETTE", 3, TEXT));
+            dancer(shapes, table.clock, Point::new(233, 262));
+            shapes.push(label(330, "ONE EGG HIDES A SPIDER", 1, HINT));
+            shapes.push(label(356, "PRESS PWR TO SPIN", 1, GOLD));
             shapes.push(label(390, &format!("BEST {}", table.best), 1, TEXT));
         }
-        Phase::Pick => {
+        Phase::Ready | Phase::Spinning | Phase::Reveal => {
             web(shapes);
-            let aimed = dial_choice(tilt.steer_deg, EGGS);
             for egg in 0..EGGS {
-                eggs(shapes, &table, egg, egg == aimed);
+                eggs(shapes, &table, egg);
             }
             shapes.push(Shape::Arc {
                 center: SCREEN_CENTER,
                 radius: 214,
                 width: 8,
-                start_deg: dial_angle(tilt.steer_deg) - 90.0 - 10.0,
-                sweep_deg: 20.0,
+                start_deg: table.pointer_deg - 90.0 - EGG_DEG / 3.0,
+                sweep_deg: EGG_DEG * 2.0 / 3.0,
                 color: GOLD,
             });
-            shapes.push(label(222, &format!("1 IN {}", table.whole()), 2, TEXT));
-            shapes.push(label(256, &format!("SAFE {}", table.safe), 1, HINT));
+            dancer(shapes, table.clock, SCREEN_CENTER);
+            let status = format!("SAFE {} | 1 IN {}", table.safe, table.whole());
+            shapes.push(label(36, &status, 1, TEXT));
+            if table.phase == Phase::Ready {
+                shapes.push(label(432, "PRESS PWR TO SPIN", 1, GOLD));
+            }
         }
         Phase::Pounce => pounce(shapes, table.phase_secs),
         Phase::Bitten => {
@@ -86,7 +90,7 @@ fn web(shapes: &mut Vec<Shape>) {
         });
     }
     for spoke in 0..EGGS {
-        let deg = (spoke as f32 + 0.5) * 360.0 / EGGS as f32;
+        let deg = (spoke as f32 + 0.5) * EGG_DEG;
         shapes.push(Shape::Line {
             from: dial_point(deg, 30.0),
             to: dial_point(deg, 205.0),
@@ -96,10 +100,10 @@ fn web(shapes: &mut Vec<Shape>) {
     }
 }
 
-fn eggs(shapes: &mut Vec<Shape>, table: &Table, egg: usize, aimed: bool) {
+/// An egg (or its shell), ringed in gold while the pointer is on it.
+fn eggs(shapes: &mut Vec<Shape>, table: &Table, egg: usize) {
     let center = ui::egg_center(egg);
-    let center = Point::new(center.x as i32, center.y as i32);
-    if aimed {
+    if egg == table.pointed() {
         shapes.push(Shape::Ring {
             center,
             radius: 24,
@@ -112,18 +116,32 @@ fn eggs(shapes: &mut Vec<Shape>, table: &Table, egg: usize, aimed: bool) {
     } else {
         &sprites::EGG
     };
-    centered(shapes, sprite, center, 3);
+    centered(shapes, sprite, center, 3, false);
 }
 
-/// The spider leaps at the glass in three bounds over a red flash.
+/// Swaps poses on the beat, bobs, sways, and turns round every few beats.
+fn dancer(shapes: &mut Vec<Shape>, clock: f32, at: Point) {
+    let beat = (clock / POSE_SECS) as usize;
+    let bob = ops::round(ops::sin(clock * 7.0) * 5.0) as i32;
+    let sway = ops::round(ops::sin(clock * 3.5) * 8.0) as i32;
+    centered(
+        shapes,
+        &sprites::DANCER[beat % 2],
+        at + Point::new(sway, bob),
+        DANCER_SCALE,
+        beat / 4 % 2 == 1,
+    );
+}
+
+/// The dancer leaps at the glass in three bounds over a red flash.
 fn pounce(shapes: &mut Vec<Shape>, t: f32) {
     shapes.push(rect(0, 0, 466, 466, if t < 0.6 { FLASH } else { BLOOD }));
     let scale = match t {
-        t if t < 0.12 => 6,
-        t if t < 0.24 => 12,
-        _ => 20,
+        t if t < 0.12 => 8,
+        t if t < 0.24 => 14,
+        _ => 22,
     };
-    centered(shapes, &sprites::SPIDER, SCREEN_CENTER, scale);
+    centered(shapes, &sprites::DANCER[0], SCREEN_CENTER, scale, false);
 }
 
 fn result(shapes: &mut Vec<Shape>, table: &Table) {
@@ -133,26 +151,28 @@ fn result(shapes: &mut Vec<Shape>, table: &Table) {
     } else {
         shapes.push(label(284, &format!("BEST {}", table.best), 1, HINT));
     }
-    if table.phase_secs >= crate::RESULT_GUARD_SECS {
-        shapes.push(label(
-            340,
-            "PRESS PWR",
-            1,
-            if table.phase == Phase::Won {
-                GOLD
-            } else {
-                DANGER
-            },
-        ));
+    if table.phase_secs >= RESULT_GUARD_SECS {
+        let color = if table.phase == Phase::Won {
+            GOLD
+        } else {
+            DANGER
+        };
+        shapes.push(label(340, "PRESS PWR", 1, color));
     }
 }
 
-fn centered(shapes: &mut Vec<Shape>, sprite: &'static Sprite, center: Point, scale: u32) {
+fn centered(
+    shapes: &mut Vec<Shape>,
+    sprite: &'static Sprite,
+    center: Point,
+    scale: u32,
+    flip_x: bool,
+) {
     let size = sprite.size() * scale;
     shapes.push(Shape::Sprite {
         sprite: SpriteRef(sprite),
         top_left: center - Point::new(size.width as i32 / 2, size.height as i32 / 2),
         scale,
-        flip_x: false,
+        flip_x,
     });
 }

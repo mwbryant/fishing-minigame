@@ -1,5 +1,5 @@
-//! Spider Roulette in QEMU: rotation aims at each egg in turn and PWR
-//! cracks it until the spider pounces (or is trapped); the best run is
+//! Spider Roulette in QEMU: PWR spins the pointer round the eggs again and
+//! again until it stops on the spider's egg (or traps it); the best run is
 //! saved through `esp-storage` into emulated flash and read back.
 
 #![no_std]
@@ -38,17 +38,21 @@ fn main() -> ! {
         .world_mut()
         .resource_mut::<Table>()
         .hide_spider(EGGS - 2);
+    let mut spins = 0;
     for egg in 0..EGGS {
-        let dial = egg as f32 * 360.0 / EGGS as f32;
-        let steer = if dial > 180.0 { dial - 360.0 } else { dial } / 3.0;
-        set_tilt(&mut smoke.app, steer, 0.0);
-        smoke.frame();
+        smoke
+            .app
+            .world_mut()
+            .resource_mut::<Table>()
+            .rig_next_spin(egg);
         click_action(&mut smoke.app);
-        smoke.wait(0.2);
-        if smoke.app.world().resource::<Table>().phase != Phase::Pick {
+        spins += 1;
+        smoke.wait(spider_game::SPIN_SECS + spider_game::REVEAL_SECS + 0.3);
+        if smoke.app.world().resource::<Table>().phase != Phase::Ready {
             break;
         }
     }
+    info!("{spins} spins");
     smoke.wait(1.5);
     let table = smoke.app.world().resource::<Table>();
     let (phase, safe, best) = (table.phase, table.safe, table.best);
