@@ -138,7 +138,7 @@ fn first_spot(mut session: ResMut<Session>, mut rng: ResMut<Rng>) {
 fn play(
     time: Res<Time>,
     buttons: Res<Buttons>,
-    tilt: Res<Tilt>,
+    mut tilt: ResMut<Tilt>,
     touch: Res<Touch>,
     mut log: ResMut<FishLog>,
     mut settings: ResMut<Settings>,
@@ -163,7 +163,7 @@ fn play(
     let elapsed = session.phase_secs;
     let results_open = elapsed >= RESULT_GUARD_SECS;
     let tuning = settings.difficulty.tuning();
-    let mut new_spot = false;
+    let mut next_fish = false;
     let mut difficulty_change = None;
     let mut inventory_changed = false;
     let mut erase = false;
@@ -259,20 +259,21 @@ fn play(
             catch: *catch,
         }),
         Phase::Caught { .. } if results_open && (action.pressed() || tap) => {
-            new_spot = true;
+            next_fish = true;
             Some(aim())
         }
         Phase::Escaped
             if (results_open && (action.pressed() || tap)) || elapsed >= ESCAPED_SECS =>
         {
-            new_spot = true;
+            next_fish = true;
             Some(aim())
         }
         Phase::Notice(_) if elapsed >= NOTICE_SECS => Some(aim()),
         _ => None,
     };
-    if new_spot {
+    if next_fish {
         session.move_spot(&mut rng);
+        tilt.request_zero();
     }
     if let Some(difficulty) = difficulty_change {
         settings.difficulty = difficulty;

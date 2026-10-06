@@ -101,6 +101,25 @@ fn the_zero_button_rezeroes_from_any_pose() {
 }
 
 #[test]
+fn a_game_can_request_a_quiet_rezero_from_any_pose() {
+    let mut app = app();
+    let mut truth = Quat::from_rotation_x(-FRAC_PI_2);
+    for _ in 0..30 {
+        turn(&mut app, &mut truth, 70.0);
+    }
+    assert!(tilt(&app).steer_deg > 30.0);
+    app.world_mut().resource_mut::<Tilt>().request_zero();
+    app.update();
+    assert!(tilt(&app).steer_deg.abs() < 0.01);
+    assert!(!tilt(&app).just_zeroed, "only the button shows LEVEL SET");
+    for _ in 0..15 {
+        turn(&mut app, &mut truth, -40.0);
+    }
+    let steer = tilt(&app).steer_deg;
+    assert!((steer + 10.0).abs() < 2.0, "steer {steer}");
+}
+
+#[test]
 fn tilt_set_directly_stays_put_without_samples() {
     let mut app = app();
     app.world_mut().resource_mut::<Tilt>().lean_deg = 12.0;

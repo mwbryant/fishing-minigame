@@ -34,6 +34,15 @@ pub struct Tilt {
     pub lean_deg: f32,
     /// True for the one update in which the zero button re-zeroed the pose.
     pub just_zeroed: bool,
+    zero_requested: bool,
+}
+
+impl Tilt {
+    /// Makes the current pose the origin on the next update, as the zero
+    /// button does but without setting `just_zeroed`.
+    pub fn request_zero(&mut self) {
+        self.zero_requested = true;
+    }
 }
 
 #[derive(Resource, Default)]
@@ -47,7 +56,8 @@ fn track_tilt(
     mut tracker: ResMut<Tracker>,
     mut tilt: ResMut<Tilt>,
 ) {
-    let zero = buttons.zero.pressed();
+    let button = buttons.zero.pressed();
+    let zero = button || tilt.zero_requested;
     if feed.samples.is_empty() && !zero && !tilt.just_zeroed {
         return;
     }
@@ -60,6 +70,7 @@ fn track_tilt(
     *tilt = Tilt {
         steer_deg: tracker.0.steer_deg(),
         lean_deg: tracker.0.lean_deg(),
-        just_zeroed: zero,
+        just_zeroed: button,
+        zero_requested: false,
     };
 }

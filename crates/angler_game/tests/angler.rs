@@ -807,3 +807,35 @@ fn a_double_tap_on_reset_lands_on_keep_not_erase() {
     assert_eq!(app.world().resource::<FishLog>().total, 1);
     assert!(inventory(&app).owns(BEANIE));
 }
+
+fn pose(app: &App) -> (f32, f32) {
+    let tilt = app.world().resource::<orbit_core::Tilt>();
+    (tilt.steer_deg, tilt.lean_deg)
+}
+
+#[test]
+fn continuing_after_a_catch_re_levels_the_device_for_the_next_cast() {
+    let mut app = headless_app();
+    hook_a_fish(&mut app);
+    reel_skillfully(&mut app);
+    assert!(matches!(phase(&app), Phase::Caught { .. }));
+    set_tilt(&mut app, 25.0, 6.0);
+    tick(&mut app, (RESULT_GUARD_SECS * 60.0) as u32);
+    click_action(&mut app);
+    assert!(matches!(phase(&app), Phase::Aim { .. }));
+    assert_eq!(pose(&app), (0.0, 0.0));
+    assert!(shows(&app, "ANGLE 40"));
+    assert!(!shows(&app, "LEVEL SET"));
+}
+
+#[test]
+fn a_fish_that_got_away_re_levels_the_device_too() {
+    let mut app = headless_app();
+    hook_a_fish(&mut app);
+    set_tilt(&mut app, 0.0, 0.0);
+    assert!(run_until(&mut app, 60 * 30, |p| *p == Phase::Escaped));
+    set_tilt(&mut app, -20.0, 4.0);
+    tick(&mut app, (ESCAPED_SECS * 60.0) as u32 + 2);
+    assert!(matches!(phase(&app), Phase::Aim { .. }));
+    assert_eq!(pose(&app), (0.0, 0.0));
+}
