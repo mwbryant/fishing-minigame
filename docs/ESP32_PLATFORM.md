@@ -737,9 +737,11 @@ tests check behaviour, not values, so retune freely and rerun `cargo test -p ang
   its length range (`Catch::gold`). The catch screen shows "+n GOLD"; the title shows the
   purse. A typical cast (accuracy 0.7, distance 0.6) averages about 11 gold.
 - **Hats:** `HATS`, cheapest first: STRAW HAT (free, always owned), BEANIE 15, BALL CAP 30,
-  BUCKET HAT 50, COWBOY HAT 90, TOP HAT 150, FISH HAT 250, CROWN 500. A test pins the pacing:
-  the first hat within 3 typical catches, the crown 40 or more, the whole shelf within 150
-  (about 100 today).
+  BUCKET HAT 50, BEE HAT 70, COWBOY HAT 90, CLOWN HAT 100, SPIDER HAT 120, TOP HAT 150, SKATE
+  HAT 200, FISH HAT 250, CROWN 500. A test pins the pacing: the first hat within 3 typical
+  catches, the crown 40 or more, the whole shelf within 150. The shelf is 1,575 gold now,
+  about 143 catches, so a new hat needs a cheap price or a re-tune. Owned and worn hats are
+  saved by shelf index, so inserting one by price shifts what older saves own.
 - **Art:** hats are text sprites in `sprites.rs` on the angler's 14-column grid (face in
   columns 4-8). `ANGLER` is bareheaded with a hair row on top, and `draw::angler` draws the
   hat with its bottom row over that hair row. Moving the body's top-left down by the two

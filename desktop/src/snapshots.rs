@@ -279,6 +279,11 @@ fn angler(camera: &mut Camera) {
         angler::tap(&mut app, ui::NEXT_HAT.center());
     }
     camera.shoot(&app, "angler_shop");
+    angler::tap(&mut app, ui::NEXT_HAT.center());
+    angler::tap(&mut app, ui::NEXT_HAT.center());
+    camera.shoot(&app, "angler_shop_clown");
+    angler::tap(&mut app, ui::PREVIOUS_HAT.center());
+    angler::tap(&mut app, ui::PREVIOUS_HAT.center());
     angler::tap(&mut app, ui::BUY.center());
     angler::tap(&mut app, ui::BACK.center());
     camera.shoot(&app, "angler_title_hat");

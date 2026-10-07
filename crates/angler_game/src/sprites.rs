@@ -265,6 +265,23 @@ pub static SPIDER_HAT: Sprite = Sprite {
     palette: &[(b'K', rgb(44, 38, 50)), (b'R', rgb(230, 40, 40))],
 };
 
+/// A polka-dot cone with a pom-pom, between puffs of orange clown wig.
+pub static CLOWN_HAT: Sprite = Sprite {
+    rows: &[
+        "......R",
+        "......W",
+        "..O..WBW..O",
+        ".OOOWRWWBOOO",
+        ".OOOBWWRWOOO",
+    ],
+    palette: &[
+        (b'R', rgb(230, 45, 55)),
+        (b'W', rgb(245, 245, 240)),
+        (b'B', rgb(50, 110, 230)),
+        (b'O', rgb(250, 130, 30)),
+    ],
+};
+
 /// A skateboard balanced wheels-up.
 pub static SKATE_HAT: Sprite = Sprite {
     rows: &["..WW....WW", "...T....T", ".BBBBBBBBBB"],

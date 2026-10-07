@@ -12,7 +12,7 @@ pub struct Hat {
 }
 
 /// The shop's shelf, cheapest first. The first hat is free and always owned.
-pub const HATS: [Hat; 11] = [
+pub const HATS: [Hat; 12] = [
     Hat {
         name: "STRAW HAT",
         price: 0,
@@ -42,6 +42,11 @@ pub const HATS: [Hat; 11] = [
         name: "COWBOY HAT",
         price: 90,
         sprite: &sprites::COWBOY_HAT,
+    },
+    Hat {
+        name: "CLOWN HAT",
+        price: 100,
+        sprite: &sprites::CLOWN_HAT,
     },
     Hat {
         name: "SPIDER HAT",

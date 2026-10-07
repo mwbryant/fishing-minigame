@@ -275,3 +275,16 @@ Images are in `img/`. Newest beats go at the bottom.
 - **Cost:** no new systems or resources, just fields on `Ride`. Peak heap went from 191 to
   194 KB.
 - Images: `21-skate-drop-in.png`, `21-skate-air.png`, `21-skate-360.png`.
+
+## 22. The clown hat
+
+- **The ask:** "clown hat".
+- **Three drafts at 14 columns:**
+  - a two-row pom-pom read as a red medical cross, so the pom is one pixel;
+  - an orange wig across the top of the head read as a sombrero brim;
+  - what worked: a polka-dot cone keeps the top of the head and orange tufts sweep up either
+    side, Bozo style.
+- **Free on the heap:** a hat is a static text sprite in flash, so the twelfth costs nothing
+  at runtime. It sits at 100 gold, between the cowboy and spider hats.
+- **The bees wear it too**, since Bees??? reads Angler's worn hat.
+- Images: `22-clown-hat-shop.png`, `22-clown-bees.png`.

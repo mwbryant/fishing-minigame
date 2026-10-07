@@ -652,6 +652,27 @@ fn the_angler_on_the_dock_wears_the_chosen_hat() {
 }
 
 #[test]
+fn the_clown_hat_is_on_the_shelf_and_the_angler_can_wear_it_on_the_dock() {
+    let clown = HATS
+        .iter()
+        .position(|hat| hat.name == "CLOWN HAT")
+        .expect("the shop stocks a clown hat");
+    assert!(
+        HATS.windows(2).all(|pair| pair[0].price <= pair[1].price),
+        "the shelf stays cheapest first"
+    );
+    let mut app = headless_app();
+    give_gold(&mut app, HATS[clown].price);
+    open_shop(&mut app);
+    browse_to(&mut app, clown);
+    assert!(shows(&app, "CLOWN HAT") && sprite_drawn(&app, HATS[clown].sprite));
+    tap(&mut app, ui::BUY.center());
+    assert_eq!(inventory(&app).worn(), clown);
+    tap(&mut app, ui::BACK.center());
+    assert!(sprite_drawn(&app, HATS[clown].sprite));
+}
+
+#[test]
 fn a_hat_you_cannot_afford_says_how_much_more_gold_it_needs() {
     let mut app = headless_app();
     give_gold(&mut app, 10);
