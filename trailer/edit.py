@@ -36,12 +36,6 @@ MUSIC = {
     },
 }
 
-# macOS `say` voices.
-VOICES = {
-    "bees": ("Whisper", 120, "beeeeees?"),
-    "eat": ("Ralph", 150, "You can eat it."),
-}
-
 SHOTS = [
     {
         "kind": "opening",
@@ -94,7 +88,7 @@ SHOTS = [
     },
     # The record scratches and HATS freezes, drains and goes dark.
     {"kind": "scratch", "start": on_beat(38), "end": 18.4},
-    {"kind": "card", "start": 18.4, "end": 20.0, "label": "BEESSSS????", "voice": ("bees", 0.35)},
+    {"kind": "card", "start": 18.4, "end": 20.0, "label": "BEESSSS????"},
     {
         "kind": "chaos",
         "start": 20.0,
@@ -127,21 +121,25 @@ SHOTS = [
         "end": 40.0,
         "screen": ("tank", 2.0),
         "bites": [1.5, 2.97],
-        "line": ("eat", 4.0),
+        "words_at": 4.0,
         "words": ["YOU", "CAN", "EAT", "IT"],
-        "small_print": "*please do not eat it",
     },
     {
         "kind": "guten",
         "start": 40.0,
         "end": LENGTH,
         "takes": [("guten", 0.0)],
+        # The fish spins to the ukulele, not its own song.
+        "game_sounds": False,
         "tag": "FISHING MINIGAME",
     },
 ]
 
-# Which music plays where: (track, from, to, offset into the track).
+# Which music plays where: (track, from, to, offset into the track, seconds of fade-out). An
+# offset of None starts the track where its sound starts. The bumblebee crashes in on the
+# BEES card, and the ukulele comes back for the fish where the scratch stopped it.
 SCORE = [
-    ("cozy", 0.0, on_beat(38), 0.0),
-    ("bees", 20.0, 32.0, None),
+    ("cozy", 0.0, on_beat(38), 0.0, 0.005),
+    ("bees", 18.4, 32.0, None, 0.005),
+    ("cozy", 40.0, LENGTH, on_beat(38), 1.5),
 ]

@@ -582,7 +582,12 @@ Images are in `img/`. Newest beats go at the bottom.
   - Bites go front to back through the case as boolean cylinders. Balls only notched the
     middle of the side wall, which can't be seen from the front.
   - The MANIFOLD solver cuts both bites in 0.2 s against EXACT's 30.
-  - His mouth follows the bites and the loudness of `say -v Ralph "You can eat it."`
+  - His mouth opens wide for each bite and chews after it, and a synthesized crunch lands
+    each time it shuts.
+- **What it leaves out:**
+  - no voice lines: YOU CAN EAT IT is only on screen, and the bumblebee crashes in on the
+    BEES card;
+  - no guten song: the GUTEN fish spins to the ukulele, picked up where the scratch cut it.
 - **Regenerating:** `uv run build.py --refilm` once the footage is final. `--sheets` shows
   where each take's moments fall, for the cuts in `trailer/edit.py`.
 - Images: `37-trailer-fish.png`, `37-you-can-eat-it.png`.

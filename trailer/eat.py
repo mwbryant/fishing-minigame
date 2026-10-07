@@ -4,7 +4,7 @@
 
 `build.py` writes the config: where the frames go, the case STL, the game frame shown on the
 screen, the frames the bites land on, and the mouth's openness for every frame (the bites and
-the spoken line, worked out from the voice clip).
+the chewing).
 """
 
 import json

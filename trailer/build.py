@@ -11,8 +11,8 @@
     uv run build.py --still 9.5  one frame of the trailer, as out/still.png
     uv run build.py --preview    half size and 15 fps, quick to check the edit
 
-The edit (what plays when) is in edit.py. Downloads (music, font), the filmed takes, the voices
-and the Blender ending are kept in cache/; delete a folder there to make it again.
+The edit (what plays when) is in edit.py. Downloads (music, font), the filmed takes and the
+Blender ending are kept in cache/; delete a folder there to make it again.
 """
 
 import argparse
@@ -54,6 +54,8 @@ BLENDERS = [
     ),
 ]
 INK = "#1d1a3a"
+# How fast the man chews, in bites a second.
+CHEW_HZ = 2.4
 SKY_TOP, SKY_BOTTOM = "#6fbdf7", "#d9f1ff"
 
 
@@ -161,21 +163,6 @@ def db(gain_db):
 def first_sound(track, threshold=0.02):
     loud = np.flatnonzero(np.abs(track).max(axis=1) > threshold)
     return max(0.0, loud[0] / SR - 0.02) if len(loud) else 0.0
-
-
-def speak():
-    voices = {}
-    for name, (voice, rate, text) in edit.VOICES.items():
-        key = hashlib.sha1(f"{voice}|{rate}|{text}".encode()).hexdigest()[:10]
-        wav = CACHE / "voices" / f"{name}-{key}.wav"
-        if not wav.exists():
-            wav.parent.mkdir(parents=True, exist_ok=True)
-            aiff = wav.with_suffix(".aiff")
-            run(["say", "-v", voice, "-r", rate, "-o", aiff, text])
-            run(["ffmpeg", "-v", "error", "-y", "-i", aiff, "-ac", "1", "-ar", SR, wav])
-            aiff.unlink()
-        voices[name] = load_audio(wav, channels=1)[:, 0]
-    return voices
 
 
 def noise_burst(rng, secs, cutoff, decay):
@@ -332,12 +319,12 @@ def blender():
     sys.exit("Blender not found: set BLENDER to its executable")
 
 
-def mouth_curve(frames, bites, line, talk_at):
-    """How open the man's mouth is on every frame: chewing, wide open for each bite, and the
-    loudness of the spoken line while he says it."""
+def mouth_curve(frames, bites):
+    """How open the man's mouth is on every frame: shut, then wide open for each bite and
+    chewing after the first."""
     t = np.arange(frames) / FPS
     mouth = np.full(frames, 0.04)
-    chew = 0.06 + 0.3 * np.clip(np.sin(2 * math.pi * 2.4 * t), 0, None)
+    chew = 0.06 + 0.3 * np.clip(np.sin(2 * math.pi * CHEW_HZ * t), 0, None)
     mouth[bites[0] + 3 :] = chew[bites[0] + 3 :]
     for bite in bites:
         mouth[max(0, bite - 16) : bite - 3] = np.linspace(
@@ -345,21 +332,12 @@ def mouth_curve(frames, bites, line, talk_at):
         )
         mouth[bite - 3 : bite] = 1.0
         mouth[bite : bite + 3] = 0.02
-    per_frame = SR // FPS
-    loudness = np.array(
-        [np.sqrt(np.mean(line[i : i + per_frame] ** 2)) for i in range(0, len(line), per_frame)]
-    )
-    talk = np.clip(loudness / (np.percentile(loudness, 90) + 1e-9) * 1.1, 0, 1)
-    mouth[talk_at - 5 : talk_at] = 0.04
-    end = min(frames, talk_at + len(talk))
-    mouth[talk_at:end] = talk[: end - talk_at]
     return [round(float(m), 3) for m in mouth]
 
 
-def render_eat(shot, takes, voices):
+def render_eat(shot, takes):
     frames = round((shot["end"] - shot["start"]) * FPS)
     bites = [round(b * FPS) for b in shot["bites"]]
-    voice, say_at = shot["line"]
     work = CACHE / "eat"
     work.mkdir(parents=True, exist_ok=True)
     screen = work / "screen.png"
@@ -372,7 +350,7 @@ def render_eat(shot, takes, voices):
         "size": [W, H],
         "samples": 24,
         "bites": bites,
-        "mouth": mouth_curve(frames, bites, voices[voice], round(say_at * FPS)),
+        "mouth": mouth_curve(frames, bites),
     }
     script = HERE / "eat.py"
     digest = hashlib.sha1(script.read_bytes() + json.dumps(config, sort_keys=True).encode())
@@ -846,14 +824,13 @@ class Trailer:
         canvas = Image.open(frames[min(round(t * FPS), len(frames) - 1)]).convert("RGBA")
         if canvas.size != (W, H):
             canvas = canvas.resize((W, H))
-        _, say_at = shot["line"]
         words = shot["words"]
         spacing = 70
         sizes = [self.text(word, 190) for word in words]
         total = sum(w.width for w in sizes) + spacing * (len(words) - 1)
         x = W / 2 - total / 2
         for i, word in enumerate(sizes):
-            appear = say_at + i * 0.3
+            appear = shot["words_at"] + i * 0.3
             word.draw(
                 canvas,
                 (x + word.width / 2, 920),
@@ -863,9 +840,6 @@ class Trailer:
                 bob=4,
             )
             x += word.width + spacing
-        if t > say_at + 1.6:
-            small = self.text(shot["small_print"], 34)
-            small.draw(canvas, (W - 30 - small.width / 2, H - 40), t - say_at - 1.6, stagger=0.0)
         return canvas
 
     def guten(self, shot, t, index):
@@ -883,28 +857,31 @@ class Trailer:
 # --- sound ------------------------------------------------------------------------------------
 
 
-def mix(takes, voices, music_files):
+def mix(takes, music_files):
     out = np.zeros((int(edit.LENGTH * SR) + SR, 2), np.float32)
 
-    def add(clip, at, gain=1.0, fade_out=0.005):
+    def add(clip, at, gain=1.0, fade_out=0.005, fade_in=0.005):
         if clip.ndim == 1:
             clip = np.stack([clip, clip], axis=1)
         start = int(at * SR)
         clip = clip[: max(0, len(out) - start)].copy()
-        fade = min(len(clip), int(fade_out * SR))
-        if fade:
-            clip[-fade:] *= np.linspace(1, 0, fade, dtype=np.float32)[:, None]
+        rise = min(len(clip), int(fade_in * SR))
+        if rise:
+            clip[:rise] *= np.linspace(0, 1, rise, dtype=np.float32)[:, None]
+        fall = min(len(clip), int(fade_out * SR))
+        if fall:
+            clip[-fall:] *= np.linspace(1, 0, fall, dtype=np.float32)[:, None]
         out[start : start + len(clip)] += clip * gain
 
     music = {name: load_audio(path) for name, path in music_files.items()}
-    for name, start, end, offset in edit.SCORE:
+    for name, start, end, offset, fade_out in edit.SCORE:
         track = music[name]
         offset = first_sound(track) if offset is None else offset
         piece = track[int(offset * SR) : int((offset + end - start) * SR)]
-        add(piece, start, db(edit.MUSIC[name]["gain_db"]))
+        add(piece, start, db(edit.MUSIC[name]["gain_db"]), fade_out=fade_out)
     for shot in edit.SHOTS:
         if shot["kind"] == "scratch":
-            name, start, _, offset = edit.SCORE[0]
+            name, start, _, offset, _ = edit.SCORE[0]
             add(
                 scratch(music[name], offset + shot["start"] - start),
                 shot["start"],
@@ -912,26 +889,23 @@ def mix(takes, voices, music_files):
             )
         if shot["kind"] == "opening":
             add(whoosh(shot["end"] - shot["dive"]), shot["dive"], 0.35)
-        if shot["kind"] == "card":
-            name, after = shot["voice"]
-            add(voices[name], shot["start"] + after, db(4))
         if shot["kind"] == "eat":
-            name, say_at = shot["line"]
-            for i, bite in enumerate(shot["bites"]):
+            bites = shot["bites"]
+            for i, bite in enumerate(bites):
                 add(crunch(i), shot["start"] + bite - 0.02, 1.8)
                 add(thump(), shot["start"] + bite - 0.02, 1.2)
-                for k in range(1, 6):
-                    if bite + k * 0.42 < say_at - 0.4:
-                        add(crunch(10 + 7 * i + k), shot["start"] + bite + k * 0.42, 0.45)
-            add(voices[name], shot["start"] + say_at, db(5))
-            for k in range(6):
-                add(crunch(40 + k), shot["start"] + say_at + 1.5 + k * 0.42, 0.4)
-        game_sounds = db(-3)
+            # A crunch each time the chewing mouth shuts (see mouth_curve).
+            for k in range(int((shot["end"] - shot["start"]) * CHEW_HZ)):
+                shuts = (k + 0.5) / CHEW_HZ
+                biting = any(bite - 0.6 < shuts < bite + 0.15 for bite in bites)
+                if shuts > bites[0] + 0.15 and not biting:
+                    add(crunch(10 + k), shot["start"] + shuts, 0.45)
+        if not shot.get("game_sounds", True):
+            continue
         for take, start, at, span in segments(shot):
             sound = takes.audio(take)
             piece = sound[int(start * SR) : int((start + span) * SR)]
-            fade = 0.6 if shot["kind"] == "guten" else 0.02
-            add(piece, shot["start"] + at, game_sounds, fade_out=fade)
+            add(piece, shot["start"] + at, db(-3), fade_out=0.02)
     out = out[: int(edit.LENGTH * SR)]
     out *= 0.89 / (np.abs(out).max() + 1e-9)
     wav = CACHE / "mix.wav"
@@ -1028,9 +1002,8 @@ def main():
     if args.sheets:
         sheets(takes)
         return
-    voices = speak()
     ending = next(shot for shot in edit.SHOTS if shot["kind"] == "eat")
-    trailer = Trailer(takes, font, render_eat(ending, takes, voices))
+    trailer = Trailer(takes, font, render_eat(ending, takes))
     if args.still:
         OUT.mkdir(exist_ok=True)
         for secs in args.still:
@@ -1038,7 +1011,7 @@ def main():
             trailer.frame(secs).save(path)
             print(f"wrote {path}")
         return
-    encode(trailer, mix(takes, voices, music), args.preview)
+    encode(trailer, mix(takes, music), args.preview)
 
 
 if __name__ == "__main__":
