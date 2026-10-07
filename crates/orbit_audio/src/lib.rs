@@ -4,6 +4,8 @@
 
 #![no_std]
 
+pub mod voice;
+
 use core::fmt;
 
 /// Every clip and both platforms' outputs run at this rate; no resampling.
