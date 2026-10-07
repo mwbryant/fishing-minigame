@@ -47,7 +47,7 @@ pub(crate) fn draw_frame(
             shapes.push(label(320, "BEES???", 3, GOLD));
             shapes.push(label(364, "THE MOON IS A JAR OF HONEY", 1, TEXT));
             shapes.push(label(386, "TURN TO KEEP IT FROM SPILLING", 1, HINT));
-            shapes.push(label(410, "PRESS PWR", 1, GOLD));
+            shapes.push(label(410, "PRESS TO PLAY", 1, GOLD));
             shapes.push(label(430, &format!("BEST {}", orbit.best), 1, TEXT));
         }
         Phase::Orbiting => {
@@ -72,7 +72,7 @@ pub(crate) fn draw_frame(
                 shapes.push(label(340, &format!("BEST {}", orbit.best), 1, HINT));
             }
             if orbit.phase_secs >= RESULT_GUARD_SECS {
-                shapes.push(label(390, "PRESS PWR", 1, GOLD));
+                shapes.push(label(390, "PRESS TO PLAY AGAIN", 1, GOLD));
             }
         }
     }

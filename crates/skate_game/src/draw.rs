@@ -73,7 +73,7 @@ pub(crate) fn draw_frame(
             shapes.push(label(130, "SKATE", 4, TEXT));
             shapes.push(label(186, "TURN LEFT TO OLLIE", 1, HINT));
             shapes.push(label(208, "LEVEL OUT TO LAND", 1, HINT));
-            shapes.push(label(400, "PRESS PWR", 1, GOLD));
+            shapes.push(label(400, "PRESS TO PLAY", 1, GOLD));
             shapes.push(label(424, &format!("BEST {}", ride.best), 1, TEXT));
         }
         Phase::Riding => {
@@ -97,7 +97,7 @@ pub(crate) fn draw_frame(
                 shapes.push(label(208, &format!("BEST {}", ride.best), 1, HINT));
             }
             if ride.phase_secs >= RESULT_GUARD_SECS {
-                shapes.push(label(400, "PRESS PWR", 1, GOLD));
+                shapes.push(label(400, "PRESS TO PLAY AGAIN", 1, GOLD));
             }
         }
     }

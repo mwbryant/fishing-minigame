@@ -275,7 +275,7 @@ fn draw_frame(
             if levelled_at.is_some_and(|at| secs - at < LEVEL_UP_SECS) {
                 shapes.push(label(104, "LEVEL UP!", 2, GOLD));
             }
-            shapes.push(label(420, "PWR TO STOP", 1, HINT));
+            shapes.push(label(420, "PRESS TO STOP", 1, HINT));
             if mock.is_some() {
                 button(shapes, &ui::SLOWER);
                 button(shapes, &ui::FASTER);
@@ -299,7 +299,7 @@ fn draw_frame(
             shapes.push(label(270, &level, 1, GOLD));
             let left = fish.next_level_m() - fish.walked_m;
             shapes.push(label(296, &format!("{left} M TO THE NEXT LEVEL"), 1, HINT));
-            shapes.push(label(400, "PWR", 1, HINT));
+            shapes.push(label(400, "PRESS TO GO ON", 1, HINT));
         }
     }
     if let Some(battery) = power.battery {
@@ -317,7 +317,7 @@ fn choose(shapes: &mut Vec<Shape>, pals: &Pals, steer: f32) {
         shapes.push(label(254, "KEEP ONE FROM THE POND", 1, HINT));
     } else {
         shapes.push(label(222, "WHO IS WALKING?", 2, TEXT));
-        shapes.push(label(256, "TURN TO PICK, PWR", 1, HINT));
+        shapes.push(label(256, "TURN TO PICK, PRESS", 1, HINT));
     }
     for i in 0..count {
         let at = choice_point(i, count);

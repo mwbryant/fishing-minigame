@@ -61,7 +61,7 @@ fn dancer_frames(app: &App) -> Vec<(SpriteRef, i32)> {
 fn the_title_has_a_spider_dancing_in_the_middle_and_pwr_starts_a_round() {
     let mut app = game(None);
     assert!(shows(&app, "SPIDER") && shows(&app, "ROULETTE"));
-    assert!(shows(&app, "PRESS PWR TO SPIN"));
+    assert!(shows(&app, "PRESS TO SPIN"));
     let mut seen = Vec::new();
     for _ in 0..40 {
         app.update();
@@ -163,7 +163,7 @@ fn landing_on_the_spiders_egg_makes_it_pounce() {
     assert!(shows(&app, "GOT YOU!") && shows(&app, "SAFE PICKS 1"));
     tick(&mut app, 60);
     click_action(&mut app);
-    assert_eq!(table(&app).phase, Phase::Ready, "PWR plays again");
+    assert_eq!(table(&app).phase, Phase::Ready, "a press plays again");
     assert_eq!(table(&app).safe, 0);
 }
 

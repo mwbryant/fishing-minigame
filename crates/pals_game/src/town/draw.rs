@@ -131,7 +131,7 @@ fn hud(shapes: &mut Vec<Shape>, town: &Town, pals: &Pals) {
 fn settings(shapes: &mut Vec<Shape>, pals: &Pals, sound: &SoundQueue, pointed: usize) {
     shapes.push(rect(0, 0, 466, 466, DEEP));
     shapes.push(label(170, "SETTINGS", 2, TEXT));
-    shapes.push(label(292, "TURN TO PICK, PWR", 1, HINT));
+    shapes.push(label(292, "TURN TO PICK, PRESS", 1, HINT));
     let mock = if pals.mock_walk {
         format!("MOCK WALK x{}", pals::MOCK_PACES[pals.mock_pace] as u32)
     } else {
@@ -164,5 +164,5 @@ fn confirm_reset(shapes: &mut Vec<Shape>, erase_pointed: bool) {
     };
     framed_button(shapes, &ui::KEEP, keep);
     framed_button(shapes, &ui::ERASE, erase);
-    shapes.push(label(370, "TURN RIGHT TO ERASE, PWR", 1, HINT));
+    shapes.push(label(370, "TURN RIGHT TO ERASE, PRESS", 1, HINT));
 }

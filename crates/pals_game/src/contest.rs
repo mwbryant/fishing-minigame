@@ -563,7 +563,7 @@ fn choose_tier(shapes: &mut Vec<Shape>, pals: &Pals, pet: &Pet, pointed: usize) 
     }
     let back_color = if pointed == TIERS.len() { GOLD } else { TEXT };
     shapes.push(label(346, "BACK", 1, back_color));
-    shapes.push(label(400, "TURN TO PICK, PWR", 1, HINT));
+    shapes.push(label(400, "TURN TO PICK, PRESS", 1, HINT));
 }
 
 fn stage(shapes: &mut Vec<Shape>, pet: &Pet, show: &Show) {
@@ -657,5 +657,5 @@ fn results(
         shapes.push(label_at(Point::new(170, y), name, 1, color));
         shapes.push(label_at(Point::new(310, y), &format!("{points}"), 1, color));
     }
-    shapes.push(label(400, "PWR", 1, HINT));
+    shapes.push(label(400, "PRESS TO GO ON", 1, HINT));
 }

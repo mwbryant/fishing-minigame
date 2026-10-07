@@ -88,9 +88,9 @@ pub(crate) fn draw_frame(
                     shapes.push(label(92, &stroke_text, 1, TEXT));
                     let done = matches!(word, Heard::Sure(_)) || matches!(stroke, Heard::Sure(_));
                     let hint = if done {
-                        "PWR WHEN DONE"
+                        "PRESS WHEN DONE"
                     } else {
-                        "PWR TO GO BACK"
+                        "PRESS TO GO BACK"
                     };
                     shapes.push(label(404, hint, 1, HINT));
                     listening(shapes, &mic);
@@ -323,5 +323,5 @@ fn tricks(shapes: &mut Vec<Shape>, pet: &Pet, pointed: usize) {
         HINT
     };
     framed_button(shapes, back, frame);
-    shapes.push(label(396, "TURN TO PICK, PWR", 1, HINT));
+    shapes.push(label(396, "TURN TO PICK, PRESS", 1, HINT));
 }

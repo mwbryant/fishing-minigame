@@ -38,8 +38,9 @@ Rules that bite:
 - The user flashes with `./flash.sh [game]` (default `pals`), which saves every serial
   session to `logs/<game>-<timestamp>.log`. When they report a hardware problem, read the
   newest log.
-- Turning the device (`Tilt::steer_deg`) is the primary control; PWR confirms, touch is
-  secondary. Selections are `orbit_ui` dials (3x gain, so +-60 degrees reaches everything).
+- Turning the device (`Tilt::steer_deg`) is the primary control; the upper button (PWR on
+  the board) confirms, touch is secondary. Selections are `orbit_ui` dials (3x gain, so
+  +-60 degrees reaches everything).
 - New games and places:
   - **Plugins:** add `CorePlugin` and `ControlsPlugin` (buttons, tilt, `Power`: battery, idle
     and hold-BOOT sleep, all handled in core), plus `SoundPlugin` if it makes sound,
@@ -73,4 +74,5 @@ Rules that bite:
   scale with the band: never draw embedded-graphics `Arc`s directly (they test their whole
   circle per call); `Shape::Arc` uses `orbit_gfx::arc`.
 - Workflow: red-green TDD with behavioral test names, then `cargo clippy` + `cargo fmt`,
-  and a commit per feature. UI strings are ASCII only.
+  and a commit per feature. UI strings are ASCII only, and the screens say PRESS, never PWR
+  (`crates/orbit_ui/tests/wording.rs` checks).

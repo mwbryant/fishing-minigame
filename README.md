@@ -2,18 +2,20 @@
 
 `no_std` **Bevy 0.19** games for the Waveshare **ESP32-S3-Touch-AMOLED-1.75**
 (466x466 round AMOLED, CO5300 over QSPI, CST9217 touch, QMI8658 IMU, two buttons).
-Turning the device like a steering wheel is the main control everywhere; PWR confirms.
+Turning the device like a steering wheel is the main control everywhere; a press of the
+upper button confirms.
 
 **Fish Pals** is what the board boots into: a Nintendogs-style game about the fish you
 catch.
 
 - **The town:** six little round clearings joined by paths. Tap where to go (or hold a
-  finger down and you follow it), tap the end of a path to go down it, and press PWR at a
-  door.
+  finger down and you follow it), tap the end of a path to go down it, and press the upper
+  button at a door.
   The signpost by your house has the settings: sound, MOCK WALK, and a reset.
 - **The pond** (Angler, the fishing game):
   - **Aim and cast:** turn like a steering wheel. A dotted line shows where a full-power
-    cast lands; hold PWR and release at the top of the meter to land exactly on it.
+    cast lands; hold the upper button and release at the top of the meter to land exactly
+    on it.
   - **Fight:** lean forward and back to keep the fish inside the catch zone, as in Stardew
     Valley.
   - **Keep:** KEEP a catch (or RELEASE it) and name it by turning on a ring of letters. You
@@ -39,7 +41,7 @@ catch.
 - **The hat shop:** a ring of 12 hats (beanie, cowboy hat, clown hat, a crown...); the
   mirror shows your fish wearing the one you point at.
 - **The den:** Spider Roulette as a gamble.
-  - Bet gold, then PWR spins a pointer round twelve eggs, one of which hides a spider.
+  - Bet gold, then a press spins a pointer round twelve eggs, one of which hides a spider.
   - Each safe egg raises what the bet is worth, and CASH OUT banks it. If the spider
     pounces, the bet is gone.
 - **The arcade cabinet:** Skate, a night-street side-scroller.
@@ -108,7 +110,7 @@ cargo clippy --workspace --all-targets && cargo fmt
 
 Controls:
 - **Mouse:** finger.
-- **Space:** the action button (PWR).
+- **Space:** the upper button, which confirms.
 - **Z:** the zero button (BOOT).
 - **Arrow keys:** ←/→ turn the virtual device like a wheel; it stays turned. Hold ↑/↓ to
   lean it; it springs back level when you let go.
@@ -180,7 +182,7 @@ sources plus an emulator run. Run `./flash.sh` and watch the serial log:
 5. Every 2 s the log prints frame count, average and worst frame time, bytes
    per frame, and heap use.
 
-Angler adds checks for the IMU direction, the PWR hold, the lean direction, and
+Angler adds checks for the IMU direction, the upper button's hold, the lean direction, and
 saves; Fish Pals adds the mics, the GPS, and that the speaker still plays now that the
 mics share its clocks. See section 9 of `docs/ESP32_PLATFORM.md`. The mic and GPS
 drivers were written from research and are unverified on the board. Most fixes are

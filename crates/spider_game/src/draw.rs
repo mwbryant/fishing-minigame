@@ -38,7 +38,7 @@ pub(crate) fn draw_frame(
             shapes.push(label(160, "ROULETTE", 3, TEXT));
             dancer(shapes, table.clock, Point::new(233, 262));
             shapes.push(label(330, "ONE EGG HIDES A SPIDER", 1, HINT));
-            shapes.push(label(356, "PRESS PWR TO SPIN", 1, GOLD));
+            shapes.push(label(356, "PRESS TO SPIN", 1, GOLD));
             shapes.push(label(390, &format!("BEST {}", table.best), 1, TEXT));
             if pals.gold > 0 {
                 gold_label(
@@ -75,7 +75,7 @@ pub(crate) fn draw_frame(
                 if table.stake > 0 && table.safe > 0 {
                     button(shapes, &ui::CASH_OUT);
                 }
-                shapes.push(label(432, "PRESS PWR TO SPIN", 1, GOLD));
+                shapes.push(label(432, "PRESS TO SPIN", 1, GOLD));
             }
         }
         Phase::CashedOut => {
@@ -143,7 +143,7 @@ fn bet(shapes: &mut Vec<Shape>, pals: &Pals, steer: f32) {
         format!("TRAP IT FOR {worth}")
     };
     shapes.push(label(262, &note, 1, HINT));
-    shapes.push(label(420, "TURN TO PICK, PWR", 1, HINT));
+    shapes.push(label(420, "TURN TO PICK, PRESS", 1, HINT));
     for (i, stake) in offered.iter().enumerate() {
         let at = ui::stake_center(i, offered.len());
         let at = Point::new(at.x as i32, at.y as i32);
@@ -243,7 +243,7 @@ fn result(shapes: &mut Vec<Shape>, table: &Table) {
         } else {
             DANGER
         };
-        shapes.push(label(340, "PRESS PWR", 1, color));
+        shapes.push(label(340, "PRESS TO PLAY AGAIN", 1, color));
     }
 }
 

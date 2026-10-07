@@ -189,12 +189,12 @@ fn draw_frame(
         .and_then(|pet| pet.hat)
         .map(usize::from);
     let (name, status, hint): (&str, alloc::string::String, alloc::string::String) = match pointed {
-        OUT => ("OUT", "".into(), "PWR TO LEAVE".into()),
+        OUT => ("OUT", "".into(), "PRESS TO LEAVE".into()),
         0 => (
             "NO HAT",
             "".into(),
             if worn.is_some() {
-                "PWR TO TAKE IT OFF".into()
+                "PRESS TO TAKE IT OFF".into()
             } else {
                 "".into()
             },
@@ -210,8 +210,8 @@ fn draw_frame(
             };
             let hint = match (worn == Some(hat), owned, pals.gold >= shelf.price) {
                 (true, _, _) => "".into(),
-                (false, true, _) => "PWR TO WEAR IT".into(),
-                (false, false, true) => "PWR TO BUY".into(),
+                (false, true, _) => "PRESS TO WEAR IT".into(),
+                (false, false, true) => "PRESS TO BUY".into(),
                 (false, false, false) => format!("NEED {} MORE", shelf.price - pals.gold),
             };
             (shelf.name, status, hint)

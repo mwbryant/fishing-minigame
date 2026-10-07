@@ -138,7 +138,7 @@ pub fn key_ring(
     shapes.push(label(170, title, 1, HINT));
     shapes.push(label(222, &format!("{typed}_"), 3, TEXT));
     shapes.push(label(282, "TURN TO PICK A LETTER", 1, HINT));
-    shapes.push(label(302, "PWR TO TYPE IT", 1, HINT));
+    shapes.push(label(302, "PRESS TO TYPE IT", 1, HINT));
     shapes.push(label_at(Point::new(233, 330), "OR TAP ONE", 1, HINT));
 }
 

@@ -428,7 +428,7 @@ fn keep_or_release(shapes: &mut Vec<Shape>, pals: &Pals, release_pointed: bool) 
         format!("TANK {}/{MAX_PETS}", pals.pets.len())
     };
     shapes.push(label(392, &tank, 1, HINT));
-    shapes.push(label(414, "TURN RIGHT TO RELEASE, PWR", 1, HINT));
+    shapes.push(label(414, "TURN RIGHT TO RELEASE, PRESS", 1, HINT));
 }
 
 /// The kept fish round the glass and LET IT GO; the pointed one in gold.
@@ -436,7 +436,7 @@ fn swap(shapes: &mut Vec<Shape>, pals: &Pals, pointed: usize) {
     shapes.push(rect(0, 0, 466, 466, DEEP));
     shapes.push(label(196, "TANK FULL", 2, TEXT));
     shapes.push(label(230, "WHO GOES BACK?", 1, HINT));
-    shapes.push(label(266, "TURN TO PICK, PWR", 1, HINT));
+    shapes.push(label(266, "TURN TO PICK, PRESS", 1, HINT));
     for (slot, area) in ui::SWAP_SLOTS.iter().enumerate() {
         let name = pals
             .pets
