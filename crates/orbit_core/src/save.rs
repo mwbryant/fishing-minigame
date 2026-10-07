@@ -65,6 +65,14 @@ impl SaveBlob {
         self.changed = true;
     }
 
+    /// Keeps only the sections whose key passes `keep`, and asks for a write
+    /// if any went.
+    pub fn retain(&mut self, keep: impl Fn(&[u8; 4]) -> bool) {
+        let before = self.sections.len();
+        self.sections.retain(|(key, _)| keep(key));
+        self.changed |= self.sections.len() != before;
+    }
+
     /// The whole record, once after any section changed.
     pub fn take_pending(&mut self) -> Option<Vec<u8>> {
         if !self.changed {

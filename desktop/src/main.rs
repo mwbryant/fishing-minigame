@@ -3,7 +3,7 @@
 //! CO5300, and the IMU is a virtual device driven from the keyboard.
 //!
 //! ```text
-//! cargo run -p orbit_desktop -- [arcade|angler|spider|skate|bees|orbit]  play (default arcade)
+//! cargo run -p orbit_desktop -- [town|arcade|angler|spider|skate|bees|orbit]  play (default town)
 //!   Holding Z (BOOT) sleeps the board like the firmware does; Z again wakes it.
 //! cargo run -p orbit_desktop -- [angler|orbit] snapshot <dir>  scripted PNGs, headless
 //! ```
@@ -29,6 +29,10 @@ use orbit_core::{
 };
 use orbit_game::OrbitPlugin;
 use orbit_gfx::Presenter;
+use pals_game::{
+    Arrival, Place,
+    town::{Town, TownPlugin},
+};
 use skate_game::SkatePlugin;
 use spider_game::SpiderPlugin;
 
@@ -49,6 +53,7 @@ const TURN_DEG_PER_SEC: f32 = 60.0;
 /// one game on its own, like the firmware's binaries.
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum Game {
+    Town,
     Arcade,
     Orbit,
     Angler,
@@ -60,6 +65,7 @@ pub enum Game {
 impl Game {
     fn name(self) -> &'static str {
         match self {
+            Game::Town => "town",
             Game::Arcade => "arcade",
             Game::Orbit => "orbit",
             Game::Angler => "angler",
@@ -71,6 +77,7 @@ impl Game {
 
     fn add_to(self, app: &mut App) {
         match self {
+            Game::Town => app.add_plugins(TownPlugin),
             Game::Arcade => app.add_plugins(ArcadePlugin),
             Game::Orbit => app.add_plugins(OrbitPlugin),
             Game::Angler => app.add_plugins(AnglerPlugin),
@@ -78,6 +85,17 @@ impl Game {
             Game::Skate => app.add_plugins(SkatePlugin),
             Game::Bees => app.add_plugins(BeesPlugin),
         };
+    }
+
+    /// The app behind one of the town's doors, once it exists.
+    fn behind(place: Place) -> Option<Self> {
+        match place {
+            Place::Pond => Some(Game::Angler),
+            Place::Den => Some(Game::Spider),
+            Place::Arcade => Some(Game::Skate),
+            Place::BeeTree => Some(Game::Bees),
+            _ => None,
+        }
     }
 
     /// The menu's pick, if this build has that game.
@@ -97,18 +115,21 @@ enum Ended {
     Slept,
     /// The app sent `AppExit`; the menu says which game it picked.
     Exited(Option<Game>),
+    /// The town sent `AppExit` at a door.
+    WentTo(Place),
 }
 
 fn main() {
     let args: Vec<String> = env::args().skip(1).collect();
     let (game, rest) = match args.first().map(String::as_str) {
+        Some("town") => (Game::Town, &args[1..]),
         Some("arcade") => (Game::Arcade, &args[1..]),
         Some("orbit") => (Game::Orbit, &args[1..]),
         Some("angler") => (Game::Angler, &args[1..]),
         Some("spider") => (Game::Spider, &args[1..]),
         Some("skate") => (Game::Skate, &args[1..]),
         Some("bees") => (Game::Bees, &args[1..]),
-        _ => (Game::Arcade, &args[..]),
+        _ => (Game::Town, &args[..]),
     };
     match rest.first().map(String::as_str) {
         Some("snapshot") => snapshots::run(
@@ -132,11 +153,13 @@ fn play(boot: Game) {
     let mut speaker = None;
     let mut pixels = vec![0u32; SIZE * SIZE];
     let mut next = boot;
+    let mut arrival = None;
     loop {
-        let launched = boot == Game::Arcade && next != Game::Arcade;
+        let launched = matches!(boot, Game::Arcade | Game::Town) && next != boot;
         match run(
             next,
             launched,
+            arrival,
             &mut window,
             &mut save,
             &mut speaker,
@@ -149,8 +172,13 @@ fn play(boot: Game) {
                     return;
                 }
                 next = boot;
+                arrival = None;
             }
             Ended::Exited(picked) => next = picked.unwrap_or(boot),
+            Ended::WentTo(place) => {
+                arrival = Some(place);
+                next = Game::behind(place).unwrap_or(boot);
+            }
         }
     }
 }
@@ -161,6 +189,7 @@ fn play(boot: Game) {
 fn run(
     game: Game,
     launched: bool,
+    arrival: Option<Place>,
     window: &mut Window,
     save: &mut SaveFile,
     speaker: &mut Option<Speaker>,
@@ -173,6 +202,9 @@ fn run(
     game.add_to(&mut app);
     if launched {
         app.insert_resource(Launcher);
+    }
+    if let (Game::Town, Some(place)) = (game, arrival) {
+        app.insert_resource(Arrival(place));
     }
     app.insert_resource(Rng::new(seed))
         .insert_resource(SaveBlob::from_storage(save.load()));
@@ -233,6 +265,13 @@ fn run(
             return Ended::Slept;
         }
         if app.should_exit().is_some() {
+            if let Some(place) = app
+                .world()
+                .get_resource::<Town>()
+                .and_then(Town::destination)
+            {
+                return Ended::WentTo(place);
+            }
             let picked = app.world().get_resource::<Menu>().and_then(Menu::chosen);
             return Ended::Exited(picked.and_then(Game::picked));
         }

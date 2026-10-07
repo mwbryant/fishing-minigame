@@ -13,6 +13,7 @@ spider_game.workspace = true
 skate_game.workspace = true
 bees_game.workspace = true
 pals.workspace = true
+pals_game.workspace = true
 orbit_ui.workspace = true
 orbit_core.workspace = true
 orbit_save.workspace = true

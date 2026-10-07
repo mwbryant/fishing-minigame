@@ -45,6 +45,7 @@ pub fn run(game: Game, dir: &Path) {
         presenter: Presenter::new(vec![0u8; BAND_BYTES], game.background()),
     };
     match game {
+        Game::Town => town(&mut camera),
         Game::Arcade => arcade(&mut camera),
         Game::Orbit => orbit(&mut camera),
         Game::Angler => angler(&mut camera),
@@ -52,6 +53,52 @@ pub fn run(game: Game, dir: &Path) {
         Game::Skate => skate(&mut camera),
         Game::Bees => bees(&mut camera),
     }
+}
+
+/// The town: each clearing from one of its doors, then the settings and the
+/// reset question.
+fn town(camera: &mut Camera) {
+    use pals_game::{
+        Place,
+        town::{Town, TownPlugin, ui},
+    };
+    let mut tank = pals::Pals::default();
+    tank.earn(135);
+    let mut blob = SaveBlob::from_storage(None);
+    pals::save::store(&mut blob, &tank);
+    let mut app = core_testing::headless(
+        |app| {
+            app.add_plugins(TownPlugin);
+        },
+        blob.take_pending(),
+    );
+    battery(&mut app, 76);
+    camera.shoot(&app, "town_home");
+    for (place, name) in [
+        (Place::Pond, "town_pond"),
+        (Place::Park, "town_park"),
+        (Place::Contest, "town_hall"),
+        (Place::Shop, "town_main_street"),
+        (Place::Arcade, "town_grove"),
+    ] {
+        app.world_mut().resource_mut::<Town>().stand_at(place);
+        core_testing::tick(&mut app, 2);
+        camera.shoot(&app, name);
+    }
+    app.world_mut().resource_mut::<Town>().stand_at(Place::Home);
+    core_testing::set_tilt(&mut app, 25.0, -12.0);
+    core_testing::tick(&mut app, 30);
+    core_testing::set_tilt(&mut app, 0.0, 0.0);
+    core_testing::tick(&mut app, 1);
+    camera.shoot(&app, "town_walking");
+    app.world_mut()
+        .resource_mut::<Town>()
+        .stand_at(Place::Settings);
+    core_testing::tick(&mut app, 1);
+    core_testing::click_action(&mut app);
+    camera.shoot(&app, "town_settings");
+    core_testing::tap(&mut app, ui::RESET.center());
+    camera.shoot(&app, "town_reset");
 }
 
 fn arcade(camera: &mut Camera) {
@@ -330,6 +377,7 @@ fn reel(app: &mut App, frames: u32) {
 impl Game {
     pub fn background(self) -> Rgb565 {
         match self {
+            Game::Town => pals_game::town::BACKGROUND,
             Game::Arcade => arcade::BACKGROUND,
             Game::Orbit => orbit_game::BACKGROUND,
             Game::Angler => angler_game::BACKGROUND,

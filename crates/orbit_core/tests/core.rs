@@ -291,6 +291,22 @@ fn games_keep_their_saves_in_separate_sections_of_one_record() {
 }
 
 #[test]
+fn dropping_sections_leaves_them_out_of_the_next_record_and_keeps_the_rest() {
+    let mut blob = SaveBlob::from_storage(None);
+    blob.save_section(*b"AAAA", vec![1, 2]);
+    blob.save_section(*b"BBBB", vec![3]);
+    blob.take_pending();
+    blob.retain(|key| key != b"AAAA");
+    let record = blob.take_pending().expect("removing is a change");
+    let reloaded = SaveBlob::from_storage(Some(record));
+    assert_eq!(reloaded.section(b"AAAA"), None);
+    assert_eq!(reloaded.section(b"BBBB"), Some(&[3][..]));
+    let mut unchanged = reloaded;
+    unchanged.retain(|key| key != b"ZZZZ");
+    assert_eq!(unchanged.take_pending(), None, "nothing dropped");
+}
+
+#[test]
 fn a_record_from_before_sections_loads_as_the_section_named_by_its_magic() {
     let old = b"FLOG\x02 an old fish log".to_vec();
     let blob = SaveBlob::from_storage(Some(old.clone()));

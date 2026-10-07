@@ -98,6 +98,12 @@ impl Pals {
         self.owned_hats
     }
 
+    /// Gold and hats carried over from an older save.
+    pub fn restore_purse(&mut self, gold: u32, owned_hats: u32) {
+        self.gold = gold;
+        self.set_owned_hats(owned_hats);
+    }
+
     pub(crate) fn set_owned_hats(&mut self, mask: u32) {
         self.owned_hats = (mask & hats::ALL_HATS) | 1;
     }
