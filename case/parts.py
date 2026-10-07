@@ -38,6 +38,7 @@ from build123d import (
 
 import board
 import params as p
+import stack
 
 BORE_R = board.GLASS_R + p.GLASS_GAP
 TROUGH_R = BORE_R + p.WALL
@@ -47,42 +48,21 @@ TOP_Z = p.RIM_PROUD
 BOTTOM = (Align.CENTER, Align.CENTER, Align.MIN)
 
 
-def contents(battery: bool) -> list[tuple[str, tuple[float, float, float]]]:
-    """What lies under the board, from the floor up."""
-    items = []
-    if p.SPEAKER:
-        items.append(("speaker", p.SPEAKER))
-    if battery:
-        items.append(("battery", p.BATTERY))
-    return items
-
-
 def floor_z(battery: bool) -> float:
-    """Inside face of the floor: below the header, the stack under the board, and any plugs."""
-    z = board.DEEPEST_Z - p.FLOOR_GAP
-    items = contents(battery)
-    if items:
-        stack = sum(t + p.STACK_GAP for _, (_, _, t) in items)
-        z = min(z, board.UNDER_BOARD_Z - stack, board.SOCKETS_Z - p.PLUG_ROOM)
-    return z
+    """Inside face of the floor."""
+    return stack.stack(battery)[1]
 
 
 def item_boxes(battery: bool) -> list[tuple[str, Part]]:
-    """The speaker and cell where they lie, for fit checks and previews."""
-    boxes, z = [], floor_z(battery)
-    for name, (w, length, t) in contents(battery):
-        boxes.append((name, Pos(0, p.BAY_CENTER_Y, z) * Box(w, length, t, align=BOTTOM)))
-        z += t + p.STACK_GAP
-    return boxes
+    """The speaker, GPS antenna and cell where they lie, for fit checks and previews."""
+    return [
+        (i.name, Pos(i.x, i.y, i.z) * Rot(0, 0, i.angle) * Box(*i.size, align=BOTTOM))
+        for i in stack.stack(battery)[0]
+    ]
 
 
 def back_z(battery: bool) -> float:
     return floor_z(battery) - p.FLOOR
-
-
-def shelf_z() -> float:
-    """Where each board screw's head bears; its counterbore runs from the back up to here."""
-    return board.STANDOFF_END_Z - p.SCREW_SHELF
 
 
 def radial_plane(angle: float, r: float, z: float, offset: float = 0.0) -> Plane:
@@ -142,18 +122,17 @@ def spool(battery: bool) -> Part:
 
 
 def screw_posts(battery: bool) -> Part:
-    zf, zs = floor_z(battery), shelf_z()
+    zf, wide_top = floor_z(battery), stack.wide_post_top()
     posts = Part()
     for x, y in board.STANDOFFS:
         posts += Pos(x, y, zf) * Cylinder(p.POST_D / 2, board.STANDOFF_END_Z - zf, align=BOTTOM)
-        wide_top = zs + 0.6
         if wide_top > zf:
             posts += Pos(x, y, zf) * Cylinder(p.POST_WIDE_D / 2, wide_top - zf, align=BOTTOM)
     return posts
 
 
 def screw_holes(battery: bool) -> Part:
-    zb, zs = back_z(battery), shelf_z()
+    zb, zs = back_z(battery), stack.shelf_z()
     holes = Part()
     for x, y in board.STANDOFFS:
         holes += Pos(x, y, zb - 1) * Cylinder(
@@ -164,13 +143,11 @@ def screw_holes(battery: bool) -> Part:
 
 
 def stack_rails(battery: bool) -> Part:
-    """Two low walls either side of the stack keep the speaker over the grille."""
-    items = contents(battery)
-    if not items:
+    """Two low walls either side of the speaker keep it over the grille."""
+    if not p.SPEAKER:
         return Part()
-    w = max(i[1][0] for i in items) + 2 * p.STACK_GAP
-    length = max(i[1][1] for i in items)
-    x = w / 2 + p.RAIL_WALL / 2
+    w, length, _ = p.SPEAKER
+    x = w / 2 + p.STACK_GAP + p.RAIL_WALL / 2
     rail = Box(p.RAIL_WALL, length, p.RAIL_HEIGHT, align=BOTTOM)
     z = floor_z(battery)
     return Pos(-x, p.BAY_CENTER_Y, z) * rail + Pos(x, p.BAY_CENTER_Y, z) * rail

@@ -14,7 +14,7 @@ BUTTON_COLOR = "#ff7a1a"
 BOARD_COLOR = "#3a3f45"
 GLASS_COLOR = "#0b0d10"
 ART_COLOR = "#efe6cf"
-ITEM_COLORS = {"speaker": "#1d1d1f", "battery": "#3d6fb6"}
+ITEM_COLORS = {"speaker": "#1d1d1f", "gps antenna": "#c9b37e", "battery": "#3d6fb6"}
 SIZE = (1100, 900)
 
 

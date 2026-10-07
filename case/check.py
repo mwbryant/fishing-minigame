@@ -1,7 +1,8 @@
 """Fit check against Waveshare's STEP model of the board: `uv run check.py`.
 
 Exits non-zero if a printed part overlaps the board, the board can't be lowered in, a button
-misses its switch, the battery collides, or the recommended screws would reach the display.
+misses its switch, the speaker, GPS antenna or battery collides, or the recommended screws would
+reach the display.
 """
 
 import math
@@ -12,6 +13,7 @@ from build123d import Box, Pos
 import board
 import params as p
 import parts
+import stack
 
 OVERLAP = 0.01  # mm^3 of overlap that still counts as touching
 PCB_FRONT_Z = board.PCB_BACK_Z + 1.2
@@ -91,17 +93,16 @@ def check_variant(battery: bool, solids: list):
     report(not others, "a full press touches nothing but the switches")
     report((full & case).volume < OVERLAP, "a full press doesn't bind in the case")
 
-    for item, box in parts.item_boxes(battery):
-        size = box.bounding_box().size
-        dims = f"{size.X:g} x {size.Y:g} x {size.Z:g}"
-        report((box & case).volume < OVERLAP, f"{item} ({dims}) clears the posts and rails")
-        report(not overlaps(box, solids), f"{item} ({dims}) clears the board")
+    for item, (_, box) in zip(stack.stack(battery)[0], parts.item_boxes(battery)):
+        what = "{} ({:g} x {:g} x {:g})".format(item.name, *item.size)
+        report((box & case).volume < OVERLAP, f"{what} clears the posts and rails")
+        report(not overlaps(box, solids), f"{what} clears the board")
 
     grille = parts.speaker_grille(battery)
     clear = (parts.art(battery) & grille).volume < OVERLAP if p.SPEAKER else True
     report(clear, "the back artwork stays clear of the grille holes")
 
-    if parts.contents(battery):
+    if parts.item_boxes(battery):
         m = 0.5  # the two wires splay a little as they leave the plug
         plugs = [
             Pos((x0 + x1) / 2, (y0 + y1) / 2, board.SOCKETS_Z - p.PLUG_ROOM)

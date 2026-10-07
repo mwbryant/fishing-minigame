@@ -28,13 +28,27 @@ STANDOFF_D = 3.5
 STANDOFFS = ((13.75, -14.70), (-13.75, -14.70), (0.0, 20.50))
 DEEPEST_Z = -12.70  # 8-pin female header along the 6 o'clock edge
 SOCKETS_Z = -11.70  # BAT and SPK MX1.25 sockets along the 12 o'clock edge
-UNDER_BOARD_Z = (
-    -8.20
-)  # lowest part over the middle (x +-11, y -17 to 13.5), where a speaker or cell lies
+# Under the board nothing hangs below UNDER_BOARD_Z except these, as (x0, y0, x1, y1, lowest z).
+# The standoffs are left out: the case's posts are dealt with on their own.
+UNDER_BOARD_Z = -8.20
+LOW_PARTS = (
+    (-10.43, -19.88, 10.42, -17.48, -12.70),  # 8-pin header
+    (2.69, 15.92, 10.29, 19.62, -11.70),  # BAT and SPK sockets
+    (-10.61, 15.92, -3.01, 19.62, -11.70),
+    (-23.79, -4.81, -16.26, 4.77, -10.15),  # USB-C
+    (14.73, -13.80, 19.48, -8.82, -8.70),  # side keys
+    (14.73, 8.82, 19.48, 13.80, -8.70),
+)
 PLUG_ENTRIES = (
     (4.24, 15.92, 8.74, 18.72),
     (-9.06, 15.92, -4.56, 18.72),
 )  # sockets' open ends: x0, y0, x1, y1
+
+# GPS (-G board): the LC76G sits on the front of the PCB, under the display, so the case never
+# sees it. Its antenna plugs into the U.FL socket beside it (the other U.FL is for Wi-Fi). With
+# a plug in, keep a margin round the socket clear down to GPS_PLUG_Z for the plug and its cable.
+GPS_SOCKET = (-15.07, -9.10, -12.07, -6.00)
+GPS_PLUG_Z = PCB_BACK_Z - 2.7
 
 USB_ANGLE = 180.0
 USB_FACE_R = 23.79

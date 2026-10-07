@@ -11,6 +11,7 @@ from build123d import Box, Mesher, Pos, export_step, export_stl
 
 import params as p
 import parts
+import stack
 
 OUT = Path(__file__).parent / "out"
 VARIANTS = {"reel_case": False, "reel_case_battery": True}
@@ -67,9 +68,8 @@ def fit_ring():
 def summary(name: str, battery: bool):
     zb = parts.back_z(battery)
     height = parts.TOP_Z - zb
-    inside = (
-        ", ".join(f"{n} {w:g}x{l:g}x{t:g}" for n, (w, l, t) in parts.contents(battery)) or "nothing"
-    )
+    items = stack.stack(battery)[0]
+    inside = ", ".join("{} {:g}x{:g}x{:g}".format(i.name, *i.size) for i in items) or "nothing"
     print(f"{name}: D{2 * parts.OUTER_R:.1f} x {height:.1f} mm, under the board: {inside}")
     band = p.BACK_FLANGE, height - p.FRONT_FLANGE
     print(f"    two-tone rim: change filament at {band[0]:.1f} mm and back at {band[1]:.1f} mm")

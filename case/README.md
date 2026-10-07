@@ -20,7 +20,9 @@ Waveshare's own STEP model of the board (in `../docs/`).
    rim  ____________________________________  rim
   |  |  board, screwed down through its     |  |   USB-C opening (9 o'clock)
   |  |  three M2 standoffs onto three posts  |  |   PWR / BOOT button caps (2 and 4 o'clock)
-  |  |       [ speaker, face down ]          |  |   microSD slot (3 o'clock)
+  |  |     [ battery (battery case) ]        |  |   microSD slot (3 o'clock)
+  |  |     [ GPS antenna, ceramic down ]     |  |
+  |  |       [ speaker, face down ]          |  |
   |__|_______o o o grille o o o_____________|__|
        back: raised whale and text, 3 screw heads
 ```
@@ -30,8 +32,9 @@ Waveshare's own STEP model of the board (in `../docs/`).
 - PWR and BOOT are pressed through two printed button caps, 8 x 4.6 mm rounded slots that stand
   1 mm out of the rim. Behind each cap a flange stops it falling out, and a nub presses the
   board's side switch. The slot shape keys the cap so it can't turn.
-- The speaker lies face down on the floor behind the grille. In the battery case a LiPo cell lies on
-  top of it.
+- The speaker lies face down on the floor behind the grille. The GPS antenna lies on top of it,
+  and in the battery case the LiPo cell lies on top of that. `stack.py` lifts each layer as high
+  as the parts under the board allow, and the floor drops to fit.
 
 ## Files (`uv run build.py` writes them to `out/`)
 
@@ -44,8 +47,9 @@ Waveshare's own STEP model of the board (in `../docs/`).
 | `*.step` | Solid models that open in Fusion 360, Onshape, FreeCAD or Bambu Studio |
 | `fit_test_ring.stl` | Top 10 mm of the case: a short print to try the glass, USB-C and buttons first |
 
-Sizes: the USB case is D53.9 x 18.2 mm; the battery case is 23.6 mm thick.
-Without the speaker (`SPEAKER = None`) the case is 16.3 mm thick.
+Sizes: the USB case is D53.9 x 24.6 mm and the battery case is 31.4 mm thick. For a board
+without GPS (`GPS_ANTENNA = None`) they are 18.2 and 23.6 mm, and without the speaker as well,
+16.3 and 18.5 mm.
 
 ## Printing on the P2S
 
@@ -79,9 +83,12 @@ Without the speaker (`SPEAKER = None`) the case is 16.3 mm thick.
 3. Lay the speaker face down between the two rails, with its wire end towards the lone post at
    12 o'clock (a quarter turn clockwise from the USB-C opening, looking in). Plug it into the
    board's SPK socket, and tape it down if it rattles.
-4. Line USB-C up with the big opening and lower the board straight in, glass up. Nothing should
+4. GPS board: lay the antenna on the speaker, ceramic side down. On the back of the board, plug
+   its lead into the small U.FL socket nearer the USB-C port. The one by the side buttons is for
+   Wi-Fi.
+5. Line USB-C up with the big opening and lower the board straight in, glass up. Nothing should
    catch. Once the screws are in, peel off the tape: each cap should click its switch.
-5. Turn it over and drive the three screws into the counterbores until they are snug, not tight.
+6. Turn it over and drive the three screws into the counterbores until they are snug, not tight.
 
 ## Battery
 
@@ -104,8 +111,25 @@ and PWR turns the device on and off.
 - **Runtime:** expect roughly 2 to 3 hours from 300 to 400 mAh. That figure is an estimate from
   typical ESP32-S3 and AMOLED draw, not a measurement.
 
-To fit it: print `reel_case_battery`, stick the cell on top of the speaker with double-sided foam
-tape (wires towards 12 o'clock), plug it into BAT, and move the board and button caps across.
+To fit it: print `reel_case_battery`, stick the cell on top of the speaker (or the GPS antenna)
+with double-sided foam tape, wires towards 12 o'clock. Plug it into BAT, and move the board and
+button caps across.
+
+## GPS (the -G board)
+
+- **Module:** the LC76G GPS module sits on the front of the board, under the display, so the case
+  needs nothing for it.
+- **Antenna position:** the GNSS antenna (27.1 x 27.1 x 7.2 mm as measured) lies on the speaker,
+  ceramic side down, so it looks out through the plastic back plate. It is turned slightly to
+  fit between the screw posts: 8 deg in the USB case, 16 deg in the battery case.
+- **Reception:** the speaker keeps the spot against the grille, so the antenna sees the sky
+  through the speaker. It works best outdoors with the back towards open sky.
+- **Settings:** `GPS_ANTENNA` takes your antenna's size. `GPS_PLACE` pins its position by hand.
+  `GPS_ANTENNA = None` builds the case for a board without GPS.
+- **Firmware:** not wired up yet. Waveshare's
+  [hardware reference](https://github.com/waveshareteam/ESP32-S3-Touch-AMOLED-1.75/blob/main/HARDWARE_REFERENCE.md)
+  says the LC76G answers on I2C at 0x50 (write) and 0x54 (read), can also use UART on GPIO17 (TX)
+  and GPIO18 (RX), and is reset through TCA9554 pin P7.
 
 If you only want cordless play now and then, any USB-C power bank on the USB-C port also works,
 with no changes.
@@ -123,6 +147,7 @@ uv run render.py   # PNG previews in previews/
 | `params.py` | Everything you might tune, with comments: text, font, fit gaps, wall and flange sizes, line pitch, button size, speaker and battery sizes. If a word no longer fits between its screws, `build.py` stops and says so |
 | `board.py` | Board facts measured from the STEP model (positions, depths, keys, ports) |
 | `parts.py` | The geometry, one small function per feature (body, posts, rails, grille, cutouts, art, button caps) |
+| `stack.py` | What lies under the board (speaker, GPS antenna, battery): where each goes and how deep the case must be |
 | `check.py` | Fit tests: no overlaps, board lowers straight in, buttons hit their switches, the battery/speaker/plugs fit, safe screw lengths |
 
 Frame used everywhere: looking at the screen with the game upright, +X is right, +Y is up, +Z
@@ -132,11 +157,13 @@ For a live 3D view while you edit, install the VS Code extension "OCP CAD Viewer
 `uv add --dev ocp_vscode`, and `show(parts.case())`. The STEP files can be edited by hand in any
 CAD program, but those edits don't flow back into the Python.
 
-## Not verified yet (the board hasn't been in hand)
+## Not verified yet
 
 - **Speaker size.** Waveshare doesn't publish it. 20 x 30 x 4.5 is a guess at their usual 2030
-  cavity speaker. Measure it and set `SPEAKER`: the floor drops to fit, and `check.py` confirms
-  the result. The speaker has to fit inside the 20 x 30 mm area between the rails.
+  cavity speaker. Measure yours and set `SPEAKER`: the floor drops to fit, and `check.py` confirms
+  the result. The rails are spaced for the speaker's width.
+- **Which U.FL is GPS.** The board model doesn't label them. The one beside the LC76G (nearer
+  USB-C) should be GPS; check the silkscreen.
 - **Plug room.** `PLUG_ROOM` (3.5 mm below the BAT/SPK sockets) is a guess for a mated MX1.25 plug
   with its wires bent away.
 - **Button feel.** If a button is pressed all the time, raise `BUTTON_ACTUATOR_GAP`. If it is

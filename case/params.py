@@ -78,10 +78,12 @@ GRILLE_HOLE_D = 1.6
 GRILLE_CHAMBER = 0.5  # recess inside the floor so the speaker can breathe into the holes
 
 # --- What lies under the board ----------------------------------------------------------
-# Both lie flat in the middle, wires out of the top end towards the BAT and SPK sockets at
-# 12 o'clock. The speaker lies face down on the floor behind the grille; in the battery case
-# the cell lies on top of it. Measure yours: the floor drops to fit whatever you set here.
+# From the floor up: the speaker (face down behind the grille), the GPS antenna (ceramic side
+# down, looking out of the back), and in the battery case the cell. stack.py lifts each as high
+# as the board allows and the floor drops to fit, so measure yours and set them here.
 SPEAKER = (20.0, 30.0, 4.5)  # the 8 ohm speaker from the box; None for a thinner, silent case
+GPS_ANTENNA = (27.1, 27.1, 7.2)  # the -G board's GNSS antenna; None for a board without GPS
+GPS_PLACE = None  # (x, y, angle) to place the antenna by hand; None finds the highest spot
 BATTERY = (20.5, 32.0, 6.7)  # battery case only: a real 602030 with its protection board
 BAY_CENTER_Y = -1.0
 STACK_GAP = 0.6  # around and above each item (LiPo pouches swell)
