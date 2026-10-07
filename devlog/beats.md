@@ -473,3 +473,19 @@ Images are in `img/`. Newest beats go at the bottom.
   - the emulator harness keeps its stack within 1 KB of the firmware's so stack overflows
     show up in both;
   - its heap went from 237 to 238 KB to match.
+
+## 34. Walking the town is touch
+
+- **The feedback:** "movement on the overworld should be touch, not rotate." Turning and
+  leaning to walk was rotation-first taken one step too far; rotation picks things, it
+  doesn't steer you around a map.
+- **Now:** tap where to go, or hold a finger down and you follow it as it drags. Tapping the
+  end of a path means "down the path", so the target is pushed past the edge of the glass.
+- **The detail a test caught first:**
+  - hold a finger at the east end of a path and you walk into the next clearing;
+  - you come out at its *west* edge, with the finger still down at the *east* edge;
+  - so it would walk you across and straight back out.
+  - The fix: a finger that took you down a path is spent until it lifts.
+- **Rotation stays for the menus:** the settings dial, the house's lists, the shop's ring of
+  hats.
+- Image: `34-tap-where-to-go.png`.

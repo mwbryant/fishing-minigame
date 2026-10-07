@@ -88,10 +88,8 @@ fn town(camera: &mut Camera) {
         camera.shoot(&app, name);
     }
     app.world_mut().resource_mut::<Town>().stand_at(Place::Home);
-    core_testing::set_tilt(&mut app, 25.0, -12.0);
+    core_testing::tap(&mut app, Vec2::new(330.0, 260.0));
     core_testing::tick(&mut app, 30);
-    core_testing::set_tilt(&mut app, 0.0, 0.0);
-    core_testing::tick(&mut app, 1);
     camera.shoot(&app, "town_walking");
     app.world_mut()
         .resource_mut::<Town>()

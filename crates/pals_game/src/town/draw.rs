@@ -121,7 +121,10 @@ fn hud(shapes: &mut Vec<Shape>, town: &Town, pals: &Pals) {
             shapes.push(label(384, place.name(), 2, GOLD));
             button(shapes, &ui::ENTER);
         }
-        None => shapes.push(label(430, town.screen().name(), 1, rgb(230, 240, 220))),
+        None => {
+            shapes.push(label(420, town.screen().name(), 1, rgb(230, 240, 220)));
+            shapes.push(label(440, "TAP WHERE TO GO", 1, rgb(200, 220, 190)));
+        }
     }
 }
 

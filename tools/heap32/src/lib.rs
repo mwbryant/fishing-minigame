@@ -208,8 +208,9 @@ const fn samples<const N: usize>(bytes: &[u8]) -> [i16; N] {
     out
 }
 
-/// The town: ten seconds of walking every way, then the settings with sound
-/// and mock walks toggled and the reset question asked and kept.
+/// The town: ten seconds of a finger dragged round the glass and taps down
+/// the paths, then the settings with sound and mock walks toggled and the
+/// reset question asked and kept.
 #[unsafe(no_mangle)]
 pub extern "C" fn measure_town() -> *const u32 {
     use pals_game::{
@@ -226,13 +227,23 @@ pub extern "C" fn measure_town() -> *const u32 {
     let built = CURRENT.load(Relaxed);
     for frame in 0..600 {
         let t = frame as f32 * 0.02;
-        core_testing::set_tilt(&mut app, ops::sin(t) * 30.0, ops::cos(t * 0.7) * 30.0);
+        let finger = Vec2::splat(233.0) + Vec2::new(ops::sin(t), ops::cos(t * 0.7)) * 150.0;
+        app.world_mut()
+            .resource_mut::<orbit_core::Touch>()
+            .set(Some(finger));
         app.update();
+    }
+    app.world_mut()
+        .resource_mut::<orbit_core::Touch>()
+        .set(None);
+    app.update();
+    for (x, y) in [(450.0, 233.0), (16.0, 233.0), (233.0, 450.0), (233.0, 16.0)] {
+        core_testing::tap(&mut app, Vec2::new(x, y));
+        core_testing::tick(&mut app, 60 * 4);
     }
     app.world_mut()
         .resource_mut::<Town>()
         .stand_at(Place::Settings);
-    core_testing::set_tilt(&mut app, 0.0, 0.0);
     core_testing::tick(&mut app, 2);
     core_testing::click_action(&mut app);
     for button in [

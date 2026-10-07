@@ -1,5 +1,5 @@
 use bevy::{app::AppExit, prelude::*};
-use orbit_core::{SaveBlob, SoundQueue, preferences, testing::*};
+use orbit_core::{SaveBlob, SoundQueue, Touch, preferences, testing::*};
 use pals::{Name, Pals, Pet};
 use pals_game::{
     Arrival, Place,
@@ -28,12 +28,20 @@ fn state(app: &App) -> &Town {
     app.world().resource::<Town>()
 }
 
-/// Walks with the device held at `steer` and `lean` for `frames` updates.
-fn walk(app: &mut App, steer: f32, lean: f32, frames: u32) {
-    set_tilt(app, steer, lean);
-    tick(app, frames);
-    set_tilt(app, 0.0, 0.0);
+/// A finger held at `at` for `frames` updates, then lifted.
+fn hold(app: &mut App, at: Vec2, frames: u32) {
+    for _ in 0..frames {
+        app.world_mut().resource_mut::<Touch>().set(Some(at));
+        app.update();
+    }
+    app.world_mut().resource_mut::<Touch>().set(None);
     app.update();
+}
+
+/// A tap at `at`, then `frames` updates to walk there.
+fn tap_and_walk(app: &mut App, at: Vec2, frames: u32) {
+    tap(app, at);
+    tick(app, frames);
 }
 
 fn saved(app: &mut App) -> SaveBlob {
@@ -64,28 +72,53 @@ fn the_town_boots_at_your_front_door_and_pwr_goes_inside() {
 }
 
 #[test]
-fn turning_walks_left_and_right_and_leaning_walks_up_and_down() {
+fn a_finger_held_on_the_glass_walks_you_toward_it() {
     let mut app = town(None);
     let start = state(&app).at();
-    walk(&mut app, 25.0, 0.0, 30);
-    let east = state(&app).at();
-    assert!(east.x > start.x + 40.0 && (east.y - start.y).abs() < 2.0);
-    walk(&mut app, 0.0, -25.0, 30);
+    let ahead = start + Vec2::new(150.0, 0.0);
+    hold(&mut app, ahead, 30);
+    let walked = state(&app).at();
+    assert!(walked.x > start.x + 40.0 && (walked.y - start.y).abs() < 2.0);
+    assert!(walked.x < ahead.x, "half a second gets partway");
+    let below = walked + Vec2::new(0.0, 120.0);
+    hold(&mut app, below, 30);
     assert!(
-        state(&app).at().y > east.y + 40.0,
-        "leaning back walks down"
+        state(&app).at().y > walked.y + 40.0,
+        "dragging down walks down"
     );
-    walk(&mut app, 0.0, 25.0, 30);
-    walk(&mut app, -25.0, 0.0, 30);
-    assert!(state(&app).at().distance(start) < 10.0);
-    assert_eq!(state(&app).near(), Some(Place::Home));
+}
+
+#[test]
+fn you_follow_a_finger_dragged_across_the_glass() {
+    let mut app = town(None);
+    let start = state(&app).at();
+    for frame in 0..90 {
+        let finger = start + Vec2::new(frame as f32 * 2.0, 40.0);
+        app.world_mut().resource_mut::<Touch>().set(Some(finger));
+        app.update();
+    }
+    let finger = start + Vec2::new(178.0, 40.0);
+    assert!(
+        state(&app).at().distance(finger) < 12.0,
+        "kept up with the finger: {:?} vs {finger:?}",
+        state(&app).at()
+    );
+}
+
+#[test]
+fn turning_or_leaning_the_device_doesnt_walk() {
+    let mut app = town(None);
+    let start = state(&app).at();
+    set_tilt(&mut app, 30.0, 30.0);
+    tick(&mut app, 60);
+    assert_eq!(state(&app).at(), start);
 }
 
 #[test]
 fn the_house_is_solid() {
     let mut app = town(None);
     let door = state(&app).at();
-    walk(&mut app, 0.0, 25.0, 120);
+    hold(&mut app, door - Vec2::new(0.0, 100.0), 120);
     assert!(
         state(&app).at().y > door.y - 12.0,
         "walked into the house to {:?}",
@@ -94,17 +127,28 @@ fn the_house_is_solid() {
 }
 
 #[test]
-fn the_paths_lead_to_the_next_clearing() {
+fn tapping_the_end_of_a_path_walks_into_the_next_clearing() {
+    let east = Vec2::new(450.0, 233.0);
+    let west = Vec2::new(16.0, 233.0);
     let mut app = town(None);
-    walk(&mut app, 25.0, 0.0, 60 * 4);
+    tap_and_walk(&mut app, east, 60 * 4);
     assert_eq!(state(&app).screen(), Screen::Park, "east of home");
-    walk(&mut app, -25.0, 0.0, 60 * 4);
+    tap_and_walk(&mut app, west, 60 * 4);
     assert_eq!(state(&app).screen(), Screen::Home);
-    walk(&mut app, -25.0, 0.0, 60 * 4);
+    tap_and_walk(&mut app, west, 60 * 4);
     assert_eq!(state(&app).screen(), Screen::Pond, "west of home");
     let mut app = town(None);
-    walk(&mut app, 0.0, -25.0, 60 * 4);
+    tap_and_walk(&mut app, Vec2::new(233.0, 450.0), 60 * 4);
     assert_eq!(state(&app).screen(), Screen::MainStreet, "south of home");
+}
+
+#[test]
+fn a_finger_still_down_after_a_path_doesnt_walk_you_back_out() {
+    let mut app = town(None);
+    hold(&mut app, Vec2::new(450.0, 233.0), 60 * 6);
+    assert_eq!(state(&app).screen(), Screen::Park);
+    let arrived = state(&app).at();
+    assert!(arrived.x < 233.0, "still by the west path: {arrived:?}");
 }
 
 #[test]
@@ -137,8 +181,7 @@ fn coming_back_out_of_a_place_you_stand_at_its_door() {
 fn tapping_a_spot_walks_you_there() {
     let mut app = town(None);
     let target = state(&app).at() + Vec2::new(80.0, 60.0);
-    tap(&mut app, target);
-    tick(&mut app, 120);
+    tap_and_walk(&mut app, target, 120);
     assert!(
         state(&app).at().distance(target) < 6.0,
         "{:?}",

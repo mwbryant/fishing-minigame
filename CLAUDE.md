@@ -3,7 +3,7 @@
 no_std Bevy 0.19 games for the Waveshare ESP32-S3-Touch-AMOLED-1.75 (466x466 round AMOLED,
 touch, IMU, two buttons; the user's is the -G variant with an LC76G GPS, and it has two
 ES7210 mics). The board boots **Fish Pals**, a Nintendogs-style loop:
-- a **town** (`pals_game::town`) you walk by turning and leaning;
+- a **town** (`pals_game::town`) you walk around by touch (menus still turn);
 - the **pond** (Angler: catch, then KEEP and name by turning, up to three);
 - the **house** (the tank, cards, trick school by voice and touch strokes);
 - the **park** (GPS walks for stamina, or MOCK WALK);

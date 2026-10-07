@@ -2,7 +2,7 @@
 
 Everything learned bringing `no_std` Bevy games to this board, written so a
 fresh session can keep going without re-deriving it. The board boots **Fish Pals**
-(section 10.6), a Nintendogs-style loop: a town you walk around by turning and leaning,
+(section 10.6), a Nintendogs-style loop: a town you walk around by touch,
 fish caught at the pond (**Angler**, section 10.4), kept, named, walked, taught tricks by
 voice and touch, and entered in contests for the gold that buys their hats. Spider Roulette,
 Skate and Bees??? live in the town. **Orbit** (circular pong, touch) is a separate binary.
@@ -962,7 +962,8 @@ everywhere too.
   with the pointer at 3x the turn (`DIAL_GAIN`).
 - `orbit_ui::list_choice(steer, n, start)` walks a list, one item per 12 degrees.
 - The pond's KEEP/RELEASE and the reset's KEEP/ERASE are "level or turned right".
-- Spider Roulette is still just PWR to spin.
+- Spider Roulette is still just PWR to spin, and walking the town is touch: rotation picks,
+  it doesn't move you around a map.
 
 **Typing by turning** (`orbit_ui::keys`):
 - A to Z, SPACE, DEL and OK ring the glass, and the turn points at a key (29 keys at 3x
@@ -976,8 +977,13 @@ everywhere too.
 - **Layout:** six round clearings on a 3 x 2 grid. Top row: pond, home, park. Bottom row:
   contest hall, main street (hat shop, den), the grove (bee tree, arcade cabinet). Paths
   leave at the compass points where there's a neighbour.
-- **Walking:** turning walks left and right and leaning walks up and down. There's a
-  4-degree dead zone, and full pace (150 px/s) at 25 degrees. A tap walks you there.
+- **Walking is touch** (the user's call; the menus still turn):
+  - a tap walks you there at 150 px/s;
+  - a finger held down is the target every frame, so you follow it as it drags;
+  - a touch past 170 px out inside a path's gap means "down the path", and the target is
+    pushed past the edge;
+  - after a path, the same finger is spent until it lifts, or it would walk you straight
+    back out of the new clearing.
 - **Edges:** solid scenery slides you along it. The rim keeps you in, except down a path,
   which leads to the next clearing.
 - **Doors:** standing within 22 px of a door shows its name; PWR or GO IN enters.

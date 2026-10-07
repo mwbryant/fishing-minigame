@@ -7,8 +7,9 @@ Turning the device like a steering wheel is the main control everywhere; PWR con
 **Fish Pals** is what the board boots into: a Nintendogs-style game about the fish you
 catch.
 
-- **The town:** six little round clearings joined by paths. Turn the device to walk left
-  and right, lean it to walk up and down (or tap where to go), and press PWR at a door.
+- **The town:** six little round clearings joined by paths. Tap where to go (or hold a
+  finger down and you follow it), tap the end of a path to go down it, and press PWR at a
+  door.
   The signpost by your house has the settings: sound, MOCK WALK, and a reset.
 - **The pond** (Angler, the fishing game):
   - **Aim and cast:** turn like a steering wheel. A dotted line shows where a full-power

@@ -1,8 +1,9 @@
-//! The town, where the board starts: walk around six clearings by turning
-//! (left and right) and leaning (up and down) the device, or tap where to
-//! go. Stand at a door and press PWR to go in; the town app ends and the
-//! platform builds that place's app. The signpost by the house opens the
-//! settings: sound, mock walks and resetting.
+//! The town, where the board starts: walk around six clearings by touch.
+//! Tap where to go, or hold a finger down and walk toward it as it moves;
+//! tap the end of a path to go down it. Stand at a door and press PWR (or
+//! GO IN) to go in; the town app ends and the platform builds that place's
+//! app. The signpost by the house opens the settings: sound, mock walks and
+//! resetting, picked by turning as every menu is.
 
 mod draw;
 pub mod map;
@@ -22,11 +23,10 @@ use crate::{Arrival, Place};
 use map::{CENTER, LAKE, Way, door, props};
 
 pub const BACKGROUND: orbit_gfx::Rgb565 = draw::GRASS;
-/// Walking pace at a full turn or lean.
+/// Walking pace.
 pub const WALK_SPEED: f32 = 150.0;
-/// Turns and leans smaller than this don't walk; at `FULL_DEG` it's full pace.
-const DEAD_DEG: f32 = 4.0;
-const FULL_DEG: f32 = 25.0;
+/// A touch this far out, inside a path's gap, means "go down the path".
+const PATH_TOUCH_RADIUS: f32 = 170.0;
 /// The clearing's edge, how far down a path you go before the next one, and
 /// where you come out in it.
 const WALK_RADIUS: f32 = 200.0;
@@ -55,8 +55,10 @@ pub struct Town {
     screen: Screen,
     at: Vec2,
     facing_right: bool,
-    /// Where a tap said to walk.
+    /// Where a tap (or the finger still down) says to walk.
     target: Option<Vec2>,
+    /// The finger that walked you down a path; it steers again once lifted.
+    finger_spent: bool,
     /// Seconds spent walking, for the step bob.
     stride: f32,
     destination: Option<Place>,
@@ -71,6 +73,7 @@ impl Default for Town {
             at,
             facing_right: true,
             target: None,
+            finger_spent: false,
             stride: 0.0,
             destination: None,
         }
@@ -124,11 +127,32 @@ impl Town {
         })
     }
 
+    /// The path a direction out from the center leads down, if there's one.
+    fn path_toward(&self, out: Vec2) -> Option<Way> {
+        Way::ALL.into_iter().find(|way| {
+            self.screen.toward(*way).is_some()
+                && out.angle_to(way.out()).abs().to_degrees() < PATH_HALF_DEG
+        })
+    }
+
+    /// Where a touch at `at` sends you: there, or past the edge if it's at
+    /// the end of a path.
+    fn destination_of(&self, at: Vec2) -> Vec2 {
+        let out = at - CENTER;
+        match self.path_toward(out) {
+            Some(way) if out.length() > PATH_TOUCH_RADIUS => {
+                CENTER + way.out() * (EXIT_RADIUS + 20.0)
+            }
+            _ => at,
+        }
+    }
+
     /// Walks at `velocity` for `dt`, sliding along whatever's in the way and
-    /// round the rim, and down a path into the next clearing.
-    fn walk(&mut self, velocity: Vec2, dt: f32) {
+    /// round the rim, and down a path into the next clearing; true when it
+    /// came out in the next one.
+    fn walk(&mut self, velocity: Vec2, dt: f32) -> bool {
         if velocity == Vec2::ZERO {
-            return;
+            return false;
         }
         self.stride += dt;
         if velocity.x.abs() > 1.0 {
@@ -144,20 +168,18 @@ impl Town {
             }
         }
         let out = self.at - CENTER;
-        let path = Way::ALL.into_iter().find(|way| {
-            self.screen.toward(*way).is_some()
-                && out.angle_to(way.out()).abs().to_degrees() < PATH_HALF_DEG
-        });
-        match path {
+        match self.path_toward(out) {
             Some(way) if out.length() > EXIT_RADIUS => {
                 self.screen = self.screen.toward(way).unwrap_or(self.screen);
                 self.at = CENTER - way.out() * ENTRY_RADIUS;
                 self.target = None;
+                return true;
             }
             Some(_) => {}
             None if out.length() > WALK_RADIUS => self.at = CENTER + out.normalize() * WALK_RADIUS,
             None => {}
         }
+        false
     }
 }
 
@@ -206,12 +228,6 @@ fn arrive(
     tilt.request_zero();
 }
 
-/// How far a turn or lean of `deg` walks, -1 to 1.
-fn pace(deg: f32) -> f32 {
-    let over = ((deg.abs() - DEAD_DEG) / (FULL_DEG - DEAD_DEG)).clamp(0.0, 1.0);
-    over * deg.signum()
-}
-
 #[allow(clippy::too_many_arguments)]
 fn roam(
     time: Res<Time>,
@@ -234,10 +250,6 @@ fn roam(
     let tapped = |button: &orbit_ui::Button| tap.is_some_and(|at| button.hit(at));
     match town.phase {
         TownPhase::Walking => {
-            let leaning = Vec2::new(pace(tilt.steer_deg), -pace(tilt.lean_deg));
-            if leaning != Vec2::ZERO {
-                town.target = None;
-            }
             let near = town.near();
             if let Some(place) = near.filter(|_| pressed || tap.is_some_and(|at| ui::ENTER.hit(at)))
             {
@@ -251,25 +263,27 @@ fn roam(
                 exit.write(AppExit::Success);
                 return;
             }
-            if let Some(at) = tap {
-                town.target = Some(at);
+            match touch.position() {
+                Some(at) if !town.finger_spent => town.target = Some(town.destination_of(at)),
+                Some(_) => {}
+                None => town.finger_spent = false,
             }
             let velocity = match town.target {
-                Some(target) if leaning == Vec2::ZERO => {
+                Some(target) => {
                     let to = target - town.at;
-                    let reach = WALK_SPEED * dt;
-                    if to.length() <= reach || to.length() < 1.0 {
+                    if to.length() <= WALK_SPEED * dt {
                         town.target = None;
                         to / dt.max(1e-3)
                     } else {
                         to.normalize() * WALK_SPEED
                     }
                 }
-                _ => leaning * WALK_SPEED,
+                None => Vec2::ZERO,
             };
             let before = town.at;
-            town.walk(velocity, dt);
-            if town.target.is_some() && town.at == before {
+            if town.walk(velocity, dt) {
+                town.finger_spent = touch.position().is_some();
+            } else if town.at == before && touch.position().is_none() {
                 town.target = None;
             }
         }
