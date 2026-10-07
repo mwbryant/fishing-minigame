@@ -8,6 +8,7 @@
 
 extern crate alloc;
 
+pub mod contest;
 pub mod fish;
 pub mod home;
 mod sprites;

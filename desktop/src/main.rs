@@ -31,6 +31,7 @@ use orbit_game::OrbitPlugin;
 use orbit_gfx::Presenter;
 use pals_game::{
     Arrival, Place,
+    contest::ContestPlugin,
     home::HomePlugin,
     town::{Town, TownPlugin},
     walk::WalkPlugin,
@@ -58,6 +59,7 @@ pub enum Game {
     Town,
     Home,
     Park,
+    Contest,
     Arcade,
     Orbit,
     Angler,
@@ -72,6 +74,7 @@ impl Game {
             Game::Town => "town",
             Game::Home => "home",
             Game::Park => "park",
+            Game::Contest => "contest",
             Game::Arcade => "arcade",
             Game::Orbit => "orbit",
             Game::Angler => "angler",
@@ -86,6 +89,7 @@ impl Game {
             Game::Town => app.add_plugins(TownPlugin),
             Game::Home => app.add_plugins(HomePlugin),
             Game::Park => app.add_plugins(WalkPlugin),
+            Game::Contest => app.add_plugins(ContestPlugin),
             Game::Arcade => app.add_plugins(ArcadePlugin),
             Game::Orbit => app.add_plugins(OrbitPlugin),
             Game::Angler => app.add_plugins(AnglerPlugin),
@@ -100,6 +104,7 @@ impl Game {
         match place {
             Place::Home => Some(Game::Home),
             Place::Park => Some(Game::Park),
+            Place::Contest => Some(Game::Contest),
             Place::Pond => Some(Game::Angler),
             Place::Den => Some(Game::Spider),
             Place::Arcade => Some(Game::Skate),
@@ -135,6 +140,7 @@ fn main() {
         Some("town") => (Game::Town, &args[1..]),
         Some("home") => (Game::Home, &args[1..]),
         Some("park") => (Game::Park, &args[1..]),
+        Some("contest") => (Game::Contest, &args[1..]),
         Some("arcade") => (Game::Arcade, &args[1..]),
         Some("orbit") => (Game::Orbit, &args[1..]),
         Some("angler") => (Game::Angler, &args[1..]),

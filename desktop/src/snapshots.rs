@@ -48,6 +48,7 @@ pub fn run(game: Game, dir: &Path) {
         Game::Town => town(&mut camera),
         Game::Home => home(&mut camera),
         Game::Park => park(&mut camera),
+        Game::Contest => contest(&mut camera),
         Game::Arcade => arcade(&mut camera),
         Game::Orbit => orbit(&mut camera),
         Game::Angler => angler(&mut camera),
@@ -204,6 +205,62 @@ fn park(camera: &mut Camera) {
     camera.shoot(&app, "park_level_up");
     core_testing::click_action(&mut app);
     camera.shoot(&app, "park_done");
+}
+
+/// The contest hall: the tiers, a show with a judge's call, the results.
+fn contest(camera: &mut Camera) {
+    use pals_game::contest::{Contest, ContestPlugin, SHOW_SECS};
+    let mut star = pet("STAR", 7);
+    star.walk(450.0);
+    star.hat = Some(11);
+    for (slot, gesture) in [(0, pals::Gesture::SwipeUp), (1, pals::Gesture::SwipeDown)] {
+        star.teach(
+            slot,
+            pals::Trigger {
+                gesture: Some(gesture),
+                voice: None,
+            },
+        );
+        star.tricks[slot].learned = 80;
+    }
+    let mut tank = pals::Pals::default();
+    tank.earn(1000);
+    tank.buy_hat(11);
+    tank.keep(star).ok();
+    let mut blob = SaveBlob::from_storage(None);
+    pals::save::store(&mut blob, &tank);
+    let mut app = core_testing::headless(
+        |app| {
+            app.add_plugins(ContestPlugin);
+        },
+        blob.take_pending(),
+    );
+    battery(&mut app, 76);
+    camera.shoot(&app, "contest_choose");
+    core_testing::click_action(&mut app);
+    camera.shoot(&app, "contest_tiers");
+    core_testing::click_action(&mut app);
+    camera.shoot(&app, "contest_go");
+    app.world_mut()
+        .resource_mut::<Contest>()
+        .rig_rivals([60, 45, 30]);
+    app.world_mut().resource_mut::<Contest>().rig_request(0);
+    app.world_mut().resource_mut::<Contest>().rig_next_try(true);
+    for i in 0..=10 {
+        app.world_mut()
+            .resource_mut::<orbit_core::Touch>()
+            .set(Some(Vec2::new(233.0, 330.0 - i as f32 * 12.0)));
+        app.update();
+    }
+    app.world_mut()
+        .resource_mut::<orbit_core::Touch>()
+        .set(None);
+    core_testing::tick(&mut app, 40);
+    camera.shoot(&app, "contest_trick");
+    core_testing::tick(&mut app, 70);
+    camera.shoot(&app, "contest_judges_love_it");
+    core_testing::tick(&mut app, (SHOW_SECS * 60.0) as u32);
+    camera.shoot(&app, "contest_results");
 }
 
 fn arcade(camera: &mut Camera) {
@@ -485,6 +542,7 @@ impl Game {
             Game::Town => pals_game::town::BACKGROUND,
             Game::Home => pals_game::home::BACKGROUND,
             Game::Park => pals_game::walk::BACKGROUND,
+            Game::Contest => pals_game::contest::BACKGROUND,
             Game::Arcade => arcade::BACKGROUND,
             Game::Orbit => orbit_game::BACKGROUND,
             Game::Angler => angler_game::BACKGROUND,
