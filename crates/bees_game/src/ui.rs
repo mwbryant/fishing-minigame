@@ -2,4 +2,4 @@
 
 pub use orbit_ui::Button;
 
-pub const HOME: Button = Button::new(193, 40, 80, 30, "HOME");
+pub const HOME: Button = Button::new(193, 40, 80, 30, "OUT");

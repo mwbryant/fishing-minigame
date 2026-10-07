@@ -3,8 +3,8 @@
 
 pub use orbit_ui::Button;
 
-/// On the title when the town launched the game.
-pub const HOME: Button = Button::new(193, 40, 80, 30, "HOME");
+/// On the title when the town launched the game: back out to the street.
+pub const HOME: Button = Button::new(193, 40, 80, 30, "OUT");
 pub const LOG: Button = Button::new(103, 352, 110, 36, "LOG");
 pub const SETTINGS: Button = Button::new(253, 352, 110, 36, "SETTINGS");
 /// On the aiming screen until the charge starts: back to the title.

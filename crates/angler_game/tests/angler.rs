@@ -988,9 +988,9 @@ fn falling_asleep_silences_the_speaker() {
 }
 
 #[test]
-fn launched_from_the_menu_the_title_offers_home() {
+fn launched_from_the_town_the_title_offers_a_way_out() {
     let app = headless_app();
-    assert!(!shows(&app, "HOME"));
+    assert!(!shows(&app, "OUT"));
     let mut app = orbit_core::testing::headless(
         |app| {
             app.add_plugins(angler_game::AnglerPlugin)
@@ -998,7 +998,7 @@ fn launched_from_the_menu_the_title_offers_home() {
         },
         None,
     );
-    assert!(shows(&app, "HOME"));
+    assert!(shows(&app, "OUT"));
     tap(&mut app, ui::HOME.center());
     assert_eq!(app.should_exit(), Some(bevy::app::AppExit::Success));
 }

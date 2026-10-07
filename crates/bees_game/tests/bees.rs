@@ -154,9 +154,9 @@ fn the_best_orbit_count_is_saved_and_survives_a_reboot() {
 }
 
 #[test]
-fn launched_from_the_menu_the_title_offers_home() {
+fn launched_from_the_town_the_title_offers_a_way_out() {
     let app = game(None);
-    assert!(!shows(&app, "HOME"));
+    assert!(!shows(&app, "OUT"));
     let mut app = headless(
         |app| {
             app.add_plugins(BeesPlugin).insert_resource(Launcher);

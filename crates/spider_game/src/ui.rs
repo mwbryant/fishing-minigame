@@ -9,7 +9,7 @@ use crate::EGG_DEG;
 /// The eggs ring the web this far out, clockwise from 12 o'clock.
 pub const EGG_RING: f32 = 160.0;
 
-pub const HOME: Button = Button::new(193, 40, 80, 30, "HOME");
+pub const HOME: Button = Button::new(193, 40, 80, 30, "OUT");
 /// Between spins, with a bet down and a safe egg cracked.
 pub const CASH_OUT: Button = Button::new(173, 300, 120, 32, "CASH OUT");
 /// How far out the bet dial's stakes sit.

@@ -236,16 +236,16 @@ fn a_tap_spins_too() {
 }
 
 #[test]
-fn launched_from_the_menu_the_title_offers_home() {
+fn launched_from_the_town_the_title_offers_a_way_out() {
     let app = game(None);
-    assert!(!shows(&app, "HOME"));
+    assert!(!shows(&app, "OUT"));
     let mut app = headless(
         |app| {
             app.add_plugins(SpiderPlugin).insert_resource(Launcher);
         },
         None,
     );
-    assert!(shows(&app, "HOME"));
+    assert!(shows(&app, "OUT"));
     tap(&mut app, ui::HOME.center());
     assert_eq!(app.should_exit(), Some(AppExit::Success));
 }
