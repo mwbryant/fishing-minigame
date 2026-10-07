@@ -60,11 +60,11 @@ Rules that bite:
     - a desktop `Game` with snapshots.
 - The heap budget is tight: Bevy must fit in about 284 KB of internal SRAM, because PSRAM
   atomics are unreliable on the S3.
-  - Peak headroom: Orbit 12 KB, the house 66, Angler 70, the contest 73, the park 75,
-    Skate 82, Bees??? 84, the town 85, Spider Roulette 86, the shop 87.
+  - Peak headroom: Orbit 12 KB, Angler 69, the house 73, the contest 75, the park 80,
+    Skate 82, Bees??? 84, the town 84, Spider Roulette 86, the shop 86.
   - Fish Pals drops each app before building the next, so only one is ever in memory.
   - **A resource costs about 64 times its size in heap**: a 3 KB resource cost 204 KB. Keep
-    resources under about 100 bytes and box anything bigger.
+    resources under about 100 bytes and box anything bigger, phase enums included.
   After adding plugins, systems, resources or states, run `tools/heap32/run.sh`.
   `tools/qemu-smoke/run.sh` checks the full firmware runtime of every game and Fish Pals'
   app switching (a leak check) in QEMU. QEMU scripts run on game time, never frame counts.

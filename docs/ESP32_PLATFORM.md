@@ -374,15 +374,15 @@ Measured **[verified]** with `tools/heap32/run.sh`:
 | App | After build | During play | Peak | Headroom in 284 KB (with the 7 KB band) |
 |---|---|---|---|---|
 | Orbit | 205 KB | 213 KB | 265 KB | **12 KB** |
-| House (tank, trick school) | 208 KB | 210 KB | 211 KB | **66 KB** |
-| Angler (the pond) | 200 KB | 207 KB | 207 KB | **70 KB** |
-| Contest hall | 201 KB | 203 KB | 204 KB | **73 KB** |
-| Park (walks) | 199 KB | 200 KB | 202 KB | **75 KB** |
+| Angler (the pond) | 200 KB | 208 KB | 208 KB | **69 KB** |
+| House (tank, trick school) | 201 KB | 203 KB | 204 KB | **73 KB** |
+| Contest hall | 198 KB | 200 KB | 201 KB | **75 KB** |
+| Park (walks) | 193 KB | 196 KB | 196 KB | **80 KB** |
 | Skate | 190 KB | 194 KB | 194 KB | **82 KB** |
 | Bees??? | 189 KB | 192 KB | 193 KB | **84 KB** |
-| Town | 189 KB | 191 KB | 192 KB | **85 KB** |
+| Town | 190 KB | 192 KB | 193 KB | **84 KB** |
 | Spider Roulette | 188 KB | 190 KB | 191 KB | **86 KB** |
-| Hat shop | 186 KB | 188 KB | 189 KB | **87 KB** |
+| Hat shop | 188 KB | 190 KB | 191 KB | **86 KB** |
 
 Fish Pals drops each app before building the next (`Board::run` returns the app, the
 caller drops it), so its worst case is its biggest app. The QEMU tour checks the internal
@@ -398,6 +398,9 @@ the first time one listens.
 - Boxed, `Mic` is 8 bytes and the listener is one 3 KB allocation. The mic app went from
   376 KB to 177 KB. `Gps` boxes its sentence buffer the same way.
 - Keep resources under about 100 bytes, and put big state behind a `Box`.
+- That includes phase enums: a variant holding a voice print made the house's `Home`
+  328 bytes. Boxed (`phase: Box<...Phase>`), the house went from 216 to 204 KB, the
+  contest hall from 206 to 201 and the park from 202 to 196.
 
 Angler is about 60 KB leaner than Orbit at peak because it uses **one phase-machine
 resource and a few systems instead of Bevy states**. Its old hat shop (one resource, a
@@ -941,7 +944,7 @@ mode.
 
 **Saves:** one `orbit_save` record holds every app's state as `SaveBlob` sections
 (`ORBC | count | (key | len u16 | bytes)*`):
-- `PALS` the tank, gold, owned hats and the mock-walk flag;
+- `PALS` the tank, gold, owned hats and the mock-walk setting;
 - `FLOG` Angler's log and difficulty;
 - `SPDR`, `SKAT`, `BEES` the best scores;
 - `PREF` the shared preferences (mute).
@@ -951,10 +954,14 @@ Angler saves (which start `FLOG`) carry over. The town moves a pre-town save's g
 into `PALS` once (`angler_game::save::legacy_purse` reads FLOG v3). Bees??? reads `PALS` for
 the lead fish's hat.
 
-**`PALS`** (`pals::save`): `version | gold u32 | owned hats u32 | flags | count | pet*`.
+**`PALS`** (`pals::save`, version 2): `version | gold u32 | owned hats u32 | flags | count |
+pet*`.
+- Flags: bit 0 mock walks, bits 1-3 their pace (an index into `pals::MOCK_PACES`).
 - A pet is `species | tier | length u16 | size% | name (length + 8) | hat (0xFF none) |
-  walked u32 | 5 x (trick | learned | gesture | has word | word print 145 B?)`.
-- A full tank with every trick taught a word is about 2.3 KB of the 4 KB sector.
+  walked u32 | 5 x (trick | learned | gesture | has word | word print 193 B?)`.
+- A full tank with every trick taught a word is about 3 KB of the 4 KB sector.
+- Version 1 held an older 145-byte print that can't be compared with today's. It loads
+  with the fish, strokes and progress, but those tricks need their words again.
 
 **Rotation first:** turning the device selects and steers; PWR confirms; touch works
 everywhere too.
@@ -988,7 +995,8 @@ everywhere too.
   which leads to the next clearing.
 - **Doors:** standing within 22 px of a door shows its name; PWR or GO IN enters.
 - **Settings** (the signpost by the house): SOUND, MOCK WALK, RESET and BACK on a dial.
-  RESET asks first. ERASE drops every section but `PREF` and keeps the mock-walk setting.
+  - MOCK WALK steps OFF, x1, x2, x5, x10, x25 and back to OFF.
+  - RESET asks first. ERASE drops every section but `PREF` and keeps the mock-walk setting.
 
 **The pond** (Angler, §10.4): a landed fish is KEEP or RELEASE.
 - KEEP opens the naming ring, and the fish becomes a `pals::Pet`: species, tier, length,
@@ -1020,11 +1028,20 @@ everywhere too.
   - SWIPE: 60 px or more, any of four ways;
   - CIRCLE: turning at least 270 degrees over 150 px, either way.
 - **Words** (`orbit_audio::voice`): the mic's samples become a `VoicePrint`.
-  - Five band loudnesses (splits at 0.4, 1, 2 and 4 kHz) and the zero-crossing rate, per
-    16 ms, stretched to 24 frames: 145 bytes.
+  - Every 16 ms, seven RBJ band-pass filters (300 Hz to 5 kHz, Q 1.4) give the
+    spectrum's shape: each band's loudness minus the frame's mean. An eighth feature is
+    the frame's loudness minus the word's mean, so the word's rise and fall counts but
+    how loud it was said doesn't.
+  - Stretched to 24 frames of 8 bytes, plus the length: 193 bytes.
   - The listener finds speech against the room's floor. It cuts the word's edges at 20 dB
-    under its own peak, so a soft word cuts like a loud one.
-  - A command is the nearest taught print by DTW, if under 60.
+    under its own peak (keeping 6 frames before speech for a soft "f"), so a soft word
+    cuts like a loud one.
+  - A command is the nearest taught print by DTW (a warp band of 9 frames), if it's under
+    34 and under 0.85 x the runner-up. The margin is what stops a word halfway between
+    two taught ones from picking either.
+  - Measured with the tests' perturbations (faster, slower, higher, echoing, soft, noisy):
+    47 of 50 variations of a taught word are recognized, and 114 of 120 untaught words
+    are ignored. Claps and whistles never match.
   - Tests use `say`-made speech in `crates/orbit_audio/tests/voices/` (`make.sh`
     regenerates it).
 
@@ -1034,6 +1051,13 @@ everywhere too.
   TRICKS and BACK on a row.
 - **Teaching:** WATCH (the trick, twice), then say a word twice and/or draw a stroke
   twice. A word or stroke another trick answers to is refused. PWR saves the trigger.
+  - The second take must sound like the first (`VoicePrint::alike`, 1.3 x the match
+    distance), or it's THAT SOUNDED DIFFERENT and the first take stays.
+  - The taught word is the two takes blended along their DTW path. Another alike take
+    once it's set blends in too (EVEN BETTER).
+  - Each confident command (under 0.7 x the match distance) moves the taught word 20%
+    toward how it was just said (`Pet::hear`), so the fish gets used to your voice
+    without a near-miss dragging it off.
 - **Practice:**
   - give the command and the fish tries;
   - pet it (tap it, or PWR) within 2.5 s of a success to double the lesson;
@@ -1045,7 +1069,9 @@ everywhere too.
 - **Counting** (`pals::Trail`): the LC76G's fixes only count once the fix is 8 m (or 4 x
   HDOP) from the last counted spot. Fixes with an HDOP over 5 or fewer than 4 satellites are
   ignored, and so is anything faster than 4.5 m/s.
-- **MOCK WALK** strolls at 1.4 m/s through the same trail.
+- **MOCK WALK** strolls at 1.4 m/s through the same trail, times its pace: x1, x2, x5,
+  x10 or x25. Each fix still reports walking speed, so the trail counts it. On a mock
+  walk, - and + beside the distance change the pace mid-walk, and the new pace is saved.
 - Progress saves every 25 m and when the walk ends. With no fix for a minute, the screen
   suggests MOCK WALK.
 

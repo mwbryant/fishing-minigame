@@ -489,3 +489,70 @@ Images are in `img/`. Newest beats go at the bottom.
 - **Rotation stays for the menus:** the settings dial, the house's lists, the shop's ring of
   hats.
 - Image: `34-tap-where-to-go.png`.
+
+## 35. Voice commands: too hard, too easy, then the middle
+
+- **The first matcher:** five band loudnesses and the zero-crossing rate every 16 ms, DTW
+  to the nearest taught word, accepted under 60. It was tuned on `say` speech: two voices,
+  each word at two speeds.
+- **The feedback:** "the word matching seems a bit too hard and finicky." A synthesizer
+  says a word the same way every time; a person doesn't.
+- **Measuring it:** a diagnostic said every fixture higher, lower, muffled, echoing, in a
+  noisy room and quietly, and printed how far each landed from its own taught word.
+  - "flip" stayed under 30 every way.
+  - "spin" landed 141 muffled and 140 noisy, more than twice the cutoff.
+  - **Why:** the "s" is a soft hiss. Muffled or in noise it falls under the edge cut
+    (20 dB below the word's peak), so the print starts at "pin".
+- **The first fix:**
+  - DTW was allowed to skip a word's edge frames cheaply, and muffled "spin" went from 141
+    to 49;
+  - seven band-pass filters replaced the five bands, each against the frame's mean, so the
+    print is the spectrum's shape, not how loud it was;
+  - a sweep scored the settings over all 70 cases (2 voices x 5 words x 7 ways).
+  - Edge skipping also made the wrong word nearest more often, and the cutoff stayed at 60
+    to favour hearing commands.
+- **The feedback again:** "now it seems a bit too over fit and easy."
+  - A cutoff wide enough for a muffled "spin" takes in other words too.
+  - The fish also adapted the taught word toward each command, which compounds it: one
+    false match pulls the word toward the impostor and makes the next one likelier.
+- **The middle:**
+  - plain DTW again, no edge skipping;
+  - a cutoff of 34;
+  - the nearest word has to beat the runner-up by 15%, so a word halfway between two taught
+    words is neither;
+  - the fish only adapts on a confident match (under 70% of the cutoff);
+  - teaching's second take must sound like the first, or the screen says THAT SOUNDED
+    DIFFERENT.
+- **What it gave up:** muffled words and loud rooms are no longer promised. 54 of the 70
+  harsh cases pass.
+- **The tests now measure both sides:**
+  - 47 of 50 mild variations are recognized (faster, higher, slower and lower, echoing,
+    quiet in a louder room);
+  - 114 of 120 untaught words are ignored;
+  - claps and whistles never match.
+  - **The lesson:** a test that only checks "recognized" tunes the cutoff open. Measure the
+    impostors in the same sweep.
+- **Side costs:**
+  - A print grew from 145 to 193 bytes. The save went to `PALS` v2, which loads a v1 tank
+    with its fish and strokes, but the words need teaching again.
+  - The 64x resource rule (beat 32) struck again: a phase variant holding a print made the
+    house's `Home` resource 328 bytes. Boxing the phases took the house from 216 to
+    204 KB, the contest from 206 to 201 and the park from 202 to 196.
+
+## 36. Mock walks fast-forward
+
+- **The ask:** "mock walk should let the user change walk speed."
+- **Why it matters:** stamina level n comes at 100 x (n - 1)^2 metres, and MASTER contests
+  want level 10: 8,100 m, or about 96 minutes of mock walking at 1.4 m/s. At x25 it's under
+  4 minutes.
+- **The catch:** at x25 the mock walker moves 35 m/s, and the trail rejects anything over
+  4.5 m/s as a bike or a car.
+  - So a mock fix covers fast-forwarded distance but still reports walking speed. The
+    trail's filters stay as they are for real walks, and a mock walk still runs through the
+    same code.
+- **The controls:**
+  - the town's MOCK WALK steps OFF, x1, x2, x5, x10, x25 and back to OFF;
+  - on a mock walk, - and + beside the distance change the pace mid-walk;
+  - the pace fits in three spare bits of the `PALS` flags byte, so the save version
+    didn't change.
+- Image: `36-fast-forward.png`.

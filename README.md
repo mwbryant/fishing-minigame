@@ -23,11 +23,13 @@ catch.
 - **Home:** your fish swim in the tank wearing their hats. Each has a card (species, size,
   stamina, appeal) and five tricks of varying rarity, from SPLASH to RAINBOW LEAP.
   - **Teach a trick:** watch it, then say a word twice into the board's mics, or draw a
-    stroke on the glass twice (tap, hold, swipe, circle).
+    stroke on the glass twice (tap, hold, swipe, circle). The two takes of a word have to
+    sound alike, and the fish gets used to your voice as you use it.
   - **Practise:** give the command; pet the fish right after it gets one right and it
     learns twice as fast.
 - **The park:** take a fish for a walk to build its stamina. The -G board's GPS counts the
-  metres you really walk (not standing still, not in a car); MOCK WALK strolls on its own.
+  metres you really walk (not standing still, not in a car); MOCK WALK strolls on its own,
+  at x1 up to x25 (tap it in the settings to go faster, or - and + during the walk).
 - **The contest hall:** a 30-second show in four tiers (more stamina unlocks the higher
   ones).
   - Give your commands live: rarer, better-known tricks score more, changing it up adds a
@@ -190,8 +192,8 @@ GPIO40). The 1.75C variant uses GPIO1 and GPIO2 for those two resets.
 ### Memory
 
 Bevy's own bookkeeping (schedules, per-resource tables) dominates. Measured
-with a counting allocator on a 32-bit target, peak heap is 265 KB for Orbit and 189 to 211 KB
-for every Fish Pals app (the house is the biggest). The newer apps are leaner because they use
+with a counting allocator on a 32-bit target, peak heap is 265 KB for Orbit and 191 to 208 KB
+for every Fish Pals app (Angler's pond is the biggest). The newer apps are leaner because they use
 one phase resource instead of Bevy states. Fish Pals drops each app before building the next,
 so only one is ever in memory. A Bevy resource costs about 64 times its size in heap, so big
 state is boxed.
