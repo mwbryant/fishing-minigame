@@ -81,6 +81,7 @@ crates/orbit_game    Orbit
 desktop/             minifb simulator for Fish Pals or any one app + headless PNG snapshots (std)
 firmware/            ESP32-S3: board support lib, the pals binary, and one binary per game
 case/                3D-printable fly-reel case (Python/build123d), see case/README.md
+trailer/             the 45 s FISHING MINIGAME trailer, built from filmed takes, see trailer/README.md
 ```
 
 ## How a frame gets to the glass
@@ -104,6 +105,7 @@ cargo run -p orbit_desktop                              # Fish Pals (the town ->
 cargo run -p orbit_desktop -- home                      # or one app: town home park contest shop
                                                         #   angler spider skate bees orbit
 cargo run -p orbit_desktop -- contest snapshot screenshots  # an app's screens as PNGs, headless
+cargo run --release -p orbit_desktop -- footage <dir>   # the trailer's takes, every frame + WAV
 cargo test --workspace
 cargo clippy --workspace --all-targets && cargo fmt
 ```

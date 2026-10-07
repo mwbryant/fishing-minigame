@@ -556,3 +556,33 @@ Images are in `img/`. Newest beats go at the bottom.
   - the pace fits in three spare bits of the `PALS` flags byte, so the save version
     didn't change.
 - Image: `36-fast-forward.png`.
+
+## 37. A trailer, filmed by the game
+
+- **The ask:** a whimsical trailer for the FISHING MINIGAME:
+  - FISH, TRAIN, WALK, COMPETE, HATS at slight angles, zooming in and out;
+  - then BEESSSS????, skateboarding and spiders;
+  - a crude 3D man eating the printed case: YOU CAN EAT IT;
+  - the guten morgen fish, held for 5 seconds.
+- **The camera is the game:**
+  - `orbit_desktop footage` runs scripted takes headless, with the same test helpers and
+    `rig_*` hooks as the snapshots.
+  - A `Last` system saves every frame the presenter draws, and mixes the `SoundQueue`
+    through the real one-voice `Mixer` into a WAV. Every take carries its own game sounds.
+  - All 14 takes film in about 7 seconds.
+- **The cut:**
+  - `trailer/build.py` composites the takes into the reel case's green rim on striped
+    backdrops.
+  - The cozy half cuts on the beat of "Happy Whistling Ukulele" (130 BPM, six beats to a
+    shot). A record scratch dragged out of the same track hands over to the US Army Band's
+    "Flight of the Bumblebee".
+- **The man:**
+  - Blender (`trailer/eat.py`) loads `case/out/reel_case.stl` and shows a frame of the
+    tank on its glass.
+  - Bites go front to back through the case as boolean cylinders. Balls only notched the
+    middle of the side wall, which can't be seen from the front.
+  - The MANIFOLD solver cuts both bites in 0.2 s against EXACT's 30.
+  - His mouth follows the bites and the loudness of `say -v Ralph "You can eat it."`
+- **Regenerating:** `uv run build.py --refilm` once the footage is final. `--sheets` shows
+  where each take's moments fall, for the cuts in `trailer/edit.py`.
+- Images: `37-trailer-fish.png`, `37-you-can-eat-it.png`.
