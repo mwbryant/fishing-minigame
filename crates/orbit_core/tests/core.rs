@@ -2,8 +2,8 @@ use core::{f32::consts::FRAC_PI_2, time::Duration};
 
 use bevy::{prelude::*, time::TimeUpdateStrategy};
 use orbit_core::{
-    Battery, Buttons, ControlsPlugin, CorePlugin, ImuFeed, ImuSample, Power, SaveBlob,
-    SoundCommand, SoundPlugin, SoundQueue, Tilt, preferences,
+    Battery, Buttons, ControlsPlugin, CorePlugin, ImuFeed, ImuSample, Mic, MicPlugin, Power,
+    SaveBlob, SoundCommand, SoundPlugin, SoundQueue, Tilt, preferences, testing,
 };
 
 const DT: f32 = 1.0 / 60.0;
@@ -352,4 +352,52 @@ fn the_mute_preference_is_saved_and_applies_at_the_next_boot() {
     let rebooted = sound_app(record);
     assert!(rebooted.world().resource::<SoundQueue>().muted());
     assert!(preferences::muted(rebooted.world().resource::<SaveBlob>()));
+}
+
+fn spoken(word: &str) -> Vec<i16> {
+    let path = format!(
+        "{}/../orbit_audio/tests/voices/{word}.pcm",
+        env!("CARGO_MANIFEST_DIR")
+    );
+    std::fs::read(path)
+        .expect("voice fixture")
+        .chunks_exact(2)
+        .map(|pair| i16::from_le_bytes([pair[0], pair[1]]))
+        .collect()
+}
+
+#[test]
+fn apps_only_have_a_mic_when_they_listen() {
+    assert!(app().world().get_resource::<Mic>().is_none());
+    let listening = testing::headless(
+        |app| {
+            app.add_plugins((CorePlugin, MicPlugin));
+        },
+        None,
+    );
+    assert!(listening.world().get_resource::<Mic>().is_some());
+}
+
+#[test]
+fn a_word_said_into_the_mic_is_heard_once_and_matches_the_same_word_again() {
+    let mut app = testing::headless(
+        |app| {
+            app.add_plugins((CorePlugin, MicPlugin));
+        },
+        None,
+    );
+    testing::speak(&mut app, &spoken("daniel-jump-170"));
+    let taught = app.world_mut().resource_mut::<Mic>().take();
+    assert!(taught.is_some(), "the word was heard");
+    assert_eq!(app.world_mut().resource_mut::<Mic>().take(), None, "once");
+    testing::speak(&mut app, &spoken("daniel-jump-240"));
+    let again = app
+        .world_mut()
+        .resource_mut::<Mic>()
+        .take()
+        .expect("heard again");
+    assert_eq!(
+        orbit_core::recognize(&again, taught.iter().map(|print| ((), print))),
+        Some(())
+    );
 }

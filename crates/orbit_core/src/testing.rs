@@ -5,7 +5,7 @@ use core::time::Duration;
 
 use bevy::{prelude::*, time::TimeUpdateStrategy};
 
-use crate::{Buttons, SaveBlob, Tilt, Touch};
+use crate::{Buttons, Mic, SaveBlob, Tilt, Touch};
 
 pub const TICK_HZ: f64 = 60.0;
 
@@ -53,6 +53,21 @@ pub fn tap(app: &mut App, at: Vec2) {
     app.update();
     app.world_mut().resource_mut::<Touch>().set(None);
     app.update();
+}
+
+/// Says `word` (mono samples at `orbit_audio::SAMPLE_RATE`) into the mic
+/// of a quiet room, a frame's worth of samples per update, then waits long
+/// enough for the listener to hear that it ended.
+pub fn speak(app: &mut App, word: &[i16]) {
+    let per_update = (orbit_audio::SAMPLE_RATE as f64 / TICK_HZ) as usize;
+    let quiet = |secs: f64| alloc::vec![0i16; (secs * orbit_audio::SAMPLE_RATE as f64) as usize];
+    let mut samples = quiet(0.3);
+    samples.extend_from_slice(word);
+    samples.extend(quiet(0.5));
+    for chunk in samples.chunks(per_update) {
+        app.world_mut().resource_mut::<Mic>().push(chunk);
+        app.update();
+    }
 }
 
 /// Poses the device directly, as if the IMU had reported it.

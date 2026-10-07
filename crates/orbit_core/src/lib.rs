@@ -8,6 +8,7 @@
 extern crate alloc;
 
 mod buttons;
+mod mic;
 mod motion;
 mod power;
 pub mod preferences;
@@ -23,8 +24,12 @@ use bevy::{prelude::*, time::TimePlugin};
 use orbit_gfx::Shape;
 
 pub use buttons::{ButtonState, Buttons};
+pub use mic::{Mic, MicPlugin};
 pub use motion::{ImuFeed, Tilt};
-pub use orbit_audio::{Clip, ClipRef, SoundCommand};
+pub use orbit_audio::{
+    Clip, ClipRef, SoundCommand,
+    voice::{VoicePrint, recognize},
+};
 pub use orbit_motion::ImuSample;
 pub use power::{
     Battery, GOOD_NIGHT_SECS, IDLE_SECS, IDLE_TILT_DEG, Power, SLEEP_HINT_SECS, SLEEP_HOLD_SECS,
