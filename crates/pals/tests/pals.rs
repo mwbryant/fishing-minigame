@@ -234,7 +234,9 @@ fn the_tank_gold_hats_and_taught_words_survive_the_save_record() {
         pals.keep(pet).unwrap();
     }
     let bytes = save::encode(&pals);
-    assert!(bytes.len() < 2_600, "a full tank is {} bytes", bytes.len());
+    // The whole save record is one 4,080-byte flash payload; this leaves
+    // the other apps' sections about 880 bytes.
+    assert!(bytes.len() < 3_200, "a full tank is {} bytes", bytes.len());
     assert_eq!(save::decode(&bytes), Some(pals.clone()));
     let mut blob = SaveBlob::from_storage(None);
     save::store(&mut blob, &pals);
@@ -349,5 +351,61 @@ fn a_mock_walk_strolls_at_walking_pace() {
         (140.0..200.0).contains(&trail.meters),
         "two minutes made {} m",
         trail.meters
+    );
+}
+
+#[test]
+fn a_save_from_before_the_new_voice_prints_keeps_its_fish_and_strokes_but_not_their_words() {
+    let mut rng = Rng::new(12);
+    let mut pals = Pals::default();
+    pals.earn(31);
+    let mut pet = pet(2, &mut rng);
+    pet.teach(
+        0,
+        Trigger {
+            gesture: Some(Gesture::SwipeUp),
+            voice: Some(print_of("daniel-spin-170")),
+        },
+    );
+    pet.tricks[0].learned = 40;
+    pals.keep(pet).unwrap();
+    // Version 1 stored 145-byte prints: header (11), the pet (19), then the
+    // first trick's id, learned, gesture and has-word bytes.
+    let mut old = save::encode(&pals);
+    old[0] = 1;
+    let print_at = 11 + 19 + 4;
+    old.drain(print_at + 145..print_at + VoicePrint::BYTES);
+    let loaded = save::decode(&old).expect("an old save still loads");
+    assert_eq!(loaded.gold, 31);
+    let trick = &loaded.pets[0].tricks[0];
+    assert_eq!(
+        (trick.learned, trick.trigger.gesture),
+        (40, Some(Gesture::SwipeUp))
+    );
+    assert_eq!(
+        trick.trigger.voice, None,
+        "the old word has to be taught again"
+    );
+}
+
+#[test]
+fn every_word_a_fish_hears_moves_its_taught_word_toward_how_it_was_said() {
+    let mut pet = pet(1, &mut Rng::new(13));
+    let taught = print_of("daniel-flip-170");
+    pet.teach(
+        3,
+        Trigger {
+            gesture: None,
+            voice: Some(taught),
+        },
+    );
+    let said = print_of("daniel-flip-240");
+    assert_eq!(pet.hear(&said), Some(3));
+    let learned = pet.tricks[3].trigger.voice.unwrap();
+    assert!(learned.distance(&said) < taught.distance(&said));
+    assert_eq!(
+        pet.hear(&print_of("daniel-bubbles-170")),
+        None,
+        "not a taught word"
     );
 }

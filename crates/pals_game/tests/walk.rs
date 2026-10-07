@@ -28,7 +28,7 @@ fn park(pets: &[(&str, f32)], mock_walk: bool) -> App {
 }
 
 fn phase(app: &App) -> WalkPhase {
-    app.world().resource::<Walk>().phase.clone()
+    (*app.world().resource::<Walk>().phase).clone()
 }
 
 fn walked(app: &App, pet: usize) -> u32 {

@@ -1,7 +1,7 @@
 //! A kept fish: who it is, how far it has walked, and the five tricks it
 //! can learn, each with the trigger the player taught for it.
 
-use orbit_core::{Rng, VoicePrint, recognize};
+use orbit_core::{MATCH_DISTANCE, Rng, VoicePrint, recognize};
 
 use crate::{
     gesture::Gesture,
@@ -16,6 +16,12 @@ pub const MAX_STAMINA_LEVEL: u32 = 20;
 const METRES_PER_LEVEL_SQUARED: u32 = 100;
 /// Appeal for each species tier (0 common .. 3 trophy).
 const TIER_APPEAL: [u32; 4] = [10, 20, 35, 60];
+/// How far each confidently recognized command moves the taught word toward
+/// how it was just said, so the fish gets used to your voice...
+pub const VOICE_ADAPT: f32 = 0.2;
+/// ...where confident is within this much of the match distance, so a word
+/// that only just passed can't drag the taught one toward itself.
+const ADAPT_WITHIN: f32 = 0.7;
 
 /// Up to `MAX_NAME` capital letters and spaces.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -200,6 +206,18 @@ impl Pet {
         self.tricks
             .iter()
             .position(|slot| slot.trigger.gesture == Some(gesture))
+    }
+
+    /// The trick `heard` asks for, if any; its taught word then moves a
+    /// little toward how it was said.
+    pub fn hear(&mut self, heard: &VoicePrint) -> Option<usize> {
+        let slot = self.answer_voice(heard)?;
+        if let Some(word) = self.tricks[slot].trigger.voice.as_mut()
+            && word.distance(heard) < MATCH_DISTANCE * ADAPT_WITHIN
+        {
+            *word = word.blend(heard, VOICE_ADAPT);
+        }
+        Some(slot)
     }
 
     /// The trick taught the word nearest `heard`, if it's near enough.

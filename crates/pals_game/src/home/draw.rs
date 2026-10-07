@@ -44,7 +44,7 @@ pub(crate) fn draw_frame(
 ) {
     let shapes = &mut frame.shapes;
     shapes.clear();
-    match &home.phase {
+    match home.phase.as_ref() {
         HomePhase::Tank => tank(shapes, &home, &pals, tilt.steer_deg),
         HomePhase::Card { pet } => card(
             shapes,
@@ -93,7 +93,7 @@ pub(crate) fn draw_frame(
                         "PWR TO GO BACK"
                     };
                     shapes.push(label(404, hint, 1, HINT));
-                    level_meter(shapes, mic.level());
+                    listening(shapes, &mic);
                 }
             }
             toast(shapes, &home);
@@ -121,7 +121,7 @@ pub(crate) fn draw_frame(
             toast(shapes, &home);
             shapes.push(label(394, &command_text(trick), 1, HINT));
             labelled_button(shapes, &ui::NEW_WORD, ui::NEW_WORD.text, HINT);
-            level_meter(shapes, mic.level());
+            listening(shapes, &mic);
         }
     }
     if let Some(battery) = power.battery {
@@ -204,8 +204,17 @@ fn toast(shapes: &mut Vec<Shape>, home: &Home) {
     }
 }
 
+/// While a word is coming in, say so, and how loud, so it's clear whether
+/// the mic heard you at all.
+pub(crate) fn listening(shapes: &mut Vec<Shape>, mic: &Mic) {
+    if mic.speaking() {
+        shapes.push(label(330, "LISTENING...", 1, TOAST));
+    }
+    level_meter(shapes, mic.level());
+}
+
 /// How loud the mic hears you, along the bottom of the rim.
-fn level_meter(shapes: &mut Vec<Shape>, level: f32) {
+pub(crate) fn level_meter(shapes: &mut Vec<Shape>, level: f32) {
     if level < 0.05 {
         return;
     }

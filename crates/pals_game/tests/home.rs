@@ -3,7 +3,7 @@ use orbit_core::{Frame, SaveBlob, testing::*};
 use orbit_gfx::{Shape, Sprite, SpriteRef};
 use orbit_ui::{Key, key_turn};
 use pals::{Gesture, HATS, Name, Pals, Pet, TRICKS, Trigger};
-use pals_game::home::{Home, HomePhase, HomePlugin, TeachStep};
+use pals_game::home::{Home, HomePhase, HomePlugin, PracticeStep, TeachStep};
 
 fn name(text: &str) -> Name {
     let mut name = Name::default();
@@ -40,7 +40,7 @@ fn home_with(pets: Vec<Pet>) -> App {
 }
 
 fn phase(app: &App) -> HomePhase {
-    app.world().resource::<Home>().phase.clone()
+    (*app.world().resource::<Home>().phase).clone()
 }
 
 fn tank(app: &App) -> &Pals {
@@ -276,4 +276,57 @@ fn a_flubbed_try_teaches_nothing_and_pwr_ends_practice() {
     assert!(shows(&app, "NOT QUITE"), "{:?}", labels(&app));
     click_action(&mut app);
     assert_eq!(phase(&app), HomePhase::Tricks { pet: 0 });
+}
+
+/// From the tank, teaches SPIN (slot 1) the word in `takes`, said in turn.
+fn teach_spin(app: &mut App, takes: &[&str]) {
+    open_trick(app, 1);
+    tick(app, 60 * 4);
+    for take in takes {
+        speak(app, &spoken(take));
+    }
+}
+
+#[test]
+fn a_command_said_a_little_differently_still_gets_the_trick() {
+    let mut app = home_with(vec![pet("GILLY", None)]);
+    teach_spin(&mut app, &["daniel-spin-170", "daniel-spin-170"]);
+    click_action(&mut app);
+    assert!(matches!(phase(&app), HomePhase::Practice { slot: 1, .. }));
+    tick(&mut app, 70);
+    app.world_mut().resource_mut::<Home>().rig_next_try(true);
+    speak(&mut app, &spoken("daniel-spin-240"));
+    assert!(
+        matches!(
+            phase(&app),
+            HomePhase::Practice {
+                step: PracticeStep::Trying { slot: 1, .. },
+                ..
+            } | HomePhase::Practice {
+                step: PracticeStep::Praise,
+                ..
+            }
+        ),
+        "{:?}",
+        phase(&app)
+    );
+}
+
+#[test]
+fn a_word_it_wasnt_taught_just_puzzles_the_fish() {
+    let mut app = home_with(vec![pet("GILLY", None)]);
+    teach_spin(&mut app, &["daniel-spin-170", "daniel-spin-240"]);
+    click_action(&mut app);
+    tick(&mut app, 70);
+    speak(&mut app, &spoken("daniel-bubbles-170"));
+    assert!(shows(&app, "GILLY LOOKS PUZZLED"), "{:?}", labels(&app));
+    assert_eq!(tank(&app).pets[0].tricks[1].learned, 0);
+}
+
+#[test]
+fn a_second_take_of_a_different_word_isnt_taken() {
+    let mut app = home_with(vec![pet("GILLY", None)]);
+    teach_spin(&mut app, &["daniel-spin-170", "daniel-bubbles-170"]);
+    assert!(shows(&app, "THAT SOUNDED DIFFERENT"));
+    assert!(shows(&app, "SAY IT AGAIN"));
 }

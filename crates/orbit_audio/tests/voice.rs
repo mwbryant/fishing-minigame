@@ -116,3 +116,144 @@ fn a_clap_or_a_whistle_is_not_any_command() {
         }
     }
 }
+
+/// Resamples by `factor` (above 1 is faster and higher), like a word said
+/// quicker in a higher voice.
+fn shifted(sound: &[i16], factor: f32) -> Vec<i16> {
+    let length = (sound.len() as f32 / factor) as usize;
+    (0..length)
+        .map(|i| {
+            let at = i as f32 * factor;
+            let below = at as usize;
+            let t = at - below as f32;
+            let a = f32::from(sound[below.min(sound.len() - 1)]);
+            let b = f32::from(sound[(below + 1).min(sound.len() - 1)]);
+            (a + (b - a) * t) as i16
+        })
+        .collect()
+}
+
+/// A room's echo: the word again 40 ms later at 40%.
+fn echoed(sound: &[i16]) -> Vec<i16> {
+    let delay = (0.04 * SAMPLE_RATE as f32) as usize;
+    let mut out: Vec<i16> = sound.to_vec();
+    out.extend(std::iter::repeat_n(0, delay));
+    for (sample, &early) in out[delay..].iter_mut().zip(sound) {
+        let late = f32::from(early) * 0.4;
+        *sample = (f32::from(*sample) + late).clamp(-32768.0, 32767.0) as i16;
+    }
+    out
+}
+
+/// Plays `sound` into a noisier room than `hear` does.
+fn heard_in(sound: &[i16], volume: f32, hiss: f32) -> Vec<VoicePrint> {
+    let mut listener = Listener::new();
+    let mut room = Room(3);
+    let mut samples: Vec<i16> = (0..9600).map(|_| room.hiss(hiss)).collect();
+    samples.extend(
+        sound
+            .iter()
+            .map(|&s| (f32::from(s) * volume) as i16 + room.hiss(hiss)),
+    );
+    samples.extend((0..12800).map(|_| room.hiss(hiss)));
+    let mut heard = Vec::new();
+    for chunk in samples.chunks(160) {
+        listener.push(chunk);
+        heard.extend(listener.take());
+    }
+    heard
+}
+
+/// A word heard the ways one speaker's word varies day to day: said faster
+/// and higher, slower and lower, echoing, and quietly.
+fn variations(fast: &[i16], slow: &[i16]) -> Vec<Vec<VoicePrint>> {
+    [
+        (fast.to_vec(), 0.35, 40.0),
+        (shifted(fast, 1.12), 0.35, 40.0),
+        (shifted(slow, 0.9), 0.5, 40.0),
+        (echoed(fast), 0.35, 40.0),
+        (fast.to_vec(), 0.12, 60.0),
+    ]
+    .into_iter()
+    .map(|(sound, volume, hiss)| heard_in(&sound, volume, hiss))
+    .collect()
+}
+
+#[test]
+fn a_word_said_faster_slower_higher_echoing_or_quietly_is_still_recognized() {
+    let (mut right, mut tried) = (0, 0);
+    let mut misses = Vec::new();
+    for speaker in SPEAKERS {
+        let known = recordings(speaker);
+        for (expected, word) in WORDS.iter().enumerate() {
+            let fast = clip(&format!("{speaker}-{word}-240"));
+            let slow = clip(&format!("{speaker}-{word}-170"));
+            for (variant, heard) in variations(&fast, &slow).into_iter().enumerate() {
+                tried += 1;
+                let recognized = heard.len() == 1
+                    && recognize(&heard[0], known.iter().enumerate()) == Some(expected);
+                if recognized {
+                    right += 1;
+                } else {
+                    misses.push(format!("{speaker} {word} #{variant}"));
+                }
+            }
+        }
+    }
+    assert!(
+        right * 10 >= tried * 9,
+        "{right}/{tried}; missed {misses:?}"
+    );
+}
+
+#[test]
+fn a_word_nobody_taught_is_no_command() {
+    let (mut ignored, mut tried) = (0, 0);
+    let mut fooled = Vec::new();
+    for speaker in SPEAKERS {
+        let known = recordings(speaker);
+        // Teach two of the words; say each of the other three, every way.
+        for taught in [[0, 1], [2, 3], [1, 4], [0, 3]] {
+            for (said, word) in WORDS.iter().enumerate() {
+                if taught.contains(&said) {
+                    continue;
+                }
+                let fast = clip(&format!("{speaker}-{word}-240"));
+                let slow = clip(&format!("{speaker}-{word}-170"));
+                for heard in variations(&fast, &slow).into_iter().flatten() {
+                    tried += 1;
+                    let answer = recognize(&heard, taught.iter().map(|&t| (t, &known[t])));
+                    match answer {
+                        None => ignored += 1,
+                        Some(t) => fooled.push(format!("{speaker} {word} as {}", WORDS[t])),
+                    }
+                }
+            }
+        }
+    }
+    assert!(
+        ignored * 10 >= tried * 9,
+        "{ignored}/{tried}; fooled by {fooled:?}"
+    );
+}
+
+#[test]
+fn blending_two_takes_settles_between_them_and_both_still_match() {
+    let first = print_of(&clip("fred-splash-170"), 1.0);
+    let second = print_of(&clip("fred-splash-240"), 0.35);
+    let blended = first.blend(&second, 0.5);
+    assert!(blended.distance(&second) < first.distance(&second));
+    assert!(blended.distance(&first) < second.distance(&first));
+    for take in [first, second] {
+        assert_eq!(recognize(&take, [((), &blended)]), Some(()));
+    }
+    assert_eq!(first.blend(&second, 0.0), first, "no weight, no change");
+}
+
+#[test]
+fn two_takes_while_teaching_may_differ_a_little_more_than_a_command() {
+    let first = print_of(&clip("daniel-splash-170"), 1.0);
+    let again = print_of(&clip("daniel-splash-240"), 0.35);
+    assert!(first.alike(&again));
+    assert!(!first.alike(&print_of(&clip("daniel-bubbles-170"), 1.0)));
+}

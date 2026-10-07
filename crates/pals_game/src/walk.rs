@@ -4,7 +4,7 @@
 //! pretend walker strolls at walking pace instead. Each walk saves as it
 //! goes.
 
-use alloc::{format, vec::Vec};
+use alloc::{boxed::Box, format, vec::Vec};
 
 use bevy::{app::AppExit, prelude::*};
 use orbit_core::{
@@ -55,16 +55,18 @@ pub enum WalkPhase {
     },
 }
 
+/// The phase is boxed to keep the resource small (Bevy's resource storage
+/// costs many times a resource's size in heap).
 #[derive(Resource, Debug)]
 pub struct Walk {
-    pub phase: WalkPhase,
+    pub phase: Box<WalkPhase>,
     clock: f32,
 }
 
 impl Default for Walk {
     fn default() -> Self {
         Self {
-            phase: WalkPhase::Choose,
+            phase: Box::new(WalkPhase::Choose),
             clock: 0.0,
         }
     }
@@ -122,7 +124,7 @@ fn stroll(
     let mock_walk = pals.mock_walk;
     let mut next = None;
     let mut save = false;
-    match &mut walk.phase {
+    match walk.phase.as_mut() {
         WalkPhase::Choose => {
             let count = pals.pets.len();
             let pointed = dial_choice(tilt.steer_deg, count + 1);
@@ -201,7 +203,7 @@ fn stroll(
     }
     if let Some(phase) = next {
         sound.play(&CLICK);
-        walk.phase = phase;
+        *walk.phase = phase;
         tilt.request_zero();
     }
 }
@@ -222,7 +224,7 @@ fn draw_frame(
 ) {
     let shapes = &mut frame.shapes;
     shapes.clear();
-    match &walk.phase {
+    match walk.phase.as_ref() {
         WalkPhase::Choose => choose(shapes, &pals, tilt.steer_deg),
         WalkPhase::Walking {
             pet,

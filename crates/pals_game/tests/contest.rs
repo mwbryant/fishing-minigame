@@ -49,7 +49,7 @@ fn hall(pets: Vec<Pet>, gold: u32) -> App {
 }
 
 fn phase(app: &App) -> ContestPhase {
-    app.world().resource::<Contest>().phase.clone()
+    (*app.world().resource::<Contest>().phase).clone()
 }
 
 fn contest(app: &mut App) -> Mut<'_, Contest> {

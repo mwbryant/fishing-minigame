@@ -2,7 +2,9 @@
 //! `version | gold u32 | owned hats u32 | flags | pet count | pet*`.
 //! A pet is `species | tier | length u16 | size | name length | name 8 |
 //! hat (0xFF none) | walked u32 | trick*5`, and a trick is
-//! `id | learned | gesture (0 none) | has word | word print?`.
+//! `id | learned | gesture (0 none) | has word | word print?`. Version 1's
+//! word prints were an older 145-byte kind that can't be compared with
+//! today's, so they're skipped and those tricks need their words again.
 
 use alloc::vec::Vec;
 
@@ -16,7 +18,8 @@ use crate::{
 };
 
 pub const KEY: [u8; 4] = *b"PALS";
-const VERSION: u8 = 1;
+const VERSION: u8 = 2;
+const OLD_PRINT_BYTES: usize = 145;
 const MOCK_WALK: u8 = 1;
 const NO_HAT: u8 = 0xFF;
 
@@ -52,7 +55,8 @@ pub fn encode(pals: &Pals) -> Vec<u8> {
 
 pub fn decode(bytes: &[u8]) -> Option<Pals> {
     let mut reader = Reader(bytes);
-    if reader.byte()? != VERSION {
+    let version = reader.byte()?;
+    if !(1..=VERSION).contains(&version) {
         return None;
     }
     let mut pals = Pals {
@@ -86,8 +90,15 @@ pub fn decode(bytes: &[u8]) -> Option<Pals> {
             }
             slot.learned = reader.byte()?.min(100);
             slot.trigger.gesture = Gesture::from_code(reader.byte()?);
-            if reader.byte()? == 1 {
-                slot.trigger.voice = Some(VoicePrint::from_bytes(reader.take(VoicePrint::BYTES)?)?);
+            match (reader.byte()?, version) {
+                (0, _) => {}
+                (_, 1) => {
+                    reader.take(OLD_PRINT_BYTES)?;
+                }
+                _ => {
+                    let print = reader.take(VoicePrint::BYTES)?;
+                    slot.trigger.voice = Some(VoicePrint::from_bytes(print)?);
+                }
             }
         }
         pals.pets.push(Pet {

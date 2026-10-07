@@ -30,7 +30,7 @@ pub use mic::{Mic, MicPlugin};
 pub use motion::{ImuFeed, Tilt};
 pub use orbit_audio::{
     Clip, ClipRef, SoundCommand,
-    voice::{VoicePrint, recognize},
+    voice::{MATCH_DISTANCE, VoicePrint, recognize},
 };
 pub use orbit_motion::ImuSample;
 pub use power::{

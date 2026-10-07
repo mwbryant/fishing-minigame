@@ -6,7 +6,7 @@
 //! stamina, and a spent fish ends its show. The fish's looks (rarity, size,
 //! hat) add their appeal, and three rivals' scores decide the prize.
 
-use alloc::{format, string::String, vec::Vec};
+use alloc::{boxed::Box, format, string::String, vec::Vec};
 
 use bevy::{app::AppExit, prelude::*};
 use orbit_core::{
@@ -126,9 +126,11 @@ pub enum ContestPhase {
     },
 }
 
+/// The phase is boxed to keep the resource small (Bevy's resource storage
+/// costs many times a resource's size in heap).
 #[derive(Resource, Debug)]
 pub struct Contest {
-    pub phase: ContestPhase,
+    pub phase: Box<ContestPhase>,
     clock: f32,
     strokes: Strokes,
     deaf_until: f32,
@@ -139,7 +141,7 @@ pub struct Contest {
 impl Default for Contest {
     fn default() -> Self {
         Self {
-            phase: ContestPhase::ChoosePet,
+            phase: Box::new(ContestPhase::ChoosePet),
             clock: 0.0,
             strokes: Strokes::default(),
             deaf_until: 0.0,
@@ -157,7 +159,7 @@ impl Contest {
 
     /// Sets the rivals' scores for this show, for tests.
     pub fn rig_rivals(&mut self, scores: [u32; 3]) {
-        if let ContestPhase::Show { show, .. } = &mut self.phase {
+        if let ContestPhase::Show { show, .. } = self.phase.as_mut() {
             show.rivals = scores;
         }
         self.rigged_rivals = Some(scores);
@@ -165,7 +167,7 @@ impl Contest {
 
     /// Has a judge call for the trick in `slot` now, for tests.
     pub fn rig_request(&mut self, slot: usize) {
-        if let ContestPhase::Show { show, .. } = &mut self.phase {
+        if let ContestPhase::Show { show, .. } = self.phase.as_mut() {
             show.request = Some((slot, show.secs + REQUEST_SECS));
         }
     }
@@ -234,7 +236,7 @@ fn perform(
     let dt = time.delta_secs();
     contest.clock += dt;
     let heard = mic.take().filter(|_| contest.clock >= contest.deaf_until);
-    let in_show = matches!(contest.phase, ContestPhase::Show { .. });
+    let in_show = matches!(*contest.phase, ContestPhase::Show { .. });
     let stroke = if in_show {
         contest.strokes.update(touch.position(), dt)
     } else {
@@ -247,7 +249,7 @@ fn perform(
     let tap = touch.just_pressed().then(|| touch.position()).flatten();
     let mut sfx: Option<&'static Clip> = None;
     let mut next = None;
-    match &mut contest.phase {
+    match contest.phase.as_mut() {
         ContestPhase::ChoosePet => {
             let count = pals.pets.len();
             let pointed = dial_choice(tilt.steer_deg, count + 1);
@@ -302,6 +304,12 @@ fn perform(
             }
         }
         ContestPhase::Show { pet, tier, show } => {
+            let command = match show.trying {
+                Some(_) => None,
+                None => heard
+                    .map(|print| pals.pets[*pet].hear(&print))
+                    .or(stroke.map(|gesture: Gesture| pals.pets[*pet].answer_gesture(gesture))),
+            };
             let fish = &pals.pets[*pet];
             show.secs += dt;
             let now = show.secs;
@@ -345,24 +353,18 @@ fn perform(
                         }
                     }
                 }
-                None => {
-                    let command = heard
-                        .map(|print| fish.answer_voice(&print))
-                        .or(stroke.map(|gesture: Gesture| fish.answer_gesture(gesture)));
-                    match command {
-                        Some(Some(slot)) => {
-                            let chance = fish.tricks[slot].success_chance();
-                            let success =
-                                contest.rigged_try.take().unwrap_or(rng.next_f32() < chance);
-                            let cost = fish.tricks[slot].info().rarity.stamina();
-                            show.stamina = show.stamina.saturating_sub(cost);
-                            show.trying = Some((slot, success, now));
-                            sfx = Some(&angler_game::audio::PERFECT_CAST);
-                        }
-                        Some(None) => show.toast = Some(String::from("?")),
-                        None => {}
+                None => match command {
+                    Some(Some(slot)) => {
+                        let chance = fish.tricks[slot].success_chance();
+                        let success = contest.rigged_try.take().unwrap_or(rng.next_f32() < chance);
+                        let cost = fish.tricks[slot].info().rarity.stamina();
+                        show.stamina = show.stamina.saturating_sub(cost);
+                        show.trying = Some((slot, success, now));
+                        sfx = Some(&angler_game::audio::PERFECT_CAST);
                     }
-                }
+                    Some(None) => show.toast = Some(String::from("?")),
+                    None => {}
+                },
             }
             let tired = show.stamina == 0 && show.trying.is_none();
             let over = show.secs >= SHOW_SECS && show.trying.is_none();
@@ -372,8 +374,8 @@ fn perform(
                 let place = show.rivals.iter().filter(|&&rival| rival > score).count();
                 if let Some(prize) = tier_info.prizes.get(place) {
                     pals.earn(*prize);
-                    pals::save::store(&mut blob, &pals);
                 }
+                pals::save::store(&mut blob, &pals);
                 sfx = Some(if place == 0 {
                     &angler_game::audio::CATCH
                 } else {
@@ -401,7 +403,7 @@ fn perform(
         contest.deaf_until = contest.clock + ECHO_SECS;
     }
     if let Some(phase) = next {
-        contest.phase = phase;
+        *contest.phase = phase;
         contest.strokes = Strokes::default();
         tilt.request_zero();
     }
@@ -420,12 +422,13 @@ fn draw_frame(
     contest: Res<Contest>,
     pals: Res<Pals>,
     tilt: Res<Tilt>,
+    mic: Res<Mic>,
     power: Res<Power>,
     mut frame: ResMut<Frame>,
 ) {
     let shapes = &mut frame.shapes;
     shapes.clear();
-    match &contest.phase {
+    match contest.phase.as_ref() {
         ContestPhase::ChoosePet => choose_pet(shapes, &pals, tilt.steer_deg),
         ContestPhase::ChooseTier { pet } => choose_tier(
             shapes,
@@ -433,7 +436,12 @@ fn draw_frame(
             &pals.pets[*pet],
             list_choice(tilt.steer_deg, TIER_CHOICES, 0),
         ),
-        ContestPhase::Show { pet, show, .. } => stage(shapes, &pals.pets[*pet], show),
+        ContestPhase::Show { pet, show, .. } => {
+            stage(shapes, &pals.pets[*pet], show);
+            if mic.speaking() {
+                shapes.push(label(306, "LISTENING...", 1, TOAST));
+            }
+        }
         ContestPhase::Results {
             pet,
             tier,

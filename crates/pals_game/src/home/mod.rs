@@ -7,12 +7,12 @@
 mod draw;
 pub mod ui;
 
-use alloc::{format, string::String, vec::Vec};
+use alloc::{boxed::Box, format, string::String, vec::Vec};
 
 use bevy::{app::AppExit, prelude::*};
 use orbit_core::{
     Buttons, Clip, ControlsPlugin, CorePlugin, Mic, MicPlugin, Power, Rng, SaveBlob, SoundPlugin,
-    SoundQueue, Tilt, Touch, VoicePrint, recognize,
+    SoundQueue, Tilt, Touch, VoicePrint,
 };
 use orbit_ui::{CLICK, Key, KeyRing, THUD, dial_choice, list_choice};
 use pals::{Gesture, Name, Pals, Strokes, TRICKS_PER_PET, Trigger};
@@ -112,9 +112,11 @@ struct Swimmer {
     facing_right: bool,
 }
 
+/// The phase is boxed: it can hold two voice prints, and Bevy's resource
+/// storage costs many times a resource's size in heap.
 #[derive(Resource, Debug)]
 pub struct Home {
-    pub phase: HomePhase,
+    pub phase: Box<HomePhase>,
     /// Seconds since the phase (or its step) changed.
     secs: f32,
     clock: f32,
@@ -133,7 +135,7 @@ pub struct Home {
 impl Default for Home {
     fn default() -> Self {
         Self {
-            phase: HomePhase::Tank,
+            phase: Box::new(HomePhase::Tank),
             secs: 0.0,
             clock: 0.0,
             swimmers: Vec::new(),
@@ -149,7 +151,7 @@ impl Default for Home {
 impl Home {
     /// Where fish `pet` is drawn right now.
     pub fn swimmer(&self, pet: usize) -> Vec2 {
-        match &self.phase {
+        match self.phase.as_ref() {
             HomePhase::Tank => self.swimmers.get(pet).map_or(STAGE, |s| s.at),
             _ => STAGE,
         }
@@ -169,13 +171,13 @@ impl Home {
     }
 
     fn enter(&mut self, phase: HomePhase) {
-        self.phase = phase;
+        *self.phase = phase;
         self.secs = 0.0;
         self.toast = None;
     }
 
     fn step(&mut self, phase: HomePhase) {
-        self.phase = phase;
+        *self.phase = phase;
         self.secs = 0.0;
     }
 }
@@ -274,7 +276,7 @@ fn play(
     // Only the screens waiting for a command read strokes, and a press that
     // began on a button (or anywhere else, like petting) never becomes one.
     let wants_strokes = matches!(
-        home.phase,
+        *home.phase,
         HomePhase::Teach {
             step: TeachStep::Listen { .. },
             ..
@@ -294,7 +296,7 @@ fn play(
         home.pressing_button = false;
     }
 
-    match home.phase.clone() {
+    match (*home.phase).clone() {
         HomePhase::Tank => {
             let count = pals.pets.len();
             let pointed = dial_choice(tilt.steer_deg, count + 1);
@@ -360,7 +362,7 @@ fn play(
                 sfx = Some(if typed { &CLICK } else { &THUD });
             }
             if next.is_none() {
-                home.phase = HomePhase::Rename { pet, ring, name };
+                *home.phase = HomePhase::Rename { pet, ring, name };
             }
         }
         HomePhase::Tricks { pet } => {
@@ -414,14 +416,21 @@ fn play(
                 let clash = fish.answer_voice(&print).filter(|&other| other != slot);
                 (word, home.toast) = match (clash, word) {
                     (Some(other), _) => (word, Some(format!("SOUNDS LIKE {}", name_of(other)))),
-                    (None, Heard::Once(first)) if recognize(&print, [((), &first)]).is_some() => {
-                        (Heard::Sure(first), None)
+                    (None, Heard::Nothing) => (Heard::Once(print), None),
+                    (None, Heard::Once(first)) if first.alike(&print) => {
+                        (Heard::Sure(first.blend(&print, 0.5)), None)
                     }
                     (None, Heard::Once(_)) => (
                         Heard::Once(print),
                         Some(String::from("THAT SOUNDED DIFFERENT")),
                     ),
-                    (None, _) => (Heard::Once(print), None),
+                    (None, Heard::Sure(taught)) if taught.alike(&print) => (
+                        Heard::Sure(taught.blend(&print, 1.0 / 3.0)),
+                        Some(String::from("EVEN BETTER")),
+                    ),
+                    (None, Heard::Sure(_)) => {
+                        (word, Some(String::from("THAT ONE SOUNDED DIFFERENT")))
+                    }
                 };
             }
             if let Some(gesture) = stroke {
@@ -456,7 +465,7 @@ fn play(
                     });
                 }
             } else {
-                home.phase = HomePhase::Teach {
+                *home.phase = HomePhase::Teach {
                     pet,
                     slot,
                     step: TeachStep::Listen {
@@ -471,10 +480,11 @@ fn play(
             slot,
             step: PracticeStep::Waiting,
         } => {
-            let fish = &pals.pets[pet];
             let command = heard
-                .map(|print| fish.answer_voice(&print))
-                .or(stroke.map(|gesture| fish.answer_gesture(gesture)));
+                .map(|print| pals.pets[pet].hear(&print))
+                .or(stroke.map(|gesture| pals.pets[pet].answer_gesture(gesture)));
+            save |= heard.is_some() && command.flatten().is_some();
+            let fish = &pals.pets[pet];
             if tapped(&ui::NEW_WORD) {
                 next = Some(HomePhase::Teach {
                     pet,
@@ -578,7 +588,7 @@ fn listening() -> TeachStep {
 
 /// The fish's offset and turn for the trick it's showing or trying.
 pub(crate) fn performing(home: &Home, pals: &Pals) -> Option<(Vec2, bool)> {
-    let (pet, slot) = match home.phase {
+    let (pet, slot) = match *home.phase {
         HomePhase::Teach {
             pet,
             slot,
