@@ -47,6 +47,7 @@ pub fn run(game: Game, dir: &Path) {
     match game {
         Game::Town => town(&mut camera),
         Game::Home => home(&mut camera),
+        Game::Park => park(&mut camera),
         Game::Arcade => arcade(&mut camera),
         Game::Orbit => orbit(&mut camera),
         Game::Angler => angler(&mut camera),
@@ -172,6 +173,37 @@ fn home(camera: &mut Camera) {
     camera.shoot(&app, "home_praise");
     core_testing::tap(&mut app, Vec2::new(233.0, 230.0));
     camera.shoot(&app, "home_good_fish");
+}
+
+/// The park: picking a walker, a mock walk, levelling up, the summary.
+fn park(camera: &mut Camera) {
+    use pals_game::walk::WalkPlugin;
+    let mut tank = pals::Pals::default();
+    tank.mock_walk = true;
+    tank.keep({
+        let mut fish = pet("GILLY", 3);
+        fish.walk(380.0);
+        fish
+    })
+    .ok();
+    tank.keep(pet("BUBBA", 1)).ok();
+    let mut blob = SaveBlob::from_storage(None);
+    pals::save::store(&mut blob, &tank);
+    let mut app = core_testing::headless(
+        |app| {
+            app.add_plugins(WalkPlugin);
+        },
+        blob.take_pending(),
+    );
+    battery(&mut app, 76);
+    camera.shoot(&app, "park_choose");
+    core_testing::click_action(&mut app);
+    core_testing::tick(&mut app, 60 * 8);
+    camera.shoot(&app, "park_walking");
+    core_testing::tick(&mut app, 60 * 12);
+    camera.shoot(&app, "park_level_up");
+    core_testing::click_action(&mut app);
+    camera.shoot(&app, "park_done");
 }
 
 fn arcade(camera: &mut Camera) {
@@ -452,6 +484,7 @@ impl Game {
         match self {
             Game::Town => pals_game::town::BACKGROUND,
             Game::Home => pals_game::home::BACKGROUND,
+            Game::Park => pals_game::walk::BACKGROUND,
             Game::Arcade => arcade::BACKGROUND,
             Game::Orbit => orbit_game::BACKGROUND,
             Game::Angler => angler_game::BACKGROUND,

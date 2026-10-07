@@ -51,7 +51,7 @@ impl Trail {
 
 /// A pretend walker meandering at [`MOCK_PACE_MPS`], reporting a fix each
 /// second like the receiver does.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct MockWalk {
     north_m: f32,
     east_m: f32,

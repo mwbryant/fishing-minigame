@@ -12,6 +12,7 @@ pub mod fish;
 pub mod home;
 mod sprites;
 pub mod town;
+pub mod walk;
 
 use bevy::prelude::*;
 
