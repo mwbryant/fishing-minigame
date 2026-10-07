@@ -450,3 +450,26 @@ Images are in `img/`. Newest beats go at the bottom.
   | Angler (the pond) | 207 KB |
   | House | 211 KB |
   | Orbit | 265 KB |
+
+## 33. Drivers from research, and what QEMU can and can't say
+
+- **The mics:**
+  - the ES7210 needs no clock of its own; esp-hal's I2S *signal loopback* runs the
+    receiver on the speaker's BCLK and WS;
+  - so the mics only hear while the speaker streams. The speaker already streams silence
+    from the first app with sound, so that's the town;
+  - the ADC init is esp-adf's slave-mode register sequence, about 40 writes.
+- **The GPS:**
+  - Waveshare's demo reads the LC76G with 10 ms waits between I2C steps, and two of those
+    would eat a whole frame;
+  - the firmware runs it as a state machine, one I2C step per frame, about once a second.
+- **What QEMU checked:** the Fish Pals tour, every door twice round. The heap back in town
+  was 200 KB at the first return and 202 KB at the worst of 16, so dropping each app gives
+  its memory back.
+- **What it can't check:** neither driver runs in QEMU; there's no ES7210 or LC76G in it.
+  Both are compiled and wired, and unverified on the board.
+- **A small calibration:**
+  - the drivers took about 1 KB of the firmware's DRAM, so its stack shrank;
+  - the emulator harness keeps its stack within 1 KB of the firmware's so stack overflows
+    show up in both;
+  - its heap went from 237 to 238 KB to match.
