@@ -24,7 +24,7 @@ const BAND_BYTES: usize = SCREEN_SIZE as usize * 2 * 8;
 /// The firmware's 212 KB plus the ~20 KB of statics this build lacks (DMA
 /// buffers, drivers), so both stacks come out the same size. `run.sh` prints
 /// the two `.stack` sizes; adjust this when they drift apart.
-const INTERNAL_HEAP_BYTES: usize = 237 * 1024;
+const INTERNAL_HEAP_BYTES: usize = 238 * 1024;
 
 pub struct Smoke {
     pub app: App,

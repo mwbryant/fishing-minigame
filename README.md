@@ -1,71 +1,80 @@
-# Orbit board games
+# Orbit board games: Fish Pals
 
 `no_std` **Bevy 0.19** games for the Waveshare **ESP32-S3-Touch-AMOLED-1.75**
 (466x466 round AMOLED, CO5300 over QSPI, CST9217 touch, QMI8658 IMU, two buttons).
 Turning the device like a steering wheel is the main control everywhere; PWR confirms.
 
-- **The arcade** (what the board boots into): turning the device sweeps a dial round the
-  rim over ANGLER, SPIDER ROULETTE, SKATE, BEES??? and SETTINGS (sound on/off for every
-  game), and PWR picks. Each game's title has HOME to come back.
-- **Angler**, a fishing game:
-  - **Aim:** turn the device like a steering wheel.
-  - **Cast:** a dotted line shows where a full-power cast lands. Hold PWR and release at the
-    top of the sweeping meter to land exactly on it; release early and you come up short.
-  - **Fight:** lean the device forward and back to keep the fish inside the catch zone, as in
-    Stardew Valley.
-  - **Keep:** every catch is shown with its length and weight and saved to flash, and pays
-    gold by species and size.
-  - **Shop:** spend the gold on hats for the angler (beanie, ball cap, cowboy hat, top hat,
-    a fish, a crown...). Try them on in the shop's mirror; the one you wear shows on the dock.
-    Gold and hats are saved.
-  - **Re-level:** BOOT re-zeroes the IMU at any time, and it re-levels by itself after
-    each fish.
-  - **Battery:** the level shows at the top of the menus, and during play when it's low.
-  - **Sound:** effects for the cast, splash, bite, reel clicks, catch, escape, the shop's
-    till and menu taps, synthesized by a small script.
-  - **Menus:** the title has LOG, SHOP and SETTINGS touch buttons, and MENU on the aiming
-    screen goes back to it. Settings has EASY / NORMAL / HARD
-    difficulty (saved), RESET (erases the log, gold and hats after a confirm) and **GUTEN**, a riff on logic-fish: a rainbow trout spins to "Guten
-    Morgen, Sonnenschein" for 15 s through the board's speaker.
-- **Spider Roulette:** twelve eggs ring a web and one hides a spider, which dances in the
-  middle. PWR spins a pointer round the ring; it ticks past the eggs, slows, and cracks the
-  one it stops on. Each safe egg shortens the odds and quickens the heartbeat; the spider's
-  egg pounces. Crack all eleven safe ones to trap it.
-- **Skate:** an endless night-street side-scroller. Turn left (nose up) to ollie; in the air
-  the board follows your turn, so level out to land. Clear cones; clear benches or land on
-  them to grind. The street speeds up. Every 150 m it drops into a halfpipe for a 7 s
-  freestyle: air off each wall and turn the device to spin a 180, 360, 540 or 720.
-- **Bees???:** the Moon is a hollow jar of honey orbiting the Earth. Something keeps tipping
-  it; turn to tip it back before honey pours out (the fuller the jar, the less it takes).
-  Bees, wearing the hat from Angler's shop, circle it and fly refills up from Earth.
-- **Orbit**, circular pong (touch, its own firmware binary): drag to swing the paddle.
-- **Everywhere:** hold BOOT 3 s and the board says GOOD NIGHT and deep-sleeps (panel,
-  touch, IMU and amp off); press BOOT to wake. After 30 s untouched the panel dims and the
-  loop slows to 20 Hz. Each game's best run persists in its own section of one flash record.
+**Fish Pals** is what the board boots into: a Nintendogs-style game about the fish you
+catch.
+
+- **The town:** six little round clearings joined by paths. Turn the device to walk left
+  and right, lean it to walk up and down (or tap where to go), and press PWR at a door.
+  The signpost by your house has the settings: sound, MOCK WALK, and a reset.
+- **The pond** (Angler, the fishing game):
+  - **Aim and cast:** turn like a steering wheel. A dotted line shows where a full-power
+    cast lands; hold PWR and release at the top of the meter to land exactly on it.
+  - **Fight:** lean forward and back to keep the fish inside the catch zone, as in Stardew
+    Valley.
+  - **Keep:** KEEP a catch (or RELEASE it) and name it by turning on a ring of letters. You
+    can keep three; a full tank asks who goes back. The fish log and difficulty are saved.
+  - **GUTEN:** in Angler's settings, a riff on logic-fish where a rainbow trout spins to
+    "Guten Morgen, Sonnenschein".
+- **Home:** your fish swim in the tank wearing their hats. Each has a card (species, size,
+  stamina, appeal) and five tricks of varying rarity, from SPLASH to RAINBOW LEAP.
+  - **Teach a trick:** watch it, then say a word twice into the board's mics, or draw a
+    stroke on the glass twice (tap, hold, swipe, circle).
+  - **Practise:** give the command; pet the fish right after it gets one right and it
+    learns twice as fast.
+- **The park:** take a fish for a walk to build its stamina. The -G board's GPS counts the
+  metres you really walk (not standing still, not in a car); MOCK WALK strolls on its own.
+- **The contest hall:** a 30-second show in four tiers (more stamina unlocks the higher
+  ones).
+  - Give your commands live: rarer, better-known tricks score more, changing it up adds a
+    combo, and a trick the judges call for counts double.
+  - Each try tires the fish. Its looks (rarity, size, hat) add appeal, and the top three
+    win gold.
+- **The hat shop:** a ring of 12 hats (beanie, cowboy hat, clown hat, a crown...); the
+  mirror shows your fish wearing the one you point at.
+- **The den:** Spider Roulette as a gamble.
+  - Bet gold, then PWR spins a pointer round twelve eggs, one of which hides a spider.
+  - Each safe egg raises what the bet is worth, and CASH OUT banks it. If the spider
+    pounces, the bet is gone.
+- **The arcade cabinet:** Skate, a night-street side-scroller.
+  - Turn left to ollie and level out to land; grind the benches.
+  - Every 150 m the street drops into a halfpipe for a 7 s freestyle of spins.
+- **A humming tree:** Bees???. The Moon is a hollow jar of honey orbiting the Earth; turn to
+  keep it from spilling while bees (in your lead fish's hat) fly refills up.
+- **Everywhere:** hold BOOT 3 s and the board says GOOD NIGHT and deep-sleeps; press BOOT to
+  wake. After 30 s untouched the panel dims. Everything persists in one flash record, a
+  section per app.
+- **Orbit**, circular pong (touch), is its own firmware binary.
 
 The same Bevy apps run in a desktop simulator and on the board, and both draw
 through the same software renderer, so the simulator shows the exact pixels the
 panel will get.
 
-![Arcade menu](screenshots/arcade_spider.png) ![Angler aiming](screenshots/angler_aim.png) ![Angler hat shop](screenshots/angler_shop.png)
-![Spider Roulette](screenshots/spider_spin.png) ![Skate halfpipe](screenshots/skate_halfpipe_360.png) ![Bees orbit](screenshots/bees_orbit.png)
+![The town](screenshots/town_home.png) ![The tank](screenshots/home_tank.png) ![Pet it](screenshots/home_praise.png)
+![A contest](screenshots/contest_trick.png) ![The hat shop](screenshots/shop_bought.png) ![Naming a catch](screenshots/angler_naming.png)
+![The den](screenshots/spider_worth.png) ![Skate halfpipe](screenshots/skate_halfpipe_360.png) ![Bees orbit](screenshots/bees_orbit.png)
 
 ```
 crates/orbit_gfx     no_std rasterizer (embedded-graphics + pixel-art sprites), dirty rects, bands
 crates/orbit_motion  no_std IMU fusion (Mahony) with zeroing -> steer/lean
 crates/orbit_save    no_std power-fail-safe flash records
-crates/orbit_audio   no_std PCM clips + mixer (board speaker and desktop audio play the same)
+crates/orbit_audio   no_std PCM clips + mixer, and voice prints for spoken commands
 crates/orbit_core    shared Bevy plumbing: frame, touch, rng, save sections, mute; opt-in buttons,
-                     tilt, power (battery, sleep, idle), sound
-crates/orbit_ui      shared drawing: buttons, battery, sleep overlay, the rotation dial
-crates/arcade        the boot menu
-crates/angler_game   Angler
-crates/spider_game   Spider Roulette
-crates/skate_game    Skate
-crates/bees_game     Bees???
+                     tilt, power (battery, sleep, idle), sound, mic, GPS
+crates/orbit_ui      shared drawing: buttons, battery, sleep overlay, the rotation dial and list,
+                     typing by turning
+crates/pals          Fish Pals' state and rules: pets, tricks, gestures, walks, gold, hats
+crates/pals_game     Fish Pals' places: the town, the house, the park, the contest hall, the shop
+crates/angler_game   Angler (the pond)
+crates/spider_game   Spider Roulette (the den)
+crates/skate_game    Skate (the arcade cabinet)
+crates/bees_game     Bees??? (the humming tree)
 crates/orbit_game    Orbit
-desktop/             minifb simulator for the arcade or any one game + headless PNG snapshots (std)
-firmware/            ESP32-S3: board support lib, the arcade binary, and one binary per game
+desktop/             minifb simulator for Fish Pals or any one app + headless PNG snapshots (std)
+firmware/            ESP32-S3: board support lib, the pals binary, and one binary per game
 case/                3D-printable fly-reel case (Python/build123d), see case/README.md
 ```
 
@@ -86,9 +95,10 @@ dirty-rect path never leaves stale pixels.
 ## Desktop
 
 ```sh
-cargo run -p orbit_desktop                              # the arcade (menu -> game -> HOME)
-cargo run -p orbit_desktop -- skate                     # or one game: angler spider skate bees orbit
-cargo run -p orbit_desktop -- spider snapshot screenshots   # a game's screens as PNGs, headless
+cargo run -p orbit_desktop                              # Fish Pals (the town -> a place -> OUT)
+cargo run -p orbit_desktop -- home                      # or one app: town home park contest shop
+                                                        #   angler spider skate bees orbit
+cargo run -p orbit_desktop -- contest snapshot screenshots  # an app's screens as PNGs, headless
 cargo test --workspace
 cargo clippy --workspace --all-targets && cargo fmt
 ```
@@ -102,7 +112,9 @@ Controls:
 - **C:** straighten the device.
 
 The arrow keys feed a virtual IMU through the same motion filter the board uses.
-Desktop saves go to `~/.logic-orbit/<game>.flash`.
+The laptop's microphone stands in for the board's mics (macOS asks for access once). There's
+no GPS, so turn on MOCK WALK at the signpost by the house to walk.
+Desktop saves go to `~/.logic-orbit/<mode>.flash`.
 
 The window title shows fps, KB pushed per frame, and the estimated time that
 traffic would take on the real link.
@@ -114,13 +126,13 @@ traffic would take on the real link.
 Plug the board into the Mac with a USB-C data cable, then from the repo root:
 
 ```sh
-./flash.sh            # the arcade: build, flash, then show the board's serial log
+./flash.sh            # Fish Pals: build, flash, then show the board's serial log
 ./flash.sh skate      # one game on its own (angler, spider, skate, bees, orbit)
 ./flash.sh monitor    # reopen the serial log without flashing
 ```
 
 In the log, Ctrl+C quits and Ctrl+R restarts the board. Every session's log is saved in
-`logs/`. Reflashing keeps the board's saves (catches, gold, hats, difficulty). The build
+`logs/`. Reflashing keeps the board's saves (your fish, gold, hats, scores). The build
 prints a harmless "LOAD segment with RWX permissions" warning.
 
 If flashing fails, the script lists fixes. The usual causes are a charge-only cable, or a
@@ -136,7 +148,7 @@ then `espup install --targets esp32s3`.
 ```sh
 cd firmware
 . ~/export-esp.sh                # every new shell: puts the Xtensa linker on PATH
-cargo run --release --bin arcade # build, flash over USB-C, open the serial monitor
+cargo run --release --bin pals   # build, flash over USB-C, open the serial monitor
 cargo run --release --bin orbit  # or any one game: angler spider skate bees orbit
 cargo clippy --release && cargo fmt
 ```
@@ -166,8 +178,10 @@ sources plus an emulator run. Run `./flash.sh` and watch the serial log:
    per frame, and heap use.
 
 Angler adds checks for the IMU direction, the PWR hold, the lean direction, and
-saves. See section 9 of `docs/ESP32_PLATFORM.md`. All the fixes are one-line
-constants or a mapping function in `firmware/src/lib.rs`.
+saves; Fish Pals adds the mics, the GPS, and that the speaker still plays now that the
+mics share its clocks. See section 9 of `docs/ESP32_PLATFORM.md`. The mic and GPS
+drivers were written from research and are unverified on the board. Most fixes are
+one-line constants or a mapping function in `firmware/src/lib.rs`.
 
 **1.75 vs 1.75C:** this targets the plain 1.75 (LCD reset GPIO39, touch reset
 GPIO40). The 1.75C variant uses GPIO1 and GPIO2 for those two resets.
@@ -175,10 +189,11 @@ GPIO40). The 1.75C variant uses GPIO1 and GPIO2 for those two resets.
 ### Memory
 
 Bevy's own bookkeeping (schedules, per-resource tables) dominates. Measured
-with a counting allocator on a 32-bit target, peak heap is 265 KB for Orbit, 204 KB for
-Angler, 194 for Skate, 192 for Bees???, 187 for Spider Roulette and 182 for the menu. The
-newer games are leaner because they use one phase resource instead of Bevy states. The arcade
-drops each app before building the next, so only one is ever in memory.
+with a counting allocator on a 32-bit target, peak heap is 265 KB for Orbit and 189 to 211 KB
+for every Fish Pals app (the house is the biggest). The newer apps are leaner because they use
+one phase resource instead of Bevy states. Fish Pals drops each app before building the next,
+so only one is ever in memory. A Bevy resource costs about 64 times its size in heap, so big
+state is boxed.
 The firmware gives Bevy about 284 KB of internal SRAM (`INTERNAL_HEAP_BYTES` plus
 the 72 KB reclaimed region) and keeps about 74 KB of stack. PSRAM is
 registered last, only as a safety net. On the ESP32-S3, atomic
@@ -193,8 +208,8 @@ buffers (sprites, framebuffers) in PSRAM explicitly with `esp_alloc::ExternalMem
   systems or resources.
 - `tools/qemu-smoke/run.sh` boots each game's firmware runtime in Espressif's QEMU
   with scripted input and prints `SMOKE PASS`/`SMOKE FAIL`. Each game is played by a
-  scripted player and its save round-trips through emulated flash; the arcade run goes
-  menu -> each game -> HOME twice and fails if the heap creeps between apps.
+  scripted player and its save round-trips through emulated flash; the Fish Pals run walks
+  through every door and back out twice, and fails if the heap creeps between apps.
 
 The full platform handbook is `docs/ESP32_PLATFORM.md`.
 

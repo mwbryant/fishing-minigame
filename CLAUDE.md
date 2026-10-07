@@ -1,19 +1,28 @@
 # logic-orbit
 
-no_std Bevy 0.19 games for the Waveshare ESP32-S3-Touch-AMOLED-1.75 (466x466 round
-AMOLED, touch, IMU, two buttons). The board boots the **arcade** (`crates/arcade`), a
-rotation dial over **Angler** (fishing: tilt-aimed cast, lean-to-reel fight, fish log,
-gold for a hat shop), **Spider Roulette** (PWR spins a pointer round twelve eggs, one hides a spider),
-**Skate** (rotation pops and lands ollies; a halfpipe freestyle every 150 m) and **Bees???** (keep the Moon's honey jar from
-spilling; the bees wear Angler's hat), plus SETTINGS (mute). **Orbit** (circular pong) is
-a separate binary.
+no_std Bevy 0.19 games for the Waveshare ESP32-S3-Touch-AMOLED-1.75 (466x466 round AMOLED,
+touch, IMU, two buttons; the user's is the -G variant with an LC76G GPS, and it has two
+ES7210 mics). The board boots **Fish Pals**, a Nintendogs-style loop:
+- a **town** (`pals_game::town`) you walk by turning and leaning;
+- the **pond** (Angler: catch, then KEEP and name by turning, up to three);
+- the **house** (the tank, cards, trick school by voice and touch strokes);
+- the **park** (GPS walks for stamina, or MOCK WALK);
+- the **contest hall** (live trick shows for gold);
+- the **hat shop** (hats for the fish);
+- the **den** (Spider Roulette with bets);
+- an **arcade cabinet** (Skate) and a **humming tree** (Bees???).
+
+The shared state and rules are in `crates/pals` (the `PALS` save section). **Orbit**
+(circular pong) is a separate binary.
 A desktop simulator shares the renderer and the motion/save code.
 
 **Read `docs/ESP32_PLATFORM.md` before changing anything.** It has the hardware
 pin/protocol reference, the toolchain and crate set, the no_std Bevy rules, the render
 and memory budgets, the verification tools, and what is still unverified on real hardware.
 `docs/reference/es8311_audio.rs` is the original researched speaker driver; the live
-version is `firmware/src/speaker.rs`. Sound clips are 16 kHz mono s16le PCM
+version is `firmware/src/speaker.rs`. `docs/reference/gnss_and_mics.md` is the research
+behind `firmware/src/mic.rs` (ES7210, sharing the speaker's I2S clocks) and
+`firmware/src/lc76g.rs` (the GPS, over I2C); both are unverified on the board. Sound clips are 16 kHz mono s16le PCM
 (`orbit_audio::SAMPLE_RATE`).
 `case/` is the printable enclosure: parametric Python (build123d via uv), separate from the
 Rust workspace. Tunables are in `case/params.py`; after changing them run `uv run check.py`,
@@ -24,27 +33,40 @@ Rules that bite:
   for trig and sqrt, since `f32::sin` is std-only. No bevy_render, bevy_asset, bevy_log or threads.
 - `firmware/` and `tools/*` are excluded from the workspace. Build the firmware with
   `cd firmware && . ~/export-esp.sh && cargo build --release` (always release). Binaries:
-  `--bin arcade` (the menu and every game) and one per game (`angler spider skate bees orbit`).
-- The user flashes with `./flash.sh [game]` (default `arcade`), which saves every serial
+  `--bin pals` (Fish Pals: the town and every place) and one per game
+  (`angler spider skate bees orbit`).
+- The user flashes with `./flash.sh [game]` (default `pals`), which saves every serial
   session to `logs/<game>-<timestamp>.log`. When they report a hardware problem, read the
   newest log.
 - Turning the device (`Tilt::steer_deg`) is the primary control; PWR confirms, touch is
   secondary. Selections are `orbit_ui` dials (3x gain, so +-60 degrees reaches everything).
-- New games: add `CorePlugin` and `ControlsPlugin` (buttons, tilt, `Power`: battery, idle and
-  hold-BOOT sleep, all handled in core) plus `SoundPlugin` if it makes sound. Drive the flow
-  with a phase enum resource rather than Bevy states (states cost device heap). Draw last
-  with `orbit_ui::power_overlay`, and ignore input while `Power::saying_good_night()`.
-  Save into your own `SaveBlob` section (four-byte key). Offer HOME (send `AppExit`) when
-  `orbit_core::Launcher` is present. Then wire it in: `arcade::Game` and the menu dial,
-  `firmware/src/bin/<game>.rs` plus the arcade binary's `launch`,
-  `tools/qemu-smoke/src/bin/<game>.rs` (and the arcade smoke), a `measure_<game>` in
-  `tools/heap32`, and a desktop `Game` with snapshots.
-- The heap budget is tight: Bevy must fit in about 284 KB of internal SRAM, because
-  PSRAM atomics are unreliable on the S3. Peak headroom: Orbit 12 KB, Angler 73, Skate 82,
-  Bees??? 84, Spider Roulette 90, the menu 95. The arcade drops each app before building the
-  next, so only one is ever in memory.
+- New games and places:
+  - **Plugins:** add `CorePlugin` and `ControlsPlugin` (buttons, tilt, `Power`: battery, idle
+    and hold-BOOT sleep, all handled in core), plus `SoundPlugin` if it makes sound,
+    `MicPlugin` if it listens, `GpsPlugin` if it walks.
+  - **Flow:** drive it with a phase enum resource rather than Bevy states (states cost
+    device heap).
+  - **Drawing and input:** draw last with `orbit_ui::power_overlay`, and ignore input while
+    `Power::saying_good_night()`.
+  - **Saves:** use your own `SaveBlob` section (four-byte key). The fish, gold and hats are
+    `pals::save` (`PALS`).
+  - **Leaving:** a game offers OUT (send `AppExit`) when `orbit_core::Launcher` is present; a
+    Fish Pals place exits on its own way out.
+  - **Wiring it in:**
+    - a `pals_game::Place`, with a door in `town::map` and the app in `firmware/src/bin/pals.rs`;
+    - `firmware/src/bin/<game>.rs` if it's also standalone;
+    - `tools/qemu-smoke` (its own bin, and the pals tour's `launch` and `leave`);
+    - a `measure_<app>` in `tools/heap32`;
+    - a desktop `Game` with snapshots.
+- The heap budget is tight: Bevy must fit in about 284 KB of internal SRAM, because PSRAM
+  atomics are unreliable on the S3.
+  - Peak headroom: Orbit 12 KB, the house 66, Angler 70, the contest 73, the park 75,
+    Skate 82, Bees??? 84, the town 85, Spider Roulette 86, the shop 87.
+  - Fish Pals drops each app before building the next, so only one is ever in memory.
+  - **A resource costs about 64 times its size in heap**: a 3 KB resource cost 204 KB. Keep
+    resources under about 100 bytes and box anything bigger.
   After adding plugins, systems, resources or states, run `tools/heap32/run.sh`.
-  `tools/qemu-smoke/run.sh` checks the full firmware runtime of every game and the arcade's
+  `tools/qemu-smoke/run.sh` checks the full firmware runtime of every game and Fish Pals'
   app switching (a leak check) in QEMU. QEMU scripts run on game time, never frame counts.
 - Shapes are diffed with `PartialEq` every frame and must report tight `bounds()`. The
   presenter draws every overlapping shape once per 8-row band, so a shape's draw cost must
