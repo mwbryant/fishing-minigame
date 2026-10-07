@@ -8,7 +8,6 @@ license.workspace = true
 bevy.workspace = true
 orbit_game.workspace = true
 angler_game.workspace = true
-arcade.workspace = true
 spider_game.workspace = true
 skate_game.workspace = true
 bees_game.workspace = true

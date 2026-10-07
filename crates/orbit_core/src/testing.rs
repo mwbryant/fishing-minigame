@@ -57,16 +57,24 @@ pub fn tap(app: &mut App, at: Vec2) {
 
 /// Says `word` (mono samples at `orbit_audio::SAMPLE_RATE`) into the mic
 /// of a quiet room, a frame's worth of samples per update, then waits long
-/// enough for the listener to hear that it ended.
+/// enough for the listener to hear that it ended. It streams, as a mic
+/// driver does, so heap measurements see only what the game allocates.
 pub fn speak(app: &mut App, word: &[i16]) {
     let per_update = (orbit_audio::SAMPLE_RATE as f64 / TICK_HZ) as usize;
-    let quiet = |secs: f64| alloc::vec![0i16; (secs * orbit_audio::SAMPLE_RATE as f64) as usize];
-    let mut samples = quiet(0.3);
-    samples.extend_from_slice(word);
-    samples.extend(quiet(0.5));
-    for chunk in samples.chunks(per_update) {
-        app.world_mut().resource_mut::<Mic>().push(chunk);
+    let quiet = [0i16; 512];
+    let quiet_updates = |secs: f64| (secs * TICK_HZ) as usize;
+    let push = |app: &mut App, samples: &[i16]| {
+        app.world_mut().resource_mut::<Mic>().push(samples);
         app.update();
+    };
+    for _ in 0..quiet_updates(0.3) {
+        push(app, &quiet[..per_update]);
+    }
+    for chunk in word.chunks(per_update) {
+        push(app, chunk);
+    }
+    for _ in 0..quiet_updates(0.5) {
+        push(app, &quiet[..per_update]);
     }
 }
 

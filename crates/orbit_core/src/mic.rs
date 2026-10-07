@@ -2,14 +2,20 @@
 //! and games take each word as a [`VoicePrint`] to compare with the ones a
 //! player taught.
 
+use alloc::boxed::Box;
+
 use bevy::prelude::*;
 use orbit_audio::voice::{Listener, VoicePrint};
 
 /// What the mic hears. Only apps that add [`MicPlugin`] have one, and
 /// platforms power the mics and push samples only while it exists.
+///
+/// The listener is boxed: Bevy keeps resources in storage that reserves
+/// room for many of each, so a resource's heap cost is a multiple of its
+/// size, and the listener is 3 KB.
 #[derive(Resource, Default, Debug)]
 pub struct Mic {
-    listener: Listener,
+    listener: Box<Listener>,
 }
 
 impl Mic {

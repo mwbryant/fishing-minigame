@@ -138,28 +138,220 @@ fn built(add_game: impl FnOnce(&mut App)) -> App {
     core_testing::headless(add_game, None)
 }
 
-/// The arcade menu: the dial swept round, settings opened, sound toggled
-/// twice, back, then a game picked.
-#[unsafe(no_mangle)]
-pub extern "C" fn measure_arcade() -> *const u32 {
-    start_clock();
-    let mut app = built(|app| {
-        app.add_plugins(arcade::ArcadePlugin);
-    });
-    let built = CURRENT.load(Relaxed);
-    for frame in 0..600 {
-        core_testing::set_tilt(&mut app, ops::sin(frame as f32 * 0.02) * 70.0, 0.0);
+/// A save whose tank holds three fish, each knowing SPLASH by a swipe up,
+/// with `gold` in the purse.
+fn tank(gold: u32, mock_walk: bool) -> Vec<u8> {
+    let mut pals = pals::Pals::default();
+    pals.earn(gold);
+    pals.mock_walk = mock_walk;
+    for (i, text) in ["GILLY", "BUBBA", "KOI"].into_iter().enumerate() {
+        let mut name = pals::Name::default();
+        text.chars().for_each(|letter| {
+            name.push(letter);
+        });
+        let mut pet = pals::Pet::new(
+            i as u8 * 3,
+            i as u8,
+            300,
+            60,
+            name,
+            &mut orbit_core::Rng::new(5),
+        );
+        pet.teach(
+            0,
+            pals::Trigger {
+                gesture: Some(pals::Gesture::SwipeUp),
+                voice: None,
+            },
+        );
+        pet.tricks[0].learned = 60;
+        pet.walk(1000.0);
+        pals.keep(pet).ok();
+    }
+    let mut blob = orbit_core::SaveBlob::from_storage(None);
+    pals::save::store(&mut blob, &pals);
+    blob.take_pending().unwrap_or_default()
+}
+
+fn with_save(add_game: impl FnOnce(&mut App), saved: Vec<u8>) -> App {
+    core_testing::headless(add_game, Some(saved))
+}
+
+/// A finger swiping up the middle of the glass.
+fn swipe_up(app: &mut App) {
+    for i in 0..=10 {
+        app.world_mut()
+            .resource_mut::<orbit_core::Touch>()
+            .set(Some(Vec2::new(233.0, 330.0 - i as f32 * 12.0)));
         app.update();
     }
-    core_testing::set_tilt(&mut app, -24.0, 0.0);
+    app.world_mut()
+        .resource_mut::<orbit_core::Touch>()
+        .set(None);
+    app.update();
+}
+
+const SPIN_PCM: &[u8] =
+    include_bytes!("../../../crates/orbit_audio/tests/voices/daniel-spin-170.pcm");
+
+/// The fixture as samples, built at compile time so the measurement doesn't
+/// count a copy of it.
+static SPIN: [i16; SPIN_PCM.len() / 2] = samples(SPIN_PCM);
+
+const fn samples<const N: usize>(bytes: &[u8]) -> [i16; N] {
+    let mut out = [0; N];
+    let mut i = 0;
+    while i < N {
+        out[i] = i16::from_le_bytes([bytes[2 * i], bytes[2 * i + 1]]);
+        i += 1;
+    }
+    out
+}
+
+/// The town: ten seconds of walking every way, then the settings with sound
+/// and mock walks toggled and the reset question asked and kept.
+#[unsafe(no_mangle)]
+pub extern "C" fn measure_town() -> *const u32 {
+    use pals_game::{
+        Place,
+        town::{Town, TownPlugin, ui},
+    };
+    start_clock();
+    let mut app = with_save(
+        |app| {
+            app.add_plugins(TownPlugin);
+        },
+        tank(120, false),
+    );
+    let built = CURRENT.load(Relaxed);
+    for frame in 0..600 {
+        let t = frame as f32 * 0.02;
+        core_testing::set_tilt(&mut app, ops::sin(t) * 30.0, ops::cos(t * 0.7) * 30.0);
+        app.update();
+    }
+    app.world_mut()
+        .resource_mut::<Town>()
+        .stand_at(Place::Settings);
+    core_testing::set_tilt(&mut app, 0.0, 0.0);
+    core_testing::tick(&mut app, 2);
+    core_testing::click_action(&mut app);
+    for button in [
+        ui::SOUND,
+        ui::MOCK_WALK,
+        ui::SOUND,
+        ui::MOCK_WALK,
+        ui::RESET,
+        ui::KEEP,
+        ui::BACK,
+    ] {
+        core_testing::tap(&mut app, button.center());
+    }
+    core_testing::tick(&mut app, 60);
+    report(app, built)
+}
+
+/// The house with three fish: the tank, a card, the tricks list, a new trick
+/// taught a spoken word twice, then practice by stroke and by word.
+#[unsafe(no_mangle)]
+pub extern "C" fn measure_home() -> *const u32 {
+    use pals_game::home::{Home, HomePlugin};
+    start_clock();
+    let mut app = with_save(
+        |app| {
+            app.add_plugins(HomePlugin);
+        },
+        tank(0, false),
+    );
+    let built = CURRENT.load(Relaxed);
+    core_testing::tick(&mut app, 120);
+    core_testing::click_action(&mut app);
+    core_testing::click_action(&mut app);
+    core_testing::set_tilt(&mut app, orbit_ui::LIST_STEP_DEG, 0.0);
+    core_testing::tick(&mut app, 2);
     core_testing::click_action(&mut app);
     core_testing::set_tilt(&mut app, 0.0, 0.0);
+    core_testing::tick(&mut app, 60 * 4);
+    core_testing::speak(&mut app, &SPIN);
+    core_testing::speak(&mut app, &SPIN);
+    core_testing::click_action(&mut app);
+    for _ in 0..3 {
+        app.world_mut().resource_mut::<Home>().rig_next_try(true);
+        core_testing::speak(&mut app, &SPIN);
+        core_testing::tick(&mut app, 120);
+        core_testing::tap(&mut app, Vec2::new(233.0, 230.0));
+    }
+    core_testing::click_action(&mut app);
+    core_testing::set_tilt(&mut app, 0.0, 0.0);
+    core_testing::tick(&mut app, 2);
+    core_testing::click_action(&mut app);
+    for _ in 0..3 {
+        swipe_up(&mut app);
+        core_testing::tick(&mut app, 60 * 5);
+    }
+    report(app, built)
+}
+
+/// The park: a minute of mock walking, then the summary.
+#[unsafe(no_mangle)]
+pub extern "C" fn measure_park() -> *const u32 {
+    start_clock();
+    let mut app = with_save(
+        |app| {
+            app.add_plugins(pals_game::walk::WalkPlugin);
+        },
+        tank(0, true),
+    );
+    let built = CURRENT.load(Relaxed);
+    core_testing::click_action(&mut app);
+    core_testing::tick(&mut app, 60 * 60);
+    core_testing::click_action(&mut app);
+    core_testing::tick(&mut app, 30);
+    report(app, built)
+}
+
+/// The contest hall: a beginner show with commands, then the results.
+#[unsafe(no_mangle)]
+pub extern "C" fn measure_contest() -> *const u32 {
+    start_clock();
+    let mut app = with_save(
+        |app| {
+            app.add_plugins(pals_game::contest::ContestPlugin);
+        },
+        tank(0, false),
+    );
+    let built = CURRENT.load(Relaxed);
     core_testing::click_action(&mut app);
     core_testing::click_action(&mut app);
-    core_testing::set_tilt(&mut app, 60.0, 0.0);
-    core_testing::click_action(&mut app);
-    core_testing::set_tilt(&mut app, 24.0, 0.0);
-    core_testing::click_action(&mut app);
+    for _ in 0..6 {
+        swipe_up(&mut app);
+        core_testing::tick(&mut app, 120);
+    }
+    core_testing::tick(&mut app, (pals_game::contest::SHOW_SECS * 60.0) as u32);
+    report(app, built)
+}
+
+/// The hat shop: the ring swept round and three hats bought and worn.
+#[unsafe(no_mangle)]
+pub extern "C" fn measure_shop() -> *const u32 {
+    use pals_game::shop::hat_turn;
+    start_clock();
+    let mut app = with_save(
+        |app| {
+            app.add_plugins(pals_game::shop::ShopPlugin);
+        },
+        tank(400, false),
+    );
+    let built = CURRENT.load(Relaxed);
+    for frame in 0..300 {
+        core_testing::set_tilt(&mut app, ops::sin(frame as f32 * 0.03) * 60.0, 0.0);
+        app.update();
+    }
+    for choice in [2, 5, 8] {
+        core_testing::set_tilt(&mut app, hat_turn(choice), 0.0);
+        app.update();
+        core_testing::click_action(&mut app);
+        core_testing::tap(&mut app, pals_game::shop::ui::MIRROR.center());
+    }
     core_testing::tick(&mut app, 60);
     report(app, built)
 }

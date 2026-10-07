@@ -34,7 +34,7 @@ test = false
 bench = false
 
 [[bin]]
-name = "arcade"
+name = "pals"
 test = false
 bench = false
 
@@ -46,7 +46,7 @@ orbit_gfx = { path = "../../crates/orbit_gfx" }
 orbit_core = { path = "../../crates/orbit_core" }
 orbit_save = { path = "../../crates/orbit_save" }
 angler_game = { path = "../../crates/angler_game" }
-arcade = { path = "../../crates/arcade" }
+pals_game = { path = "../../crates/pals_game" }
 spider_game = { path = "../../crates/spider_game" }
 skate_game = { path = "../../crates/skate_game" }
 bees_game = { path = "../../crates/bees_game" }

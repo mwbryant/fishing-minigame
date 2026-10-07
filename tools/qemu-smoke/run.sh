@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Boots the firmware's runtime (heap layout, Bevy, game, presenter) in
 # Espressif's QEMU and waits for SMOKE PASS / SMOKE FAIL. No board needed.
-# Usage: tools/qemu-smoke/run.sh [timeout_secs] ["orbit angler spider skate bees arcade"]
+# Usage: tools/qemu-smoke/run.sh [timeout_secs] ["orbit angler spider skate bees pals"]
 set -euo pipefail
 
 here="$(cd "$(dirname "$0")" && pwd)"
@@ -48,7 +48,7 @@ fi
 
 cd "$here"
 status=0
-for game in ${2:-orbit angler spider skate bees arcade}; do
+for game in ${2:-orbit angler spider skate bees pals}; do
     echo "== $game"
     cargo build --release -q --bin "$game"
     elf="target/xtensa-esp32s3-none-elf/release/$game"

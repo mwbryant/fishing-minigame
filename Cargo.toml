@@ -17,7 +17,6 @@ orbit_motion = { path = "crates/orbit_motion" }
 orbit_save = { path = "crates/orbit_save" }
 orbit_audio = { path = "crates/orbit_audio" }
 orbit_ui = { path = "crates/orbit_ui" }
-arcade = { path = "crates/arcade" }
 spider_game = { path = "crates/spider_game" }
 skate_game = { path = "crates/skate_game" }
 bees_game = { path = "crates/bees_game" }

@@ -122,8 +122,8 @@ struct Speaker {
     amp: Output<'static>,
 }
 
-/// The board, brought up once. Games run on it one after another: the arcade
-/// runs its menu, then the game it picked, then the menu again.
+/// The board, brought up once. Apps run on it one after another: Fish Pals
+/// runs the town, then the place its door led to, then the town again.
 pub struct Board {
     delay: Delay,
     display: Co5300<'static>,
@@ -277,8 +277,8 @@ impl Board {
     }
 
     /// Builds an app with `add_game` and runs it until it sends `AppExit`,
-    /// then hands it back so the caller can see what a menu picked. A game
-    /// `launched` from the arcade menu offers HOME. When a game asks to sleep
+    /// then hands it back so the caller can see where the town's door led. A
+    /// game `launched` from the town offers OUT. When a game asks to sleep
     /// this never returns: the board sleeps, and waking it restarts the chip.
     pub fn run(
         &mut self,
@@ -480,8 +480,8 @@ impl Board {
     }
 }
 
-/// Brings up the board and runs one game; a HOME from it (which only the
-/// arcade menu offers) starts it again.
+/// Brings up the board and runs one game; an OUT from it (which only the
+/// town offers) starts it again.
 pub fn run(add_game: impl Fn(&mut App), background: Rgb565) -> ! {
     let mut board = Board::new();
     loop {

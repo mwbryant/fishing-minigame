@@ -8,7 +8,6 @@ use angler_game::{
     cast::{self, CHARGE_SECS, Flight},
     testing as angler, ui,
 };
-use arcade::ArcadePlugin;
 use bevy::prelude::*;
 use orbit_core::testing as core_testing;
 use orbit_core::{Battery, Buttons, Frame, Power, SaveBlob};
@@ -50,7 +49,6 @@ pub fn run(game: Game, dir: &Path) {
         Game::Park => park(&mut camera),
         Game::Contest => contest(&mut camera),
         Game::Shop => shop(&mut camera),
-        Game::Arcade => arcade(&mut camera),
         Game::Orbit => orbit(&mut camera),
         Game::Angler => angler(&mut camera),
         Game::Spider => spider(&mut camera),
@@ -288,31 +286,6 @@ fn shop(camera: &mut Camera) {
     core_testing::set_tilt(&mut app, hat_turn(12), 0.0);
     core_testing::tick(&mut app, 2);
     camera.shoot(&app, "shop_crown");
-}
-
-fn arcade(camera: &mut Camera) {
-    let mut app = core_testing::headless(
-        |app| {
-            app.add_plugins(ArcadePlugin);
-        },
-        None,
-    );
-    battery(&mut app, 76);
-    camera.shoot(&app, "arcade_angler");
-    core_testing::set_tilt(&mut app, 30.0, 0.0);
-    app.update();
-    camera.shoot(&app, "arcade_spider");
-    core_testing::set_tilt(&mut app, 48.0, 0.0);
-    app.update();
-    camera.shoot(&app, "arcade_skate");
-    core_testing::set_tilt(&mut app, -48.0, 0.0);
-    app.update();
-    camera.shoot(&app, "arcade_bees");
-    core_testing::set_tilt(&mut app, -30.0, 0.0);
-    core_testing::click_action(&mut app);
-    core_testing::set_tilt(&mut app, 4.0, 0.0);
-    core_testing::click_action(&mut app);
-    camera.shoot(&app, "arcade_settings");
 }
 
 fn spider(camera: &mut Camera) {
@@ -598,7 +571,6 @@ impl Game {
             Game::Park => pals_game::walk::BACKGROUND,
             Game::Contest => pals_game::contest::BACKGROUND,
             Game::Shop => pals_game::shop::BACKGROUND,
-            Game::Arcade => arcade::BACKGROUND,
             Game::Orbit => orbit_game::BACKGROUND,
             Game::Angler => angler_game::BACKGROUND,
             Game::Spider => spider_game::BACKGROUND,

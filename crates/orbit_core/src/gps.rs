@@ -1,6 +1,8 @@
 //! Satellite position from NMEA 0183 text, the way the -G board's LC76G
 //! sends it: platforms push the bytes, games take each new fix.
 
+use alloc::boxed::Box;
+
 use bevy::{math::ops, prelude::*};
 
 /// Mean Earth radius, for distances between nearby fixes.
@@ -32,10 +34,11 @@ impl Fix {
 }
 
 /// What the receiver reports. Only apps that add [`GpsPlugin`] have one, and
-/// platforms run the receiver only while it exists.
+/// platforms run the receiver only while it exists. The sentence buffer is
+/// boxed to keep the resource small (see `Mic`).
 #[derive(Resource, Debug)]
 pub struct Gps {
-    sentence: [u8; MAX_SENTENCE],
+    sentence: Box<[u8; MAX_SENTENCE]>,
     length: usize,
     /// From the last GGA, which RMC's fixes are completed with.
     quality: Option<(f32, u8)>,
@@ -48,7 +51,7 @@ pub struct Gps {
 impl Default for Gps {
     fn default() -> Self {
         Self {
-            sentence: [0; MAX_SENTENCE],
+            sentence: Box::new([0; MAX_SENTENCE]),
             length: 0,
             quality: None,
             latest: None,

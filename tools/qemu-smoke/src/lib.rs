@@ -67,7 +67,7 @@ impl Smoke {
         (smoke, peripherals.FLASH)
     }
 
-    /// Drops the running app and builds the next one, as the arcade
+    /// Drops the running app and builds the next one, as the Fish Pals
     /// firmware does, with `saved` as the record in storage.
     pub fn relaunch(
         &mut self,

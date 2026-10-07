@@ -59,16 +59,7 @@ dependencies = [
  "orbit_core",
  "orbit_gfx",
  "orbit_ui",
-]
-
-[[package]]
-name = "arcade"
-version = "0.1.0"
-dependencies = [
- "bevy",
- "orbit_core",
- "orbit_gfx",
- "orbit_ui",
+ "pals",
 ]
 
 [[package]]
@@ -145,11 +136,11 @@ checksum = "7b7e4c2464d97fe331d41de9d5db0def0a96f4d823b8b32a2efd503578988973"
 name = "bees_game"
 version = "0.1.0"
 dependencies = [
- "angler_game",
  "bevy",
  "orbit_core",
  "orbit_gfx",
  "orbit_ui",
+ "pals",
 ]
 
 [[package]]
@@ -2119,6 +2110,9 @@ checksum = "9f7c3e4beb33f85d45ae3e3a1792185706c8e16d043238c593331cc7cd313b50"
 [[package]]
 name = "orbit_audio"
 version = "0.1.0"
+dependencies = [
+ "libm",
+]
 
 [[package]]
 name = "orbit_core"
@@ -2135,7 +2129,6 @@ name = "orbit_firmware"
 version = "0.1.0"
 dependencies = [
  "angler_game",
- "arcade",
  "bees_game",
  "bevy",
  "critical-section",
@@ -2155,6 +2148,8 @@ dependencies = [
  "orbit_game",
  "orbit_gfx",
  "orbit_save",
+ "pals",
+ "pals_game",
  "skate_game",
  "spider_game",
 ]
@@ -2197,6 +2192,28 @@ dependencies = [
  "bevy",
  "orbit_core",
  "orbit_gfx",
+]
+
+[[package]]
+name = "pals"
+version = "0.1.0"
+dependencies = [
+ "bevy",
+ "orbit_core",
+ "orbit_gfx",
+ "orbit_ui",
+]
+
+[[package]]
+name = "pals_game"
+version = "0.1.0"
+dependencies = [
+ "angler_game",
+ "bevy",
+ "orbit_core",
+ "orbit_gfx",
+ "orbit_ui",
+ "pals",
 ]
 
 [[package]]
@@ -2587,6 +2604,7 @@ dependencies = [
  "orbit_core",
  "orbit_gfx",
  "orbit_ui",
+ "pals",
 ]
 
 [[package]]

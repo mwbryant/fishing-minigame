@@ -48,16 +48,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "arcade"
-version = "0.1.0"
-dependencies = [
- "bevy",
- "orbit_core",
- "orbit_gfx",
- "orbit_ui",
-]
-
-[[package]]
 name = "arrayvec"
 version = "0.7.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1183,13 +1173,13 @@ name = "orbit_heap32"
 version = "0.1.0"
 dependencies = [
  "angler_game",
- "arcade",
  "bees_game",
  "bevy",
  "orbit_core",
  "orbit_game",
  "orbit_ui",
  "pals",
+ "pals_game",
  "skate_game",
  "spider_game",
 ]
@@ -1218,6 +1208,18 @@ dependencies = [
  "orbit_core",
  "orbit_gfx",
  "orbit_ui",
+]
+
+[[package]]
+name = "pals_game"
+version = "0.1.0"
+dependencies = [
+ "angler_game",
+ "bevy",
+ "orbit_core",
+ "orbit_gfx",
+ "orbit_ui",
+ "pals",
 ]
 
 [[package]]
@@ -1445,6 +1447,7 @@ dependencies = [
  "orbit_core",
  "orbit_gfx",
  "orbit_ui",
+ "pals",
 ]
 
 [[package]]

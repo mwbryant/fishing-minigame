@@ -3,9 +3,13 @@
 //! CO5300, and the IMU is a virtual device driven from the keyboard.
 //!
 //! ```text
-//! cargo run -p orbit_desktop -- [town|arcade|angler|spider|skate|bees|orbit]  play (default town)
+//! cargo run -p orbit_desktop -- [GAME]   play (default town: Fish Pals)
 //!   Holding Z (BOOT) sleeps the board like the firmware does; Z again wakes it.
-//! cargo run -p orbit_desktop -- [angler|orbit] snapshot <dir>  scripted PNGs, headless
+//! cargo run -p orbit_desktop -- GAME snapshot <dir>   scripted PNGs, headless
+//!
+//! GAME: town home park contest shop angler spider skate bees orbit
+//! The desktop has no satellite receiver: turn on MOCK WALK in the town's
+//! settings for walks.
 //! ```
 
 mod device;
@@ -20,7 +24,6 @@ use std::{
 };
 
 use angler_game::AnglerPlugin;
-use arcade::{ArcadePlugin, Menu};
 use bees_game::BeesPlugin;
 use bevy::prelude::*;
 use minifb::{Key, MouseButton, MouseMode, Window, WindowOptions};
@@ -53,8 +56,8 @@ const QSPI_BYTES_PER_SEC: f64 = 40e6 * 4.0 / 8.0;
 /// How fast ←/→ turn the virtual device.
 const TURN_DEG_PER_SEC: f32 = 60.0;
 
-/// What the simulator boots: the arcade menu (which launches the others) or
-/// one game on its own, like the firmware's binaries.
+/// What the simulator boots: the town (whose doors lead to the others) or
+/// one app on its own, like the firmware's binaries.
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum Game {
     Town,
@@ -62,7 +65,6 @@ pub enum Game {
     Park,
     Contest,
     Shop,
-    Arcade,
     Orbit,
     Angler,
     Spider,
@@ -78,7 +80,6 @@ impl Game {
             Game::Park => "park",
             Game::Contest => "contest",
             Game::Shop => "shop",
-            Game::Arcade => "arcade",
             Game::Orbit => "orbit",
             Game::Angler => "angler",
             Game::Spider => "spider",
@@ -94,7 +95,6 @@ impl Game {
             Game::Park => app.add_plugins(WalkPlugin),
             Game::Contest => app.add_plugins(ContestPlugin),
             Game::Shop => app.add_plugins(ShopPlugin),
-            Game::Arcade => app.add_plugins(ArcadePlugin),
             Game::Orbit => app.add_plugins(OrbitPlugin),
             Game::Angler => app.add_plugins(AnglerPlugin),
             Game::Spider => app.add_plugins(SpiderPlugin),
@@ -117,24 +117,14 @@ impl Game {
             _ => None,
         }
     }
-
-    /// The menu's pick, if this build has that game.
-    fn picked(game: arcade::Game) -> Option<Self> {
-        match game {
-            arcade::Game::Angler => Some(Game::Angler),
-            arcade::Game::Spider => Some(Game::Spider),
-            arcade::Game::Skate => Some(Game::Skate),
-            arcade::Game::Bees => Some(Game::Bees),
-        }
-    }
 }
 
 /// How one run of an app ended.
 enum Ended {
     Closed,
     Slept,
-    /// The app sent `AppExit`; the menu says which game it picked.
-    Exited(Option<Game>),
+    /// The app sent `AppExit` on its own (a game went back OUT).
+    Exited,
     /// The town sent `AppExit` at a door.
     WentTo(Place),
 }
@@ -147,7 +137,6 @@ fn main() {
         Some("park") => (Game::Park, &args[1..]),
         Some("contest") => (Game::Contest, &args[1..]),
         Some("shop") => (Game::Shop, &args[1..]),
-        Some("arcade") => (Game::Arcade, &args[1..]),
         Some("orbit") => (Game::Orbit, &args[1..]),
         Some("angler") => (Game::Angler, &args[1..]),
         Some("spider") => (Game::Spider, &args[1..]),
@@ -179,7 +168,7 @@ fn play(boot: Game) {
     let mut next = boot;
     let mut arrival = None;
     loop {
-        let launched = matches!(boot, Game::Arcade | Game::Town) && next != boot;
+        let launched = boot == Game::Town && next != boot;
         match run(
             next,
             launched,
@@ -198,7 +187,7 @@ fn play(boot: Game) {
                 next = boot;
                 arrival = None;
             }
-            Ended::Exited(picked) => next = picked.unwrap_or(boot),
+            Ended::Exited => next = boot,
             Ended::WentTo(place) => {
                 arrival = Some(place);
                 next = Game::behind(place).unwrap_or(boot);
@@ -208,8 +197,8 @@ fn play(boot: Game) {
 }
 
 /// One app, like one boot of the board: runs until the window closes, the
-/// app asks to sleep, or it exits (the menu picked a game, or a game went
-/// home). `launched` games offer HOME.
+/// app asks to sleep, or it exits (the town at a door, or a game going back
+/// out). `launched` games offer OUT.
 fn run(
     game: Game,
     launched: bool,
@@ -296,8 +285,7 @@ fn run(
             {
                 return Ended::WentTo(place);
             }
-            let picked = app.world().get_resource::<Menu>().and_then(Menu::chosen);
-            return Ended::Exited(picked.and_then(Game::picked));
+            return Ended::Exited;
         }
     }
     Ended::Closed
