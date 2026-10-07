@@ -49,6 +49,7 @@ pub fn run(game: Game, dir: &Path) {
         Game::Home => home(&mut camera),
         Game::Park => park(&mut camera),
         Game::Contest => contest(&mut camera),
+        Game::Shop => shop(&mut camera),
         Game::Arcade => arcade(&mut camera),
         Game::Orbit => orbit(&mut camera),
         Game::Angler => angler(&mut camera),
@@ -261,6 +262,32 @@ fn contest(camera: &mut Camera) {
     camera.shoot(&app, "contest_judges_love_it");
     core_testing::tick(&mut app, (SHOW_SECS * 60.0) as u32);
     camera.shoot(&app, "contest_results");
+}
+
+/// The hat shop: the ring of hats and the fish trying them on.
+fn shop(camera: &mut Camera) {
+    use pals_game::shop::{ShopPlugin, hat_turn};
+    let mut tank = pals::Pals::default();
+    tank.earn(260);
+    tank.keep(pet("GILLY", 3)).ok();
+    tank.keep(pet("KOI", 7)).ok();
+    let mut blob = SaveBlob::from_storage(None);
+    pals::save::store(&mut blob, &tank);
+    let mut app = core_testing::headless(
+        |app| {
+            app.add_plugins(ShopPlugin);
+        },
+        blob.take_pending(),
+    );
+    battery(&mut app, 76);
+    core_testing::set_tilt(&mut app, hat_turn(7), 0.0);
+    core_testing::tick(&mut app, 2);
+    camera.shoot(&app, "shop_clown");
+    core_testing::click_action(&mut app);
+    camera.shoot(&app, "shop_bought");
+    core_testing::set_tilt(&mut app, hat_turn(12), 0.0);
+    core_testing::tick(&mut app, 2);
+    camera.shoot(&app, "shop_crown");
 }
 
 fn arcade(camera: &mut Camera) {
@@ -543,6 +570,7 @@ impl Game {
             Game::Home => pals_game::home::BACKGROUND,
             Game::Park => pals_game::walk::BACKGROUND,
             Game::Contest => pals_game::contest::BACKGROUND,
+            Game::Shop => pals_game::shop::BACKGROUND,
             Game::Arcade => arcade::BACKGROUND,
             Game::Orbit => orbit_game::BACKGROUND,
             Game::Angler => angler_game::BACKGROUND,

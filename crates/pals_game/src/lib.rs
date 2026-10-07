@@ -11,6 +11,7 @@ extern crate alloc;
 pub mod contest;
 pub mod fish;
 pub mod home;
+pub mod shop;
 mod sprites;
 pub mod town;
 pub mod walk;
