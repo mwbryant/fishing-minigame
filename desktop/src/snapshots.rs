@@ -46,6 +46,7 @@ pub fn run(game: Game, dir: &Path) {
     };
     match game {
         Game::Town => town(&mut camera),
+        Game::Home => home(&mut camera),
         Game::Arcade => arcade(&mut camera),
         Game::Orbit => orbit(&mut camera),
         Game::Angler => angler(&mut camera),
@@ -99,6 +100,78 @@ fn town(camera: &mut Camera) {
     camera.shoot(&app, "town_settings");
     core_testing::tap(&mut app, ui::RESET.center());
     camera.shoot(&app, "town_reset");
+}
+
+/// The house: the tank, a card, the tricks list, teaching and practice.
+fn home(camera: &mut Camera) {
+    use pals_game::home::{Home, HomePlugin};
+    let mut tank = pals::Pals::default();
+    tank.earn(500);
+    for hat in [2, 6] {
+        tank.buy_hat(hat);
+    }
+    for (name, species, hat, walked) in [
+        ("GILLY", 3, Some(6), 520.0),
+        ("BUBBA", 1, None, 80.0),
+        ("KOI", 7, Some(2), 1500.0),
+    ] {
+        let mut fish = pet(name, species);
+        fish.hat = hat;
+        fish.walk(walked);
+        fish.teach(
+            0,
+            pals::Trigger {
+                gesture: Some(pals::Gesture::SwipeUp),
+                voice: None,
+            },
+        );
+        fish.tricks[0].learned = 45;
+        tank.keep(fish).ok();
+    }
+    let mut blob = SaveBlob::from_storage(None);
+    pals::save::store(&mut blob, &tank);
+    let mut app = core_testing::headless(
+        |app| {
+            app.add_plugins(HomePlugin);
+        },
+        blob.take_pending(),
+    );
+    battery(&mut app, 76);
+    core_testing::tick(&mut app, 40);
+    camera.shoot(&app, "home_tank");
+    core_testing::click_action(&mut app);
+    camera.shoot(&app, "home_card");
+    core_testing::click_action(&mut app);
+    core_testing::set_tilt(&mut app, 12.0, 0.0);
+    core_testing::tick(&mut app, 2);
+    camera.shoot(&app, "home_tricks");
+    core_testing::click_action(&mut app);
+    core_testing::set_tilt(&mut app, 0.0, 0.0);
+    core_testing::tick(&mut app, 50);
+    camera.shoot(&app, "home_watch");
+    core_testing::tick(&mut app, 200);
+    camera.shoot(&app, "home_listen");
+    core_testing::click_action(&mut app);
+    core_testing::set_tilt(&mut app, 0.0, 0.0);
+    core_testing::tick(&mut app, 2);
+    core_testing::click_action(&mut app);
+    camera.shoot(&app, "home_practice");
+    app.world_mut().resource_mut::<Home>().rig_next_try(true);
+    for i in 0..=10 {
+        app.world_mut()
+            .resource_mut::<orbit_core::Touch>()
+            .set(Some(Vec2::new(233.0, 330.0 - i as f32 * 12.0)));
+        app.update();
+    }
+    app.world_mut()
+        .resource_mut::<orbit_core::Touch>()
+        .set(None);
+    core_testing::tick(&mut app, 50);
+    camera.shoot(&app, "home_trying");
+    core_testing::tick(&mut app, 60);
+    camera.shoot(&app, "home_praise");
+    core_testing::tap(&mut app, Vec2::new(233.0, 230.0));
+    camera.shoot(&app, "home_good_fish");
 }
 
 fn arcade(camera: &mut Camera) {
@@ -378,6 +451,7 @@ impl Game {
     pub fn background(self) -> Rgb565 {
         match self {
             Game::Town => pals_game::town::BACKGROUND,
+            Game::Home => pals_game::home::BACKGROUND,
             Game::Arcade => arcade::BACKGROUND,
             Game::Orbit => orbit_game::BACKGROUND,
             Game::Angler => angler_game::BACKGROUND,

@@ -9,6 +9,7 @@
 extern crate alloc;
 
 pub mod fish;
+pub mod home;
 mod sprites;
 pub mod town;
 

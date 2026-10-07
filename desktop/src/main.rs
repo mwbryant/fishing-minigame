@@ -31,6 +31,7 @@ use orbit_game::OrbitPlugin;
 use orbit_gfx::Presenter;
 use pals_game::{
     Arrival, Place,
+    home::HomePlugin,
     town::{Town, TownPlugin},
 };
 use skate_game::SkatePlugin;
@@ -54,6 +55,7 @@ const TURN_DEG_PER_SEC: f32 = 60.0;
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum Game {
     Town,
+    Home,
     Arcade,
     Orbit,
     Angler,
@@ -66,6 +68,7 @@ impl Game {
     fn name(self) -> &'static str {
         match self {
             Game::Town => "town",
+            Game::Home => "home",
             Game::Arcade => "arcade",
             Game::Orbit => "orbit",
             Game::Angler => "angler",
@@ -78,6 +81,7 @@ impl Game {
     fn add_to(self, app: &mut App) {
         match self {
             Game::Town => app.add_plugins(TownPlugin),
+            Game::Home => app.add_plugins(HomePlugin),
             Game::Arcade => app.add_plugins(ArcadePlugin),
             Game::Orbit => app.add_plugins(OrbitPlugin),
             Game::Angler => app.add_plugins(AnglerPlugin),
@@ -90,6 +94,7 @@ impl Game {
     /// The app behind one of the town's doors, once it exists.
     fn behind(place: Place) -> Option<Self> {
         match place {
+            Place::Home => Some(Game::Home),
             Place::Pond => Some(Game::Angler),
             Place::Den => Some(Game::Spider),
             Place::Arcade => Some(Game::Skate),
@@ -123,6 +128,7 @@ fn main() {
     let args: Vec<String> = env::args().skip(1).collect();
     let (game, rest) = match args.first().map(String::as_str) {
         Some("town") => (Game::Town, &args[1..]),
+        Some("home") => (Game::Home, &args[1..]),
         Some("arcade") => (Game::Arcade, &args[1..]),
         Some("orbit") => (Game::Orbit, &args[1..]),
         Some("angler") => (Game::Angler, &args[1..]),

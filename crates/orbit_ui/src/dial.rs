@@ -20,6 +20,16 @@ pub fn dial_choice(steer_deg: f32, count: usize) -> usize {
     (ops::rem_euclid(dial_angle(steer_deg) + step / 2.0, 360.0) / step) as usize % count
 }
 
+/// A list's item for a device turn: level points at `start`, and each
+/// `LIST_STEP_DEG` clockwise moves one item down (counterclockwise, up).
+pub fn list_choice(steer_deg: f32, count: usize, start: usize) -> usize {
+    let steps = ops::round(steer_deg / LIST_STEP_DEG) as i32;
+    (start as i32 + steps).clamp(0, count as i32 - 1) as usize
+}
+
+/// The turn that moves a list one item.
+pub const LIST_STEP_DEG: f32 = 12.0;
+
 /// The screen point `radius` from the center at dial angle `deg`.
 pub fn dial_point(deg: f32, radius: f32) -> Point {
     let (sin, cos) = ops::sin_cos(deg.to_radians());
@@ -64,6 +74,18 @@ mod tests {
         assert_eq!(dial_choice(10.0, 12), 1);
         assert_eq!(dial_choice(-10.0, 12), 11);
         assert_eq!(dial_choice(120.0, 12), 0, "a full turn of the pointer");
+    }
+
+    #[test]
+    fn turning_clockwise_walks_down_a_list_and_stops_at_its_ends() {
+        assert_eq!(list_choice(0.0, 6, 0), 0);
+        assert_eq!(list_choice(5.0, 6, 0), 0);
+        assert_eq!(list_choice(12.0, 6, 0), 1);
+        assert_eq!(list_choice(48.0, 6, 0), 4);
+        assert_eq!(list_choice(200.0, 6, 0), 5);
+        assert_eq!(list_choice(-30.0, 6, 0), 0);
+        assert_eq!(list_choice(-12.0, 3, 1), 0, "level points at the start");
+        assert_eq!(list_choice(12.0, 3, 1), 2);
     }
 
     #[test]

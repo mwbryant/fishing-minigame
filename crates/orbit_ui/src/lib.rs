@@ -15,7 +15,9 @@ use bevy::math::Vec2;
 use orbit_core::{Battery, Clip, Power};
 use orbit_gfx::{Point, Rectangle, Rgb565, SCREEN_CENTER, Shape, Size, Sprite, SpriteRef};
 
-pub use dial::{DIAL_GAIN, dial_angle, dial_choice, dial_point, dial_pointer};
+pub use dial::{
+    DIAL_GAIN, LIST_STEP_DEG, dial_angle, dial_choice, dial_point, dial_pointer, list_choice,
+};
 pub use keys::{KEY_RING, KEYS, Key, KeyRing, key_center, key_ring, key_turn};
 
 pub const fn rgb(r: u8, g: u8, b: u8) -> Rgb565 {
