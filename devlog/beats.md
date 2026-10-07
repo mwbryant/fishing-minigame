@@ -288,3 +288,165 @@ Images are in `img/`. Newest beats go at the bottom.
   at runtime. It sits at 100 gold, between the cowboy and spider hats.
 - **The bees wear it too**, since Bees??? reads Angler's worn hat.
 - Images: `22-clown-hat-shop.png`, `22-clown-bees.png`.
+
+## 23. Fish Pals: the arcade becomes a town
+
+- **The ask:** "reconfigure into more of a game loop like Nintendogs":
+  - catch fish and keep three, named;
+  - walk them for stamina;
+  - teach them five tricks of varying rarity with the mics and touch;
+  - win gold in contests;
+  - Spider Roulette as the gambling den, Skate as an arcade cabinet and Bees??? as a tree,
+    all found on an overworld map.
+- **The architecture is the heap budget:**
+  - every place is its own Bevy app, built when you walk in and dropped when you leave;
+  - the town is the hub the board boots into;
+  - the kept fish, gold and hats pass between apps in one `PALS` save section, about 2.3 KB
+    for a full tank of taught fish.
+- **Walking around:** six round clearings joined by paths at the compass points.
+  - Turning the device walks you left and right; leaning walks you up and down; or tap
+    where to go.
+  - PWR at a door goes in, and you come back out at the same door.
+- Images: `23-town-home.png`, `23-town-main-street.png`.
+
+## 24. The pond: keep, name, release
+
+- **Catches pay no gold now:** the pond is where pets come from.
+  - A landed fish is KEEP (held level) or RELEASE (turned right).
+  - A full tank asks who goes back.
+- **Typing by turning:** A to Z, SPACE, DEL and OK ring the glass, and the turn points at
+  one, as the menus do.
+  - 29 keys at 3x gain is about 4 degrees of wrist per letter.
+  - A little hysteresis stops a hand held on a boundary flickering between two letters.
+  - DEL and OK sit just counterclockwise of A, a small turn left from level.
+- **Old saves:** the gold and hats from Angler's shop carry over into the tank, once.
+- Images: `24-keep-or-release.png`, `24-naming-by-turning.png`, `24-tank-full.png`.
+
+## 25. Voice commands without speech recognition
+
+- **The idea (Nintendogs' trick):** don't recognize words; recognize *your* words.
+  - Each word becomes a 145-byte print: five frequency bands' loudness plus the hiss, every
+    16 ms, stretched to 24 frames.
+  - A command is the nearest taught print by dynamic time warping, if it's near enough.
+- **Real speech for the tests:** macOS `say` made 20 clips (two voices, five trick words,
+  normal and fast). A test command is the fast version at 35% volume in room hiss, matched
+  against that speaker's normal recordings.
+- **First try: 9 of 10.** Fred's fast "flip" came out nearer his "jump".
+- **The cause was the soft "f":** at 35% volume it fell under the speech threshold, so the
+  listener heard "lip".
+  - Fred's slow "flip" lost 4 of its 32 frames; Daniel's fast one lost 3 of 12.
+  - Fix: cut each word's edges against its *own* peak (about -20 dB), with a longer
+    pre-roll, instead of a fixed threshold.
+  - Lengths came out identical at full and 35% volume, and all 10 matched.
+- **The threshold:** correct matches came out at 12 to 45, other words at 33 and up, a
+  whistle at 94 or more, so the cutoff is 60. A clap no longer even registers as a word.
+- Image: `25-say-a-word.png`.
+
+## 26. The GPS is on I2C
+
+- **The board:** it's the -G variant (SKU 31264), with a Quectel LC76G and a ceramic antenna.
+- **Research said:**
+  - The module talks over the shared I2C bus (0x50, 0x54, 0x58). The UART pads are
+    probably unpopulated (resistors marked NC).
+  - It has no power enable, so it draws about 36 mA whenever the board is on.
+  - A Quectel forum thread reports the I2C side locking up on a busy shared bus. Touch and
+    the IMU share this one.
+- **The game doesn't care where the bytes come from:** an NMEA parser (RMC and GGA, any
+  talker, checksummed) feeds a trail that:
+  - only counts once you're 8 m from the last counted spot, so jitter doesn't count;
+  - ignores fixes with an HDOP over 5;
+  - skips anything over 4.5 m/s (a car).
+- **MOCK WALK** in the town's settings strolls at 1.4 m/s through the same trail, for
+  indoors and the desktop.
+- **The mics share the speaker's clocks:** esp-hal's I2S signal loopback lets RX share TX's
+  BCLK/WS. So capture needs the speaker stream running, even if it's only silence.
+
+## 27. The house: a tank, cards and trick school
+
+- **The tank:** your fish swim in it wearing their hats. Turn to point at one; its card shows
+  species, size, stamina, appeal and the five tricks, coloured by rarity.
+- **Teaching:** watch the trick, then say a word twice into the mics or draw a stroke twice
+  (tap, hold, swipe four ways, or a circle either way). A word or stroke another trick
+  already uses is refused.
+- **Practice:** give the command and the fish tries, by how well it knows the trick. Pet it
+  right after a success to double the lesson.
+- **A bug the tests caught:** the petting tap also lifted as a Tap command, and its "LOOKS
+  PUZZLED" overwrote "GOOD FISH!".
+  - Fix: strokes are only read on screens waiting for a command.
+  - A press that starts anywhere else, petting included, is never one.
+- Images: `27-the-tank.png`, `27-a-card.png`, `27-pet-it.png`.
+
+## 28. Walks build stamina
+
+- **Levels:** stamina level is 1 + √(metres / 100), so levels come at 100 m, 400 m and 900 m.
+- **Saving:** progress saves every 25 m, so a flat battery loses little of a walk.
+- **On screen:** the fish rides in a bowl on wheels, the rim fills toward the next level,
+  and a level chimes as it comes.
+- Image: `28-a-mock-walk.png`.
+
+## 29. Contests, and a clock that ran at 60%
+
+- **The show:** 30 seconds of live commands.
+  - Each trick scores its rarity's points, raised by how well it's known, with a combo for
+    changing it up.
+  - Every few seconds a judge calls a trick, worth double if done in time.
+  - Each try costs stamina, and a spent fish ends its show.
+  - Looks (rarity, size, hat) add their appeal; three rivals decide the place.
+- **The bug:**
+  - the show kept time in hundredths of a second so it could compare exactly;
+  - each 1/60 s frame truncated to a single hundredth, so the show ran at 60% speed;
+  - five timing tests failed at once. Plain seconds fixed all five.
+- Images: `29-a-judge-wants.png`, `29-first-place.png`.
+
+## 30. The hat shop goes round
+
+- **Rotation first:** every hat rings the glass, turning points at one, and the mirror in
+  the middle shows your fish wearing it.
+- **Pacing, pinned by a test:** the first hat is one beginner win, and the crown costs more
+  than an expert win but one master win buys it.
+- Image: `30-hat-shop.png`.
+
+## 31. The den's odds
+
+- **Fair odds less a tenth:** with k safe eggs out of 12, the odds of having got that far
+  are (12 - k) in 12, so a bet is worth `stake x 12 x 90% / (12 - k)`.
+- **What that means:** cashing out after one egg loses money, 3 safe eggs pay 1.2x, and
+  trapping the spider pays 10.8x.
+- **Controls:** PWR still just spins (beat 20's lesson); CASH OUT is a tap.
+- Images: `31-place-your-bet.png`, `31-cash-out.png`.
+
+## 32. A 3 KB resource that cost 204 KB of heap
+
+- **heap32 flagged two apps:** the house peaked at 518 KB and the contest at 403 KB, against
+  a 284 KB budget. Both already cost about 400 KB just to *build*.
+- **Narrowing it down:** the one thing they shared was `MicPlugin`.
+  - A bare app was 172 KB; the same app plus `MicPlugin` was 376 KB.
+  - `MicPlugin` adds no systems, just the `Mic` resource, and the listener inside is only
+    3,248 bytes.
+- **The experiment:** a plain resource holding `[u8; 3248]` also cost 204 KB.
+- **The arithmetic:** 64 x 3,248 = 203 KB. Bevy 0.19 seems to keep resources in storage that
+  reserves room for about 64 of each, so a resource costs roughly 64 times its size in heap.
+- **The fix:** box the big part. `Mic` is now 8 bytes, the listener's 3 KB is a single heap
+  allocation, and the mic app went from 376 KB to 177 KB. The GPS buffer got the same
+  treatment.
+- **A second false alarm:** the house still spiked to 319 KB. That was the measurement's own
+  fault.
+  - The test helper that "says" a word built one 45 KB buffer of samples, which doubled
+    while it grew, and the harness held a 17 KB copy of the fixture.
+  - Streaming the samples (as a mic driver does) and a compile-time `static` fixture brought
+    the house to 211 KB.
+- **The rule now:** keep resources small (under about 100 bytes) and box anything bigger.
+- **Heap at peak, of 284 KB:**
+
+  | App | Peak |
+  |---|---|
+  | Shop | 189 KB |
+  | Spider Roulette | 191 KB |
+  | Town | 192 KB |
+  | Bees??? | 193 KB |
+  | Skate | 194 KB |
+  | Park | 202 KB |
+  | Contest | 204 KB |
+  | Angler (the pond) | 207 KB |
+  | House | 211 KB |
+  | Orbit | 265 KB |
