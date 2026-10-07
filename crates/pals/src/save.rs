@@ -1,5 +1,6 @@
 //! The `PALS` section of the board's save record, little-endian:
-//! `version | gold u32 | owned hats u32 | flags | pet count | pet*`.
+//! `version | gold u32 | owned hats u32 | flags | pet count | pet*`. Flags:
+//! bit 0 mock walks, bits 1-3 their pace (an index into `MOCK_PACES`).
 //! A pet is `species | tier | length u16 | size | name length | name 8 |
 //! hat (0xFF none) | walked u32 | trick*5`, and a trick is
 //! `id | learned | gesture (0 none) | has word | word print?`. Version 1's
@@ -15,12 +16,15 @@ use crate::{
     gesture::Gesture,
     pet::{MAX_NAME, Name, Pet, TrickSlot, Trigger},
     tricks::{TRICKS, TRICKS_PER_PET},
+    walk::MOCK_PACES,
 };
 
 pub const KEY: [u8; 4] = *b"PALS";
 const VERSION: u8 = 2;
 const OLD_PRINT_BYTES: usize = 145;
 const MOCK_WALK: u8 = 1;
+const PACE_SHIFT: u8 = 1;
+const PACE_BITS: u8 = 0b111;
 const NO_HAT: u8 = 0xFF;
 
 pub fn encode(pals: &Pals) -> Vec<u8> {
@@ -28,7 +32,8 @@ pub fn encode(pals: &Pals) -> Vec<u8> {
     out.push(VERSION);
     out.extend_from_slice(&pals.gold.to_le_bytes());
     out.extend_from_slice(&pals.owned_hats_mask().to_le_bytes());
-    out.push(if pals.mock_walk { MOCK_WALK } else { 0 });
+    let mock = if pals.mock_walk { MOCK_WALK } else { 0 };
+    out.push(mock | (pals.mock_pace as u8 & PACE_BITS) << PACE_SHIFT);
     out.push(pals.pets.len() as u8);
     for pet in &pals.pets {
         out.extend_from_slice(&[pet.species, pet.tier]);
@@ -64,7 +69,9 @@ pub fn decode(bytes: &[u8]) -> Option<Pals> {
         ..Pals::default()
     };
     pals.set_owned_hats(reader.u32()?);
-    pals.mock_walk = reader.byte()? & MOCK_WALK != 0;
+    let flags = reader.byte()?;
+    pals.mock_walk = flags & MOCK_WALK != 0;
+    pals.mock_pace = usize::from(flags >> PACE_SHIFT & PACE_BITS).min(MOCK_PACES.len() - 1);
     let count = usize::from(reader.byte()?);
     if count > MAX_PETS {
         return None;

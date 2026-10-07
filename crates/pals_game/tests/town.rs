@@ -213,12 +213,24 @@ fn settings_mute_the_board_and_turn_on_mock_walks_and_both_are_saved() {
     tap(&mut app, ui::SOUND.center());
     assert!(app.world().resource::<SoundQueue>().muted());
     tap(&mut app, ui::MOCK_WALK.center());
-    assert!(shows(&app, "SOUND OFF") && shows(&app, "MOCK WALK ON"));
+    assert!(shows(&app, "SOUND OFF") && shows(&app, "MOCK WALK x1"));
     let blob = saved(&mut app);
     assert!(preferences::muted(&blob));
     assert!(pals::save::load(&blob).mock_walk);
     tap(&mut app, ui::BACK.center());
     assert_eq!(state(&app).phase, TownPhase::Walking);
+}
+
+#[test]
+fn mock_walk_steps_through_its_paces_then_off() {
+    let mut app = open_settings();
+    for pace in ["x1", "x2", "x5", "x10", "x25"] {
+        tap(&mut app, ui::MOCK_WALK.center());
+        assert!(shows(&app, &format!("MOCK WALK {pace}")), "{pace}");
+    }
+    tap(&mut app, ui::MOCK_WALK.center());
+    assert!(shows(&app, "MOCK WALK OFF"));
+    assert!(!app.world().resource::<Pals>().mock_walk);
 }
 
 #[test]

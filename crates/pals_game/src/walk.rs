@@ -13,10 +13,10 @@ use orbit_core::{
 };
 use orbit_gfx::{Point, Rgb565, SCREEN_CENTER, Shape};
 use orbit_ui::{
-    CLICK, DEEP, GOLD, HINT, TEXT, TOAST, battery_level, dial_choice, dial_point, disc, label,
-    label_at, power_overlay, rect, rgb,
+    CLICK, DEEP, GOLD, HINT, TEXT, TOAST, battery_level, button, dial_choice, dial_point, disc,
+    label, label_at, power_overlay, rect, rgb,
 };
-use pals::{MockWalk, Pals, Trail};
+use pals::{MOCK_PACES, MockWalk, Pals, Trail};
 
 use crate::fish;
 
@@ -32,6 +32,14 @@ const LEVEL_UP_SECS: f32 = 10.0;
 /// Without a fix this long, the walk suggests a mock walk.
 pub const NO_SKY_SECS: f32 = 60.0;
 const NAME_RING: f32 = 160.0;
+
+pub mod ui {
+    pub use orbit_ui::Button;
+
+    /// On a mock walk: fast-forward it, or slow it back down.
+    pub const SLOWER: Button = Button::new(52, 306, 56, 44, "-");
+    pub const FASTER: Button = Button::new(358, 306, 56, 44, "+");
+}
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum WalkPhase {
@@ -136,7 +144,7 @@ fn stroll(
                     next = Some(WalkPhase::Walking {
                         pet,
                         trail: Trail::default(),
-                        mock: mock_walk.then(MockWalk::default),
+                        mock: mock_walk.then(|| MockWalk::at_pace(MOCK_PACES[pals.mock_pace])),
                         fraction_m: 0.0,
                         unsaved_m: 0.0,
                         secs: 0.0,
@@ -162,6 +170,21 @@ fn stroll(
             from_level,
         } => {
             *secs += dt;
+            if let Some(mock) = mock.as_mut() {
+                let faster = tap.is_some_and(|at| ui::FASTER.hit(at));
+                let slower = tap.is_some_and(|at| ui::SLOWER.hit(at));
+                let pace = match (faster, slower) {
+                    (true, _) => (pals.mock_pace + 1).min(MOCK_PACES.len() - 1),
+                    (_, true) => pals.mock_pace.saturating_sub(1),
+                    _ => pals.mock_pace,
+                };
+                if pace != pals.mock_pace {
+                    pals.mock_pace = pace;
+                    mock.set_pace(MOCK_PACES[pace]);
+                    save = true;
+                    sound.play(&CLICK);
+                }
+            }
             let fix = match mock {
                 Some(mock) => mock.step(dt),
                 None => fix,
@@ -180,7 +203,7 @@ fn stroll(
                 *levelled_at = Some(*secs);
                 sound.play(&angler_game::audio::CATCH);
             }
-            save = *unsaved_m >= SAVE_EVERY_M || pressed;
+            save |= *unsaved_m >= SAVE_EVERY_M || pressed;
             if save {
                 *unsaved_m = 0.0;
             }
@@ -243,7 +266,7 @@ fn draw_frame(
             let level = format!("STAMINA LV {}", fish.stamina_level());
             shapes.push(label(368, &level, 1, GOLD));
             let status = match (mock, gps.latest()) {
-                (Some(_), _) => "MOCK WALK".into(),
+                (Some(mock), _) => format!("MOCK WALK x{}", mock.pace() as u32),
                 (None, Some(_)) => format!("SATELLITES {}", gps.satellites),
                 (None, None) if *secs >= NO_SKY_SECS => "NO SKY? TRY MOCK WALK".into(),
                 (None, None) => "LOOKING FOR THE SKY".into(),
@@ -253,6 +276,10 @@ fn draw_frame(
                 shapes.push(label(104, "LEVEL UP!", 2, GOLD));
             }
             shapes.push(label(420, "PWR TO STOP", 1, HINT));
+            if mock.is_some() {
+                button(shapes, &ui::SLOWER);
+                button(shapes, &ui::FASTER);
+            }
         }
         WalkPhase::Done {
             pet,

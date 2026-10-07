@@ -132,25 +132,23 @@ fn settings(shapes: &mut Vec<Shape>, pals: &Pals, sound: &SoundQueue, pointed: u
     shapes.push(rect(0, 0, 466, 466, DEEP));
     shapes.push(label(170, "SETTINGS", 2, TEXT));
     shapes.push(label(292, "TURN TO PICK, PWR", 1, HINT));
-    let texts = [
-        if sound.muted() {
-            "SOUND OFF"
-        } else {
-            "SOUND ON"
-        },
-        if pals.mock_walk {
-            "MOCK WALK ON"
-        } else {
-            "MOCK WALK OFF"
-        },
-        "RESET",
-        "BACK",
-    ];
+    let mock = if pals.mock_walk {
+        format!("MOCK WALK x{}", pals::MOCK_PACES[pals.mock_pace] as u32)
+    } else {
+        "MOCK WALK OFF".into()
+    };
+    let sound = if sound.muted() {
+        "SOUND OFF"
+    } else {
+        "SOUND ON"
+    };
+    let texts = [sound, mock.as_str(), "RESET", "BACK"];
     for (i, (area, text)) in ui::SETTINGS_BUTTONS.iter().zip(texts).enumerate() {
         let frame = if i == pointed { GOLD } else { HINT };
         labelled_button(shapes, area, text, frame);
     }
     shapes.push(label(400, "MOCK WALKS STROLL ON THEIR OWN", 1, HINT));
+    shapes.push(label(418, "TAP AGAIN TO GO FASTER", 1, HINT));
 }
 
 fn confirm_reset(shapes: &mut Vec<Shape>, erase_pointed: bool) {

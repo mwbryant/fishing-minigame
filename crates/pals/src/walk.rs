@@ -18,6 +18,9 @@ pub const MAX_WALK_MPS: f32 = 4.5;
 /// The mock walker's pace and how often it reports.
 pub const MOCK_PACE_MPS: f32 = 1.4;
 const MOCK_FIX_SECS: f32 = 1.0;
+/// How many times walking pace a mock walk can go: a fast-forward, so its
+/// fixes still report walking pace and count like a walk.
+pub const MOCK_PACES: [f32; 5] = [1.0, 2.0, 5.0, 10.0, 25.0];
 
 /// The walk so far.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
@@ -49,10 +52,11 @@ impl Trail {
     }
 }
 
-/// A pretend walker meandering at [`MOCK_PACE_MPS`], reporting a fix each
-/// second like the receiver does.
+/// A pretend walker meandering at [`MOCK_PACE_MPS`] (times its fast-forward),
+/// reporting a fix each second like the receiver does.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct MockWalk {
+    times: f32,
     north_m: f32,
     east_m: f32,
     heading: f32,
@@ -63,6 +67,7 @@ pub struct MockWalk {
 impl Default for MockWalk {
     fn default() -> Self {
         Self {
+            times: 1.0,
             north_m: 0.0,
             east_m: 0.0,
             heading: 0.6,
@@ -73,12 +78,29 @@ impl Default for MockWalk {
 }
 
 impl MockWalk {
+    /// A mock walk going `times` walking pace.
+    pub fn at_pace(times: f32) -> Self {
+        Self {
+            times,
+            ..Self::default()
+        }
+    }
+
+    pub fn set_pace(&mut self, times: f32) {
+        self.times = times;
+    }
+
+    pub fn pace(&self) -> f32 {
+        self.times
+    }
+
     pub fn step(&mut self, dt: f32) -> Option<Fix> {
         self.secs += dt;
         self.heading += 0.15 * ops::sin(self.secs * 0.1) * dt;
         let (sin, cos) = ops::sin_cos(self.heading);
-        self.north_m += cos * MOCK_PACE_MPS * dt;
-        self.east_m += sin * MOCK_PACE_MPS * dt;
+        let stride = MOCK_PACE_MPS * self.times * dt;
+        self.north_m += cos * stride;
+        self.east_m += sin * stride;
         self.until_fix -= dt;
         if self.until_fix > 0.0 {
             return None;

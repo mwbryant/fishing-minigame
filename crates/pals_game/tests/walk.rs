@@ -67,7 +67,7 @@ fn a_mock_walk_strolls_on_its_own_and_counts_for_the_fish() {
     let mut app = park(&[("GILLY", 0.0)], true);
     assert!(shows(&app, "WHO IS WALKING?"));
     start_walking(&mut app);
-    assert!(shows(&app, "MOCK WALK"));
+    assert!(shows(&app, "MOCK WALK x1"));
     tick(&mut app, 60 * 120);
     let metres = walked(&app, 0);
     assert!((140..=200).contains(&metres), "two minutes made {metres} m");
@@ -142,4 +142,65 @@ fn done_goes_back_to_choosing_and_back_leaves() {
     app.update();
     click_action(&mut app);
     assert_eq!(app.should_exit(), Some(AppExit::Success));
+}
+
+fn park_at_pace(pace: usize) -> App {
+    let mut tank = Pals::default();
+    tank.mock_walk = true;
+    tank.mock_pace = pace;
+    tank.keep(Pet::new(
+        1,
+        0,
+        150,
+        50,
+        name("GILLY"),
+        &mut orbit_core::Rng::new(2),
+    ))
+    .unwrap();
+    let mut blob = SaveBlob::from_storage(None);
+    pals::save::store(&mut blob, &tank);
+    headless(
+        |app| {
+            app.add_plugins(WalkPlugin);
+        },
+        blob.take_pending(),
+    )
+}
+
+#[test]
+fn a_faster_mock_walk_covers_more_ground_in_the_same_time() {
+    let mut slow = park_at_pace(0);
+    start_walking(&mut slow);
+    assert!(shows(&slow, "MOCK WALK x1"));
+    tick(&mut slow, 60 * 30);
+    let mut fast = park_at_pace(3);
+    start_walking(&mut fast);
+    assert!(shows(&fast, "MOCK WALK x10"));
+    tick(&mut fast, 60 * 30);
+    let (slow_m, fast_m) = (walked(&slow, 0), walked(&fast, 0));
+    assert!((30..=48).contains(&slow_m), "x1 walked {slow_m} m");
+    assert!(fast_m > slow_m * 8, "x10 walked {fast_m} m");
+}
+
+#[test]
+fn faster_and_slower_change_the_pace_mid_walk_and_its_remembered() {
+    let mut app = park_at_pace(0);
+    start_walking(&mut app);
+    tap(&mut app, pals_game::walk::ui::FASTER.center());
+    tap(&mut app, pals_game::walk::ui::FASTER.center());
+    assert!(shows(&app, "MOCK WALK x5"));
+    tap(&mut app, pals_game::walk::ui::SLOWER.center());
+    assert!(shows(&app, "MOCK WALK x2"));
+    let pending = app.world_mut().resource_mut::<SaveBlob>().take_pending();
+    assert_eq!(
+        pals::save::load(&SaveBlob::from_storage(pending)).mock_pace,
+        1
+    );
+}
+
+#[test]
+fn a_real_walk_has_no_pace_buttons() {
+    let mut app = park(&[("GILLY", 0.0)], false);
+    start_walking(&mut app);
+    assert!(!shows(&app, "+") && !shows(&app, "-"));
 }

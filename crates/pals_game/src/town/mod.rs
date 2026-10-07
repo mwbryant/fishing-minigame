@@ -299,7 +299,12 @@ fn roam(
                     preferences::set_muted(&mut blob, &mut sound, muted);
                 }
                 Some(1) => {
-                    pals.mock_walk = !pals.mock_walk;
+                    // Off, then each pace in turn, then off again.
+                    match (pals.mock_walk, pals.mock_pace + 1 < pals::MOCK_PACES.len()) {
+                        (false, _) => (pals.mock_walk, pals.mock_pace) = (true, 0),
+                        (true, true) => pals.mock_pace += 1,
+                        (true, false) => (pals.mock_walk, pals.mock_pace) = (false, 0),
+                    }
                     pals::save::store(&mut blob, &pals);
                 }
                 Some(2) => town.phase = TownPhase::ConfirmReset,

@@ -200,6 +200,11 @@ fn park(camera: &mut Camera) {
     camera.shoot(&app, "park_walking");
     core_testing::tick(&mut app, 60 * 12);
     camera.shoot(&app, "park_level_up");
+    for _ in 0..2 {
+        core_testing::tap(&mut app, pals_game::walk::ui::FASTER.center());
+    }
+    core_testing::tick(&mut app, 60 * 2);
+    camera.shoot(&app, "park_fast_forward");
     core_testing::click_action(&mut app);
     camera.shoot(&app, "park_done");
 }

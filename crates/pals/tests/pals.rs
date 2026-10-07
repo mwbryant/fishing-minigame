@@ -217,6 +217,7 @@ fn the_tank_gold_hats_and_taught_words_survive_the_save_record() {
     pals.earn(77);
     pals.buy_hat(2);
     pals.mock_walk = true;
+    pals.mock_pace = 3;
     for word in ["fred-spin-170", "fred-flip-170", "fred-bubbles-170"] {
         let mut pet = pet(3, &mut rng);
         pet.walk(1234.5);
