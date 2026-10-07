@@ -13,6 +13,7 @@
 //! ```
 
 mod device;
+mod microphone;
 mod panel;
 mod snapshots;
 mod speaker;
@@ -28,7 +29,7 @@ use bees_game::BeesPlugin;
 use bevy::prelude::*;
 use minifb::{Key, MouseButton, MouseMode, Window, WindowOptions};
 use orbit_core::{
-    Battery, Buttons, Frame, ImuFeed, Launcher, Power, Rng, SaveBlob, SoundQueue, Touch,
+    Battery, Buttons, Frame, ImuFeed, Launcher, Mic, Power, Rng, SaveBlob, SoundQueue, Touch,
 };
 use orbit_game::OrbitPlugin;
 use orbit_gfx::Presenter;
@@ -45,6 +46,7 @@ use spider_game::SpiderPlugin;
 
 use crate::{
     device::{SaveFile, VirtualDevice},
+    microphone::Microphone,
     panel::{RamPanel, SIZE},
     speaker::Speaker,
 };
@@ -163,7 +165,7 @@ fn play(boot: Game) {
         Window::new("Orbit board", SIZE, SIZE, WindowOptions::default()).expect("open window");
     window.set_target_fps(60);
     let mut save = SaveFile::open(boot.name());
-    let mut speaker = None;
+    let mut sound = Sound::default();
     let mut pixels = vec![0u32; SIZE * SIZE];
     let mut next = boot;
     let mut arrival = None;
@@ -175,7 +177,7 @@ fn play(boot: Game) {
             arrival,
             &mut window,
             &mut save,
-            &mut speaker,
+            &mut sound,
             &mut pixels,
         ) {
             Ended::Closed => return,
@@ -196,6 +198,15 @@ fn play(boot: Game) {
     }
 }
 
+/// The laptop's speaker and microphone, each opened the first time an app
+/// wants it and kept for the next.
+#[derive(Default)]
+struct Sound {
+    speaker: Option<Speaker>,
+    microphone: Option<Microphone>,
+    microphone_tried: bool,
+}
+
 /// One app, like one boot of the board: runs until the window closes, the
 /// app asks to sleep, or it exits (the town at a door, or a game going back
 /// out). `launched` games offer OUT.
@@ -205,7 +216,7 @@ fn run(
     arrival: Option<Place>,
     window: &mut Window,
     save: &mut SaveFile,
-    speaker: &mut Option<Speaker>,
+    sound: &mut Sound,
     pixels: &mut [u32],
 ) -> Ended {
     let seed = SystemTime::now()
@@ -230,8 +241,12 @@ fn run(
             charging: false,
         });
     }
-    if speaker.is_none() && app.world().contains_resource::<SoundQueue>() {
-        *speaker = Some(Speaker::open());
+    if sound.speaker.is_none() && app.world().contains_resource::<SoundQueue>() {
+        sound.speaker = Some(Speaker::open());
+    }
+    if !sound.microphone_tried && app.world().contains_resource::<Mic>() {
+        sound.microphone_tried = true;
+        sound.microphone = Microphone::open();
     }
 
     let mut panel = RamPanel::new();
@@ -244,11 +259,15 @@ fn run(
         let dt = last_frame.elapsed().as_secs_f32();
         last_frame = Instant::now();
         feed_inputs(window, app.world_mut(), &mut device, dt);
+        if let Some(microphone) = sound.microphone.as_mut() {
+            let mic = app.world_mut().get_resource_mut::<Mic>();
+            microphone.drain(mic.map(Mut::into_inner));
+        }
         app.update();
         if let Some(bytes) = app.world_mut().resource_mut::<SaveBlob>().take_pending() {
             save.save(&bytes);
         }
-        if let Some(speaker) = speaker.as_mut() {
+        if let Some(speaker) = sound.speaker.as_mut() {
             for command in app.world_mut().resource_mut::<SoundQueue>().drain() {
                 speaker.apply(command);
             }
