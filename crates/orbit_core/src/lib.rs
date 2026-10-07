@@ -8,6 +8,7 @@
 extern crate alloc;
 
 mod buttons;
+mod gps;
 mod mic;
 mod motion;
 mod power;
@@ -24,6 +25,7 @@ use bevy::{prelude::*, time::TimePlugin};
 use orbit_gfx::Shape;
 
 pub use buttons::{ButtonState, Buttons};
+pub use gps::{Fix, Gps, GpsPlugin};
 pub use mic::{Mic, MicPlugin};
 pub use motion::{ImuFeed, Tilt};
 pub use orbit_audio::{
