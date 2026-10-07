@@ -3,9 +3,10 @@
 //!
 //! Turn the device like a steering wheel to aim, hold the action button to
 //! charge the cast (release to throw), then lean the device forward and back
-//! to keep the fish inside the catch zone. Catches earn gold that buys hats
-//! in the shop; the log, settings, gold and hats persist through
-//! `orbit_core::SaveBlob`. The zero button re-levels the IMU at any time.
+//! to keep the fish inside the catch zone. In Fish Pals this is the pond: a
+//! catch can be kept, named by turning, and put in the tank (`pals`). The
+//! log and settings persist through `orbit_core::SaveBlob`. The zero button
+//! re-levels the IMU at any time.
 
 #![no_std]
 
@@ -19,7 +20,6 @@ pub mod reel;
 pub mod save;
 pub mod session;
 pub mod settings;
-pub mod shop;
 pub mod species;
 pub mod sprites;
 pub mod testing;
@@ -33,7 +33,6 @@ pub use draw::{BACKGROUND, PREVIEW_DOT, length_text, weight_text};
 pub use log::{FishLog, Milestones};
 pub use session::{Phase, Session};
 pub use settings::{Difficulty, Settings};
-pub use shop::{HATS, Hat, Inventory};
 pub use species::{Catch, SPECIES};
 
 pub struct AnglerPlugin;

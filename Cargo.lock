@@ -69,6 +69,7 @@ dependencies = [
  "orbit_core",
  "orbit_gfx",
  "orbit_ui",
+ "pals",
 ]
 
 [[package]]
@@ -146,11 +147,11 @@ checksum = "7b7e4c2464d97fe331d41de9d5db0def0a96f4d823b8b32a2efd503578988973"
 name = "bees_game"
 version = "0.1.0"
 dependencies = [
- "angler_game",
  "bevy",
  "orbit_core",
  "orbit_gfx",
  "orbit_ui",
+ "pals",
 ]
 
 [[package]]
@@ -1509,6 +1510,8 @@ dependencies = [
  "orbit_gfx",
  "orbit_motion",
  "orbit_save",
+ "orbit_ui",
+ "pals",
  "png",
  "rtrb",
  "skate_game",

@@ -6,6 +6,8 @@ use core::cell::Cell;
 use bevy::app::AppExit;
 use bevy::prelude::*;
 use orbit_core::{Buttons, Clip, Launcher, Power, Rng, SaveBlob, SoundQueue, Tilt, Touch};
+use orbit_ui::{Key, KeyRing, dial_choice};
+use pals::{Name, Pals, Pet};
 
 use crate::{
     audio::{self, GUTEN_MORGEN},
@@ -14,7 +16,6 @@ use crate::{
     reel::{Reel, ReelOutcome},
     save,
     settings::Settings,
-    shop::{HATS, Inventory},
     species::{Catch, roll_catch},
     ui,
 };
@@ -32,18 +33,18 @@ pub const NOTICE_SECS: f32 = 1.4;
 pub const TOAST_SECS: f32 = 1.2;
 /// The reel clicks each time the catch meter rises by this much.
 pub const REEL_CLICK_STEP: f32 = 0.03;
+/// On the catch screen, turning right past this points at RELEASE.
+pub const RELEASE_TURN_DEG: f32 = 10.0;
+/// The swap screen's options, clockwise from 12 o'clock: the three kept fish,
+/// then letting the new catch go.
+pub const SWAP_CHOICES: usize = 4;
+pub const LET_IT_GO: usize = 3;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Phase {
     Title,
     Log,
     Settings,
-    /// Asks before erasing the fish log, gold and hats.
-    ConfirmReset,
-    /// Browsing the hat shelf; `hat` is the one in the mirror.
-    Shop {
-        hat: usize,
-    },
     /// The easter egg: the spinning fish and its song.
     Guten,
     /// Aiming by rotation; `charging_secs` counts while the action button is held.
@@ -69,9 +70,21 @@ pub enum Phase {
         reel: Reel,
         catch: Catch,
     },
+    /// Landed: KEEP it (held level) or RELEASE it (turned right).
     Caught {
         catch: Catch,
         milestones: Milestones,
+    },
+    /// The tank is full: which kept fish to let go, or the new catch.
+    Swap {
+        catch: Catch,
+    },
+    /// Typing the new fish's name; it takes tank slot `replacing`, or a new one.
+    Naming {
+        catch: Catch,
+        ring: KeyRing,
+        name: Name,
+        replacing: Option<usize>,
     },
     Escaped,
     /// A short message, then back to aiming.
@@ -118,7 +131,7 @@ pub(crate) fn plugin(app: &mut App) {
     app.init_resource::<Session>()
         .init_resource::<FishLog>()
         .init_resource::<Settings>()
-        .init_resource::<Inventory>()
+        .init_resource::<Pals>()
         .add_systems(Startup, (load_save, first_spot))
         .add_systems(Update, play)
         .add_systems(FixedUpdate, simulate);
@@ -128,15 +141,13 @@ fn load_save(
     blob: Res<SaveBlob>,
     mut log: ResMut<FishLog>,
     mut settings: ResMut<Settings>,
-    mut inventory: ResMut<Inventory>,
+    mut pals: ResMut<Pals>,
 ) {
-    if let Some((saved_log, saved_settings, saved_inventory)) =
-        blob.section(&save::KEY).and_then(save::decode)
-    {
+    if let Some((saved_log, saved_settings)) = blob.section(&save::KEY).and_then(save::decode) {
         *log = saved_log;
         *settings = saved_settings;
-        *inventory = saved_inventory;
     }
+    *pals = pals::save::load(&blob);
 }
 
 fn first_spot(mut session: ResMut<Session>, mut rng: ResMut<Rng>) {
@@ -149,9 +160,9 @@ fn play(
     buttons: Res<Buttons>,
     mut tilt: ResMut<Tilt>,
     touch: Res<Touch>,
-    mut log: ResMut<FishLog>,
+    log: Res<FishLog>,
     mut settings: ResMut<Settings>,
-    mut inventory: ResMut<Inventory>,
+    mut pals: ResMut<Pals>,
     mut rng: ResMut<Rng>,
     mut session: ResMut<Session>,
     mut blob: ResMut<SaveBlob>,
@@ -185,10 +196,12 @@ fn play(
     let results_open = elapsed >= RESULT_GUARD_SECS;
     let tuning = settings.difficulty.tuning();
     let mut next_fish = false;
+    let mut level_now = false;
     let mut difficulty_change = None;
-    let mut inventory_changed = false;
-    let mut erase = false;
+    let mut kept = None;
     let mut sfx: Option<&'static Clip> = None;
+    let release_pointed = tilt.steer_deg >= RELEASE_TURN_DEG;
+    let full = pals.is_full();
     let next = match &mut session.phase {
         Phase::Title if launcher.is_some() && tapped(&ui::HOME) => {
             exit.write(AppExit::Success);
@@ -196,9 +209,6 @@ fn play(
         }
         Phase::Title if action.pressed() => Some(aim()),
         Phase::Title if tapped(&ui::LOG) => Some(Phase::Log),
-        Phase::Title if tapped(&ui::SHOP) => Some(Phase::Shop {
-            hat: inventory.worn(),
-        }),
         Phase::Title if tapped(&ui::SETTINGS) => Some(Phase::Settings),
         Phase::Log if action.pressed() || tap => Some(Phase::Title),
         Phase::Settings if tapped(&ui::HARDER) => {
@@ -213,34 +223,7 @@ fn play(
             sfx = Some(&GUTEN_MORGEN);
             Some(Phase::Guten)
         }
-        Phase::Settings if tapped(&ui::RESET) => Some(Phase::ConfirmReset),
         Phase::Settings if tapped(&ui::BACK) || action.pressed() => Some(Phase::Title),
-        Phase::ConfirmReset if tapped(&ui::ERASE) => {
-            erase = true;
-            Some(Phase::Settings)
-        }
-        Phase::ConfirmReset if tapped(&ui::KEEP) || action.pressed() => Some(Phase::Settings),
-        Phase::Shop { hat } if tapped(&ui::NEXT_HAT) => {
-            *hat = (*hat + 1) % HATS.len();
-            None
-        }
-        Phase::Shop { hat } if tapped(&ui::PREVIOUS_HAT) => {
-            *hat = (*hat + HATS.len() - 1) % HATS.len();
-            None
-        }
-        // BUY and WEAR share a spot: buying puts the hat on, and an owned
-        // hat is just worn.
-        Phase::Shop { hat } if tapped(&ui::BUY) => {
-            let bought = inventory.buy(*hat);
-            inventory_changed = bought || inventory.wear(*hat);
-            sfx = Some(match (bought, inventory_changed) {
-                (true, _) => &audio::COIN,
-                (false, true) => &audio::CLICK,
-                (false, false) => &audio::THUD,
-            });
-            None
-        }
-        Phase::Shop { .. } if tapped(&ui::BACK) || action.pressed() => Some(Phase::Title),
         Phase::Guten
             if elapsed >= GUTEN_MORGEN.duration_secs()
                 || (elapsed >= GUTEN_GUARD_SECS && (tap || action.pressed())) =>
@@ -304,9 +287,68 @@ fn play(
             reel: Reel::with_tuning(catch.species(), &tuning, &mut rng),
             catch: *catch,
         }),
-        Phase::Caught { .. } if results_open && (action.pressed() || tap) => {
+        Phase::Caught { catch, .. }
+            if results_open
+                && (tapped(&ui::KEEP_FISH) || (action.pressed() && !release_pointed)) =>
+        {
+            level_now = true;
+            Some(if full {
+                Phase::Swap { catch: *catch }
+            } else {
+                naming(*catch, None)
+            })
+        }
+        Phase::Caught { .. } if results_open && (tapped(&ui::RELEASE_FISH) || action.pressed()) => {
             next_fish = true;
             Some(aim())
+        }
+        Phase::Swap { catch } => {
+            let picked = if action.pressed() {
+                Some(dial_choice(tilt.steer_deg, SWAP_CHOICES))
+            } else {
+                ui::SWAP_SLOTS.iter().position(&tapped)
+            };
+            match picked {
+                Some(LET_IT_GO) => {
+                    next_fish = true;
+                    Some(aim())
+                }
+                Some(slot) => {
+                    level_now = true;
+                    Some(naming(*catch, Some(slot)))
+                }
+                None => None,
+            }
+        }
+        Phase::Naming {
+            catch,
+            ring,
+            name,
+            replacing,
+        } => {
+            let pointed = ring.point(tilt.steer_deg);
+            let key = match (action.pressed(), tap) {
+                (true, _) => Some(pointed),
+                (false, true) => touch.position().and_then(KeyRing::key_at),
+                (false, false) => None,
+            };
+            let typed = match key {
+                Some(Key::Letter(letter)) => name.push(letter),
+                Some(Key::Space) => !name.is_empty() && name.push(' '),
+                Some(Key::Delete) => {
+                    name.pop();
+                    true
+                }
+                Some(Key::Done) if !name.is_empty() => {
+                    kept = Some((*catch, *name, *replacing));
+                    true
+                }
+                Some(Key::Done) | None => false,
+            };
+            if key.is_some() {
+                sfx = Some(if typed { &audio::CLICK } else { &audio::THUD });
+            }
+            kept.is_some().then_some(Phase::Notice("IN THE TANK!"))
         }
         Phase::Escaped
             if (results_open && (action.pressed() || tap)) || elapsed >= ESCAPED_SECS =>
@@ -320,19 +362,28 @@ fn play(
     if let Some(clip) = sfx.or(hit_button.get().then_some(&audio::CLICK)) {
         sound.play(clip);
     }
+    if let Some((catch, name, replacing)) = kept {
+        let pet = pet_from(&catch, name, &mut rng);
+        match replacing {
+            Some(slot) => {
+                pals.swap(slot, pet);
+            }
+            None => {
+                pals.keep(pet).ok();
+            }
+        }
+        pals::save::store(&mut blob, &pals);
+        next_fish = true;
+    }
     if next_fish {
         session.move_spot(&mut rng);
+    }
+    if next_fish || level_now {
         tilt.request_zero();
     }
     if let Some(difficulty) = difficulty_change {
         settings.difficulty = difficulty;
-    }
-    if erase {
-        *log = FishLog::default();
-        *inventory = Inventory::default();
-    }
-    if difficulty_change.is_some() || inventory_changed || erase {
-        blob.save_section(save::KEY, save::encode(&log, &settings, &inventory));
+        blob.save_section(save::KEY, save::encode(&log, &settings));
     }
     if let Some(phase) = next {
         session.enter(phase);
@@ -342,12 +393,11 @@ fn play(
 #[allow(clippy::too_many_arguments)]
 fn simulate(
     time: Res<Time>,
-    tilt: Res<Tilt>,
+    mut tilt: ResMut<Tilt>,
     settings: Res<Settings>,
     mut rng: ResMut<Rng>,
     mut session: ResMut<Session>,
     mut log: ResMut<FishLog>,
-    mut inventory: ResMut<Inventory>,
     mut blob: ResMut<SaveBlob>,
     mut sound: ResMut<SoundQueue>,
 ) {
@@ -377,9 +427,9 @@ fn simulate(
             outcome.map(|outcome| match outcome {
                 ReelOutcome::Landed => {
                     let milestones = log.record(catch);
-                    inventory.earn(catch.gold());
-                    blob.save_section(save::KEY, save::encode(&log, &settings, &inventory));
+                    blob.save_section(save::KEY, save::encode(&log, &settings));
                     sound.play(&audio::CATCH);
+                    tilt.request_zero();
                     Phase::Caught {
                         catch: *catch,
                         milestones,
@@ -402,4 +452,25 @@ fn aim() -> Phase {
     Phase::Aim {
         charging_secs: None,
     }
+}
+
+fn naming(catch: Catch, replacing: Option<usize>) -> Phase {
+    Phase::Naming {
+        catch,
+        ring: KeyRing::default(),
+        name: Name::default(),
+        replacing,
+    }
+}
+
+/// A landed fish as a pet: its species, tier and size.
+fn pet_from(catch: &Catch, name: Name, rng: &mut Rng) -> Pet {
+    Pet::new(
+        catch.species as u8,
+        catch.species().tier,
+        catch.length_mm,
+        catch.size_pct(),
+        name,
+        rng,
+    )
 }

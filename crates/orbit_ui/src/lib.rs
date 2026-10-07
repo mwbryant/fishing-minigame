@@ -16,7 +16,7 @@ use orbit_core::{Battery, Clip, Power};
 use orbit_gfx::{Point, Rectangle, Rgb565, SCREEN_CENTER, Shape, Size, Sprite, SpriteRef};
 
 pub use dial::{DIAL_GAIN, dial_angle, dial_choice, dial_point, dial_pointer};
-pub use keys::{KEY_RING, KEYS, Key, KeyRing, key_ring};
+pub use keys::{KEY_RING, KEYS, Key, KeyRing, key_center, key_ring, key_turn};
 
 pub const fn rgb(r: u8, g: u8, b: u8) -> Rgb565 {
     Rgb565::new(r >> 3, g >> 2, b >> 3)
@@ -114,6 +114,33 @@ pub fn disc(x: i32, y: i32, radius: u32, color: Rgb565) -> Shape {
         radius,
         color,
     }
+}
+
+/// A gold coin, shown beside gold amounts.
+pub static COIN: Sprite = Sprite {
+    rows: &[".KKK.", "KYYOK", "KYOOK", "KYOOK", ".KKK."],
+    palette: &[
+        (b'K', rgb(120, 80, 10)),
+        (b'Y', rgb(255, 230, 120)),
+        (b'O', rgb(240, 180, 40)),
+    ],
+};
+
+/// Gold-colored text with a coin in front.
+pub fn gold_label(shapes: &mut Vec<Shape>, center: Point, text: &str, scale: u32) {
+    let text = label_at(center, text, scale, GOLD);
+    let coin_scale = scale * 2;
+    let coin = COIN.size() * coin_scale;
+    shapes.push(Shape::Sprite {
+        sprite: SpriteRef(&COIN),
+        top_left: Point::new(
+            text.bounds().top_left.x - coin.width as i32 - 4 * scale as i32,
+            center.y - coin.height as i32 / 2,
+        ),
+        scale: coin_scale,
+        flip_x: false,
+    });
+    shapes.push(text);
 }
 
 /// Charging, beside the battery level.

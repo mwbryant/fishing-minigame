@@ -7,7 +7,9 @@ use alloc::{format, vec::Vec};
 use bevy::math::{Vec2, ops};
 use orbit_gfx::{Point, Rgb565, Shape};
 
-use crate::{DEEP, GOLD, HINT, TEXT, dial::dial_angle, dial_point, disc, label, label_at};
+use crate::{
+    DEEP, DIAL_GAIN, GOLD, HINT, TEXT, dial::dial_angle, dial_point, disc, label, label_at,
+};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Key {
@@ -93,6 +95,21 @@ impl KeyRing {
     }
 }
 
+/// The device turn that points straight at `key`, for scripted typing.
+pub fn key_turn(key: Key) -> f32 {
+    let index = KEYS.iter().position(|k| *k == key).unwrap_or(0);
+    let deg = index as f32 * STEP_DEG;
+    let deg = if deg > 180.0 { deg - 360.0 } else { deg };
+    deg / DIAL_GAIN
+}
+
+/// Where `key` sits on the glass, for scripted taps.
+pub fn key_center(key: Key) -> Vec2 {
+    let index = KEYS.iter().position(|k| *k == key).unwrap_or(0);
+    let center = dial_point(index as f32 * STEP_DEG, KEY_RING);
+    Vec2::new(center.x as f32, center.y as f32)
+}
+
 /// The ring of keys with the pointed one lit, `title` and `typed` (with a
 /// cursor) in the middle, and the controls below. OK shows dim until
 /// `can_finish`.
@@ -128,13 +145,9 @@ pub fn key_ring(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::DIAL_GAIN;
 
-    /// The device turn that points straight at key `index`.
     fn turn_to(index: usize) -> f32 {
-        let deg = index as f32 * STEP_DEG;
-        let deg = if deg > 180.0 { deg - 360.0 } else { deg };
-        deg / DIAL_GAIN
+        key_turn(KEYS[index])
     }
 
     #[test]

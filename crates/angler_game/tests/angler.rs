@@ -1,5 +1,5 @@
 use angler_game::{
-    Catch, Difficulty, FishLog, GUTEN_MORGEN, HATS, Inventory, Phase, Session, Settings, audio,
+    Catch, Difficulty, FishLog, GUTEN_MORGEN, Phase, Session, Settings, audio,
     cast::{self, CHARGE_SECS, Flight, scene::WATER_Y},
     reel::{LEAN_DEAD_ZONE_DEG, LEAN_FULL_DEG},
     save,
@@ -10,7 +10,9 @@ use angler_game::{
 };
 use bevy::prelude::*;
 use orbit_core::{Buttons, ClipRef, Frame, SaveBlob, SoundCommand, SoundQueue};
-use orbit_gfx::{Point, Shape, Sprite, SpriteRef};
+use orbit_gfx::{Point, Shape, SpriteRef};
+use orbit_ui::{Key, key_center, key_turn};
+use pals::{Name, Pals, Pet};
 
 const SCREEN_CENTER: Vec2 = Vec2::splat(233.0);
 
@@ -312,7 +314,7 @@ fn presses_right_after_a_catch_do_not_skip_the_result() {
     assert!(matches!(phase(&app), Phase::Caught { .. }));
     tick(&mut app, (RESULT_GUARD_SECS * 60.0) as u32);
     click_action(&mut app);
-    assert!(matches!(phase(&app), Phase::Aim { .. }));
+    assert!(matches!(phase(&app), Phase::Naming { .. }));
 }
 
 #[test]
@@ -418,7 +420,7 @@ fn the_arrows_step_the_difficulty_and_each_change_is_saved() {
         .take_pending()
         .and_then(|b| save::decode_stored(&b));
     assert_eq!(
-        saved.map(|(_, settings, _)| settings.difficulty),
+        saved.map(|(_, settings)| settings.difficulty),
         Some(Difficulty::Hard)
     );
     tap(&mut app, ui::HARDER.center());
@@ -532,215 +534,186 @@ fn a_tap_stops_guten_early() {
     assert_eq!(sounds(&app).last(), Some(&SoundCommand::Stop));
 }
 
-fn inventory(app: &App) -> Inventory {
-    *app.world().resource::<Inventory>()
-}
-
-fn give_gold(app: &mut App, gold: u32) {
-    app.world_mut().resource_mut::<Inventory>().earn(gold);
-}
-
-fn saved_inventory(app: &mut App) -> Option<Inventory> {
-    let pending = app.world_mut().resource_mut::<SaveBlob>().take_pending();
-    pending
-        .and_then(|bytes| save::decode_stored(&bytes))
-        .map(|(.., inventory)| inventory)
-}
-
-fn sprite_drawn(app: &App, sprite: &'static Sprite) -> bool {
+fn sprite_drawn(app: &App, sprite: &'static orbit_gfx::Sprite) -> bool {
     app.world().resource::<Frame>().shapes.iter().any(
         |shape| matches!(shape, Shape::Sprite { sprite: drawn, .. } if *drawn == SpriteRef(sprite)),
     )
 }
 
-fn open_shop(app: &mut App) {
-    tap(app, ui::SHOP.center());
-    assert!(matches!(phase(app), Phase::Shop { .. }), "{:?}", phase(app));
+fn tank(app: &App) -> &Pals {
+    app.world().resource::<Pals>()
 }
 
-fn browse_to(app: &mut App, hat: usize) {
-    for _ in 0..HATS.len() {
-        if phase(app) == (Phase::Shop { hat }) {
-            return;
-        }
-        tap(app, ui::NEXT_HAT.center());
+/// Lands a fish with a steady hand and waits out the result guard.
+fn land_a_fish(app: &mut App) -> Catch {
+    hook_a_fish(app);
+    reel_skillfully(app);
+    let Phase::Caught { catch, .. } = phase(app) else {
+        panic!("expected a catch, got {:?}", phase(app));
+    };
+    tick(app, (RESULT_GUARD_SECS * 60.0) as u32);
+    catch
+}
+
+/// Turns to `key` and presses PWR, as the player types.
+fn press_key(app: &mut App, key: Key) {
+    set_tilt(app, key_turn(key), 0.0);
+    tick(app, 1);
+    click_action(app);
+}
+
+fn type_name(app: &mut App, name: &str) {
+    for letter in name.chars() {
+        let key = if letter == ' ' {
+            Key::Space
+        } else {
+            Key::Letter(letter)
+        };
+        press_key(app, key);
     }
-    panic!("never reached hat {hat}");
+    press_key(app, Key::Done);
 }
 
-const BEANIE: usize = 1;
-const BALL_CAP: usize = 2;
+fn saved_tank(app: &mut App) -> Option<Pals> {
+    let pending = app.world_mut().resource_mut::<SaveBlob>().take_pending()?;
+    Some(pals::save::load(&SaveBlob::from_storage(Some(pending))))
+}
+
+/// A save record whose tank holds the first `count` of ONE, TWO and THREE.
+fn tank_of(count: usize) -> Vec<u8> {
+    let mut tank = Pals::default();
+    let mut rng = orbit_core::Rng::new(3);
+    for text in ["ONE", "TWO", "THREE"].into_iter().take(count) {
+        let mut name = Name::default();
+        text.chars().for_each(|c| assert!(name.push(c)));
+        assert!(tank.keep(Pet::new(0, 0, 80, 50, name, &mut rng)).is_ok());
+    }
+    let mut blob = SaveBlob::from_storage(None);
+    pals::save::store(&mut blob, &tank);
+    blob.take_pending().expect("a record")
+}
+
+fn names(app: &App) -> Vec<String> {
+    tank(app)
+        .pets
+        .iter()
+        .map(|pet| pet.name.as_str().into())
+        .collect()
+}
 
 #[test]
-fn landing_a_fish_pays_its_gold_and_saves_it() {
+fn a_landed_fish_can_be_kept_named_by_turning_and_joins_the_tank() {
     let mut app = headless_app();
+    let catch = land_a_fish(&mut app);
+    assert!(shows(&app, "KEEP") && shows(&app, "RELEASE"));
+    assert!(
+        !labels(&app).iter().any(|l| l.contains("GOLD")),
+        "catches pay no gold"
+    );
+    click_action(&mut app);
+    assert!(matches!(phase(&app), Phase::Naming { .. }));
+    assert!(shows(&app, "NAME YOUR FISH"));
+    type_name(&mut app, "GIL");
+    assert!(shows(&app, "IN THE TANK!"));
+    assert_eq!(names(&app), ["GIL"]);
+    let pet = &tank(&app).pets[0];
+    assert_eq!(
+        (usize::from(pet.species), pet.length_mm),
+        (catch.species, catch.length_mm)
+    );
+    assert_eq!(pet.tier, catch.species().tier);
+    assert_eq!(
+        saved_tank(&mut app).map(|saved| saved.pets.len()),
+        Some(1),
+        "the tank is saved"
+    );
+    tick(&mut app, (NOTICE_SECS * 60.0) as u32 + 1);
+    assert!(matches!(phase(&app), Phase::Aim { .. }));
+}
+
+#[test]
+fn ok_waits_for_a_name_and_del_takes_a_letter_back() {
+    let mut app = headless_app();
+    land_a_fish(&mut app);
+    click_action(&mut app);
+    press_key(&mut app, Key::Done);
+    assert!(matches!(phase(&app), Phase::Naming { .. }), "no name yet");
+    press_key(&mut app, Key::Letter('A'));
+    press_key(&mut app, Key::Letter('B'));
+    assert!(shows(&app, "AB_"));
+    press_key(&mut app, Key::Delete);
+    assert!(shows(&app, "A_"));
+    press_key(&mut app, Key::Done);
+    assert_eq!(names(&app), ["A"]);
+}
+
+#[test]
+fn turning_right_releases_the_catch_and_the_tank_is_unchanged() {
+    let mut app = headless_app_with_save(Some(tank_of(1)));
+    land_a_fish(&mut app);
+    set_tilt(&mut app, 25.0, 0.0);
+    tick(&mut app, 1);
+    click_action(&mut app);
+    assert!(matches!(phase(&app), Phase::Aim { .. }));
+    assert_eq!(names(&app), ["ONE"]);
+}
+
+#[test]
+fn keep_release_and_letters_can_all_be_tapped() {
+    let mut app = headless_app();
+    land_a_fish(&mut app);
+    tap(&mut app, ui::KEEP_FISH.center());
+    assert!(matches!(phase(&app), Phase::Naming { .. }));
+    tap(&mut app, key_center(Key::Letter('Z')));
+    tap(&mut app, key_center(Key::Done));
+    assert_eq!(names(&app), ["Z"]);
+
+    tick(&mut app, (NOTICE_SECS * 60.0) as u32 + 1);
     hook_a_fish(&mut app);
     reel_skillfully(&mut app);
-    let Phase::Caught { catch, .. } = phase(&app) else {
-        panic!("expected a catch, got {:?}", phase(&app));
-    };
-    assert!(catch.gold() > 0);
-    assert_eq!(inventory(&app).gold, catch.gold());
-    assert!(shows(&app, &format!("+{} GOLD", catch.gold())));
-    let expected = inventory(&app);
-    assert_eq!(saved_inventory(&mut app), Some(expected));
+    tick(&mut app, (RESULT_GUARD_SECS * 60.0) as u32);
+    tap(&mut app, ui::RELEASE_FISH.center());
+    assert!(matches!(phase(&app), Phase::Aim { .. }));
+    assert_eq!(names(&app), ["Z"]);
 }
 
 #[test]
-fn the_title_shows_the_gold_and_its_shop_button_opens_on_the_worn_hat() {
-    let mut purse = Inventory::default();
-    purse.earn(42);
-    let saved = save::encode(&FishLog::default(), &Settings::default(), &purse);
-    let mut app = headless_app_with_save(Some(saved));
-    assert!(shows(&app, "GOLD 42") && shows(&app, "SHOP"));
-    open_shop(&mut app);
-    assert_eq!(phase(&app), Phase::Shop { hat: 0 });
-    assert!(shows(&app, "HAT SHOP") && shows(&app, "GOLD 42"));
-    assert!(shows(&app, "STRAW HAT") && shows(&app, "WEARING"));
-}
-
-#[test]
-fn the_arrows_browse_the_shelf_and_the_mirror_tries_each_hat_on() {
-    let mut app = headless_app();
-    open_shop(&mut app);
-    tap(&mut app, ui::NEXT_HAT.center());
-    assert_eq!(phase(&app), Phase::Shop { hat: BEANIE });
-    assert!(shows(&app, HATS[BEANIE].name));
-    assert!(shows(&app, &format!("{} GOLD", HATS[BEANIE].price)));
-    assert!(sprite_drawn(&app, HATS[BEANIE].sprite));
-    assert!(sprite_drawn(&app, &sprites::ANGLER));
-    tap(&mut app, ui::PREVIOUS_HAT.center());
-    tap(&mut app, ui::PREVIOUS_HAT.center());
-    assert_eq!(
-        phase(&app),
-        Phase::Shop {
-            hat: HATS.len() - 1
-        }
-    );
-    assert_eq!(inventory(&app), Inventory::default(), "browsing is free");
-}
-
-#[test]
-fn buying_a_hat_spends_the_gold_puts_it_on_and_saves() {
-    let mut app = headless_app();
-    give_gold(&mut app, HATS[BEANIE].price + 5);
-    open_shop(&mut app);
-    browse_to(&mut app, BEANIE);
-    assert!(shows(&app, "BUY"));
-    tap(&mut app, ui::BUY.center());
-    assert_eq!(inventory(&app).gold, 5);
-    assert_eq!(inventory(&app).worn(), BEANIE);
-    assert!(shows(&app, "WEARING") && !shows(&app, "BUY"));
-    let expected = inventory(&app);
-    assert_eq!(saved_inventory(&mut app), Some(expected));
-}
-
-#[test]
-fn the_angler_on_the_dock_wears_the_chosen_hat() {
-    let mut app = headless_app();
-    assert!(sprite_drawn(&app, HATS[0].sprite));
-    give_gold(&mut app, HATS[BEANIE].price);
-    open_shop(&mut app);
-    browse_to(&mut app, BEANIE);
-    tap(&mut app, ui::BUY.center());
-    tap(&mut app, ui::BACK.center());
-    assert_eq!(phase(&app), Phase::Title);
-    assert!(sprite_drawn(&app, HATS[BEANIE].sprite));
-    assert!(!sprite_drawn(&app, HATS[0].sprite));
-    start_aiming(&mut app);
-    assert!(sprite_drawn(&app, HATS[BEANIE].sprite));
-}
-
-#[test]
-fn the_clown_hat_is_on_the_shelf_and_the_angler_can_wear_it_on_the_dock() {
-    let clown = HATS
-        .iter()
-        .position(|hat| hat.name == "CLOWN HAT")
-        .expect("the shop stocks a clown hat");
-    assert!(
-        HATS.windows(2).all(|pair| pair[0].price <= pair[1].price),
-        "the shelf stays cheapest first"
-    );
-    let mut app = headless_app();
-    give_gold(&mut app, HATS[clown].price);
-    open_shop(&mut app);
-    browse_to(&mut app, clown);
-    assert!(shows(&app, "CLOWN HAT") && sprite_drawn(&app, HATS[clown].sprite));
-    tap(&mut app, ui::BUY.center());
-    assert_eq!(inventory(&app).worn(), clown);
-    tap(&mut app, ui::BACK.center());
-    assert!(sprite_drawn(&app, HATS[clown].sprite));
-}
-
-#[test]
-fn a_hat_you_cannot_afford_says_how_much_more_gold_it_needs() {
-    let mut app = headless_app();
-    give_gold(&mut app, 10);
-    open_shop(&mut app);
-    browse_to(&mut app, BALL_CAP);
-    assert!(shows(
-        &app,
-        &format!("NEED {} MORE", HATS[BALL_CAP].price - 10)
-    ));
-    assert!(!shows(&app, "BUY"));
-    tap(&mut app, ui::BUY.center());
-    assert_eq!(inventory(&app).gold, 10);
-    assert!(!inventory(&app).owns(BALL_CAP));
-    assert_eq!(saved_inventory(&mut app), None, "nothing to save");
-}
-
-#[test]
-fn owned_hats_can_be_put_back_on_for_free() {
-    let mut app = headless_app();
-    give_gold(&mut app, HATS[BEANIE].price);
-    open_shop(&mut app);
-    browse_to(&mut app, BEANIE);
-    tap(&mut app, ui::BUY.center());
-    tap(&mut app, ui::PREVIOUS_HAT.center());
-    assert!(shows(&app, "OWNED") && shows(&app, "WEAR"));
-    tap(&mut app, ui::WEAR.center());
-    assert_eq!(inventory(&app).worn(), 0);
-    assert_eq!(inventory(&app).gold, 0);
-    assert!(inventory(&app).owns(BEANIE));
-    assert!(saved_inventory(&mut app).is_some_and(|saved| saved.worn() == 0));
-}
-
-#[test]
-fn gold_and_hats_survive_a_reboot() {
-    let mut app = headless_app();
-    give_gold(&mut app, 100);
-    open_shop(&mut app);
-    browse_to(&mut app, BEANIE);
-    tap(&mut app, ui::BUY.center());
-    let saved = app.world_mut().resource_mut::<SaveBlob>().take_pending();
-    let rebooted = headless_app_with_save(saved);
-    assert_eq!(inventory(&rebooted), inventory(&app));
-    assert!(shows(
-        &rebooted,
-        &format!("GOLD {}", 100 - HATS[BEANIE].price)
-    ));
-    assert!(sprite_drawn(&rebooted, HATS[BEANIE].sprite));
-}
-
-#[test]
-fn back_or_the_action_button_leaves_the_shop() {
-    let mut app = headless_app();
-    open_shop(&mut app);
-    tap(&mut app, ui::BACK.center());
-    assert_eq!(phase(&app), Phase::Title);
-    open_shop(&mut app);
+fn a_full_tank_asks_which_fish_to_let_go_and_the_new_one_takes_its_place() {
+    let mut app = headless_app_with_save(Some(tank_of(3)));
+    land_a_fish(&mut app);
+    assert!(shows(&app, "TANK FULL: KEEP SWAPS ONE OUT"));
     click_action(&mut app);
-    assert_eq!(phase(&app), Phase::Title);
+    assert!(matches!(phase(&app), Phase::Swap { .. }));
+    for name in ["ONE", "TWO", "THREE", "LET IT GO"] {
+        assert!(shows(&app, name), "{name}");
+    }
+    set_tilt(&mut app, 30.0, 0.0);
+    tick(&mut app, 1);
+    click_action(&mut app);
+    assert!(matches!(phase(&app), Phase::Naming { .. }));
+    type_name(&mut app, "NEW");
+    assert_eq!(names(&app), ["ONE", "NEW", "THREE"]);
 }
 
 #[test]
-fn the_menu_button_while_aiming_goes_home_so_gold_can_be_spent() {
+fn from_a_full_tank_the_new_catch_can_still_be_let_go() {
+    let mut app = headless_app_with_save(Some(tank_of(3)));
+    land_a_fish(&mut app);
+    click_action(&mut app);
+    set_tilt(&mut app, -30.0, 0.0);
+    tick(&mut app, 1);
+    click_action(&mut app);
+    assert!(matches!(phase(&app), Phase::Aim { .. }));
+    assert_eq!(names(&app), ["ONE", "TWO", "THREE"]);
+}
+
+#[test]
+fn the_menu_button_while_aiming_goes_back_to_the_title() {
     let mut app = headless_app();
     start_aiming(&mut app);
     assert!(shows(&app, "MENU"));
     tap(&mut app, ui::MENU.center());
     assert_eq!(phase(&app), Phase::Title);
-    open_shop(&mut app);
 }
 
 #[test]
@@ -761,89 +734,17 @@ fn the_menu_button_hides_while_charging_and_a_tap_there_keeps_the_cast() {
     ));
 }
 
-/// Boots from a save with a fish in the log, gold, a bought hat and HARD.
-fn app_with_progress() -> App {
-    let mut log = FishLog::default();
-    log.record(&Catch {
-        species: 4,
-        length_mm: 400,
-        weight_g: 900,
-    });
-    let mut inventory = Inventory::default();
-    inventory.earn(HATS[BEANIE].price + 30);
-    inventory.buy(BEANIE);
-    let settings = Settings {
-        difficulty: Difficulty::Hard,
-    };
-    headless_app_with_save(Some(save::encode(&log, &settings, &inventory)))
-}
-
-fn open_reset(app: &mut App) {
-    open_settings(app);
-    assert!(shows(app, "RESET"));
-    tap(app, ui::RESET.center());
-    assert_eq!(phase(app), Phase::ConfirmReset);
-    assert!(shows(app, "RESET PROGRESS?"));
-}
-
-#[test]
-fn reset_asks_first_and_keep_or_the_action_button_changes_nothing() {
-    let mut app = app_with_progress();
-    let before = (app.world().resource::<FishLog>().clone(), inventory(&app));
-    open_reset(&mut app);
-    tap(&mut app, ui::KEEP.center());
-    assert_eq!(phase(&app), Phase::Settings);
-    tap(&mut app, ui::RESET.center());
-    click_action(&mut app);
-    assert_eq!(phase(&app), Phase::Settings);
-    let after = (app.world().resource::<FishLog>().clone(), inventory(&app));
-    assert_eq!(after, before);
-    assert_eq!(saved_inventory(&mut app), None, "nothing to save");
-}
-
-#[test]
-fn erasing_clears_the_log_gold_and_hats_keeps_the_difficulty_and_saves() {
-    let mut app = app_with_progress();
-    assert!(shows(&app, "CAUGHT 1"));
-    open_reset(&mut app);
-    tap(&mut app, ui::ERASE.center());
-    assert_eq!(phase(&app), Phase::Settings);
-    assert_eq!(*app.world().resource::<FishLog>(), FishLog::default());
-    assert_eq!(inventory(&app), Inventory::default());
-    assert_eq!(difficulty(&app), Difficulty::Hard);
-    let saved = app.world_mut().resource_mut::<SaveBlob>().take_pending();
-    let rebooted = headless_app_with_save(saved);
-    assert_eq!(*rebooted.world().resource::<FishLog>(), FishLog::default());
-    assert_eq!(inventory(&rebooted), Inventory::default());
-    assert_eq!(difficulty(&rebooted), Difficulty::Hard);
-    assert!(shows(&rebooted, "CAUGHT 0") && shows(&rebooted, "GOLD 0"));
-    assert!(sprite_drawn(&rebooted, HATS[0].sprite));
-}
-
-#[test]
-fn a_double_tap_on_reset_lands_on_keep_not_erase() {
-    let mut app = app_with_progress();
-    open_settings(&mut app);
-    tap(&mut app, ui::RESET.center());
-    tap(&mut app, ui::RESET.center());
-    assert_eq!(phase(&app), Phase::Settings);
-    assert_eq!(app.world().resource::<FishLog>().total, 1);
-    assert!(inventory(&app).owns(BEANIE));
-}
-
 fn pose(app: &App) -> (f32, f32) {
     let tilt = app.world().resource::<orbit_core::Tilt>();
     (tilt.steer_deg, tilt.lean_deg)
 }
 
 #[test]
-fn continuing_after_a_catch_re_levels_the_device_for_the_next_cast() {
+fn releasing_a_catch_re_levels_the_device_for_the_next_cast() {
     let mut app = headless_app();
-    hook_a_fish(&mut app);
-    reel_skillfully(&mut app);
-    assert!(matches!(phase(&app), Phase::Caught { .. }));
+    land_a_fish(&mut app);
     set_tilt(&mut app, 25.0, 6.0);
-    tick(&mut app, (RESULT_GUARD_SECS * 60.0) as u32);
+    tick(&mut app, 1);
     click_action(&mut app);
     assert!(matches!(phase(&app), Phase::Aim { .. }));
     assert_eq!(pose(&app), (0.0, 0.0));
@@ -968,24 +869,13 @@ fn landing_a_fish_plays_the_jingle_and_losing_one_the_sad_trombone() {
 }
 
 #[test]
-fn menu_buttons_click_buying_rings_the_till_and_a_tap_that_cannot_do_anything_thuds() {
+fn menu_buttons_click_and_taps_off_them_are_silent() {
     let mut app = headless_app();
-    give_gold(&mut app, HATS[BEANIE].price);
-    open_shop(&mut app);
+    tap(&mut app, ui::LOG.center());
     assert_eq!(last_sound(&app), Some(play(&audio::CLICK)));
-    tap(&mut app, ui::NEXT_HAT.center());
-    assert_eq!(last_sound(&app), Some(play(&audio::CLICK)));
-    tap(&mut app, ui::BUY.center());
-    assert_eq!(last_sound(&app), Some(play(&audio::COIN)));
-    tap(&mut app, ui::NEXT_HAT.center());
-    clear_sounds(&mut app);
-    tap(&mut app, ui::BUY.center());
-    assert_eq!(
-        last_sound(&app),
-        Some(play(&audio::THUD)),
-        "can't afford it"
-    );
     tap(&mut app, SCREEN_CENTER);
+    clear_sounds(&mut app);
+    tap(&mut app, Vec2::new(233.0, 300.0));
     assert_eq!(
         heard(&app, &audio::CLICK),
         0,
@@ -1030,7 +920,7 @@ fn the_menus_show_the_battery_level_with_a_bolt_while_charging() {
     assert!(!sprite_drawn(&app, &orbit_ui::BOLT));
     report_battery(&mut app, Some(77), true, true);
     assert!(shows(&app, "77%") && sprite_drawn(&app, &orbit_ui::BOLT));
-    open_shop(&mut app);
+    open_settings(&mut app);
     assert!(shows(&app, "77%"));
 }
 
@@ -1070,7 +960,7 @@ fn holding_the_zero_button_says_good_night_then_sleeps() {
     assert!(!power(&app).sleep_requested());
     app.world_mut().resource_mut::<Buttons>().zero.set(false);
     click_action(&mut app);
-    tap(&mut app, ui::SHOP.center());
+    tap(&mut app, ui::LOG.center());
     assert_eq!(phase(&app), Phase::Title, "the goodbye ignores input");
     tick(&mut app, 120);
     assert!(shows(&app, "GOOD NIGHT"), "it stays up for a while");

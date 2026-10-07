@@ -3,7 +3,7 @@ use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering::Relaxed};
 use std::time::Duration;
 
 use angler_game::{
-    Inventory, Phase, Session,
+    Phase, Session,
     cast::{self, Flight},
     testing as angler, ui,
 };
@@ -13,6 +13,7 @@ use orbit_game::{
     arena::SCREEN_CENTER,
     testing::{headless_app, press, tap, tick},
 };
+use orbit_ui::{Key, key_turn};
 
 struct Counting;
 
@@ -75,8 +76,9 @@ pub extern "C" fn measure_orbit() -> *const u32 {
     report(app, built)
 }
 
-/// Angler: the log, settings, reset-confirm, GUTEN and hat shop screens (buying a hat),
-/// MENU back from aiming, then three full cast, bite, fight and catch cycles.
+/// Angler: the log, settings and GUTEN screens, MENU back from aiming, then
+/// three full cast, bite, fight and catch cycles: two kept and named by
+/// turning, one released.
 #[unsafe(no_mangle)]
 pub extern "C" fn measure_angler() -> *const u32 {
     start_clock();
@@ -86,23 +88,15 @@ pub extern "C" fn measure_angler() -> *const u32 {
     angler::tap(&mut app, Vec2::splat(233.0));
     angler::tap(&mut app, ui::SETTINGS.center());
     angler::tap(&mut app, ui::HARDER.center());
-    angler::tap(&mut app, ui::RESET.center());
-    angler::tap(&mut app, ui::KEEP.center());
     angler::tap(&mut app, ui::GUTEN.center());
     angler::tick(&mut app, 120);
     angler::tap(&mut app, Vec2::splat(233.0));
     angler::tap(&mut app, ui::EASIER.center());
     angler::tap(&mut app, ui::BACK.center());
-    app.world_mut().resource_mut::<Inventory>().earn(40);
-    angler::tap(&mut app, ui::SHOP.center());
-    angler::tap(&mut app, ui::NEXT_HAT.center());
-    angler::tap(&mut app, ui::BUY.center());
-    angler::tap(&mut app, ui::NEXT_HAT.center());
-    angler::tap(&mut app, ui::BACK.center());
     angler::click_action(&mut app);
     angler::tap(&mut app, ui::MENU.center());
     angler::click_action(&mut app);
-    for _ in 0..3 {
+    for catch in 0..3 {
         let lands = Flight::launch(cast::elevation_deg(0.0), 0.7).landing_x();
         app.world_mut().resource_mut::<Session>().spot_x = lands;
         angler::hold_action(&mut app, (0.7 * cast::CHARGE_SECS * 60.0) as u32 + 1);
@@ -118,7 +112,24 @@ pub extern "C" fn measure_angler() -> *const u32 {
             app.update();
         }
         angler::tick(&mut app, 60);
-        angler::click_action(&mut app);
+        if catch < 2 {
+            angler::click_action(&mut app);
+            for key in [
+                Key::Letter('F'),
+                Key::Letter('I'),
+                Key::Letter('N'),
+                Key::Done,
+            ] {
+                angler::set_tilt(&mut app, key_turn(key), 0.0);
+                angler::tick(&mut app, 1);
+                angler::click_action(&mut app);
+            }
+            angler::tick(&mut app, 120);
+        } else {
+            angler::set_tilt(&mut app, 25.0, 0.0);
+            angler::tick(&mut app, 1);
+            angler::click_action(&mut app);
+        }
     }
     report(app, built)
 }

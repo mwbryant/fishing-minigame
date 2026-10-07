@@ -1,21 +1,22 @@
 use alloc::{format, vec::Vec};
 
-use angler_game::HATS;
 use bevy::{math::ops, prelude::*};
 use orbit_core::{Frame, Launcher, Power};
-use orbit_gfx::{Point, Rgb565, SCREEN_CENTER, Shape, SpriteRef};
+use orbit_gfx::{Point, Rgb565, SCREEN_CENTER, Shape, Sprite, SpriteRef};
 use orbit_ui::{
     BLACK, DANGER, GOLD, HINT, TEXT, battery_level, button, disc, label, power_overlay, rect, rgb,
     running_low,
 };
+use pals::HATS;
 
 use crate::{
     DELIVERY_SECS, EARTH_RADIUS, FLIGHT_SECS, Orbit, Phase, RESULT_GUARD_SECS, sprites, ui,
 };
 
-/// The hat the angler wears, which the bees wear too: an index into `HATS`.
+/// The hat the lead fish in the tank wears, which the bees wear too: an
+/// index into `HATS`, if it wears one.
 #[derive(Resource, Default, Debug)]
-pub struct Hat(pub usize);
+pub struct Hat(pub Option<usize>);
 
 const OCEAN: Rgb565 = rgb(40, 100, 210);
 const LAND: Rgb565 = rgb(70, 170, 90);
@@ -37,7 +38,7 @@ pub(crate) fn draw_frame(
 ) {
     let shapes = &mut frame.shapes;
     shapes.clear();
-    let hat = HATS.get(hat.0).unwrap_or(&HATS[0]).sprite;
+    let hat = hat.0.and_then(|hat| HATS.get(hat)).map(|hat| hat.sprite);
     space(shapes);
     match orbit.phase {
         Phase::Title => {
@@ -127,7 +128,7 @@ fn jar(shapes: &mut Vec<Shape>, orbit: &Orbit) {
 }
 
 /// The bees circling the jar.
-fn swarm(shapes: &mut Vec<Shape>, orbit: &Orbit, hat: &'static orbit_gfx::Sprite) {
+fn swarm(shapes: &mut Vec<Shape>, orbit: &Orbit, hat: Option<&'static Sprite>) {
     let jar = orbit.jar();
     for i in 0..SWARM {
         let a = orbit.clock * 2.5 + i as f32 * 2.09;
@@ -137,7 +138,7 @@ fn swarm(shapes: &mut Vec<Shape>, orbit: &Orbit, hat: &'static orbit_gfx::Sprite
 }
 
 /// During the last stretch before a refill, one bee flies up from Earth.
-fn delivery(shapes: &mut Vec<Shape>, orbit: &Orbit, hat: &'static orbit_gfx::Sprite) {
+fn delivery(shapes: &mut Vec<Shape>, orbit: &Orbit, hat: Option<&'static Sprite>) {
     if orbit.delivery_in > FLIGHT_SECS || orbit.delivery_in > DELIVERY_SECS {
         return;
     }
@@ -150,8 +151,8 @@ fn delivery(shapes: &mut Vec<Shape>, orbit: &Orbit, hat: &'static orbit_gfx::Spr
     bee(shapes, at, out.x > 0.0, hat);
 }
 
-/// A bee centered at `at`, wearing `hat` on its head.
-fn bee(shapes: &mut Vec<Shape>, at: Vec2, facing_right: bool, hat: &'static orbit_gfx::Sprite) {
+/// A bee centered at `at`, wearing `hat` on its head if there is one.
+fn bee(shapes: &mut Vec<Shape>, at: Vec2, facing_right: bool, hat: Option<&'static Sprite>) {
     let size = sprites::BEE.size() * BEE_SCALE;
     let top_left = Point::new(
         at.x as i32 - size.width as i32 / 2,
@@ -163,6 +164,9 @@ fn bee(shapes: &mut Vec<Shape>, at: Vec2, facing_right: bool, hat: &'static orbi
         scale: BEE_SCALE,
         flip_x: !facing_right,
     });
+    let Some(hat) = hat else {
+        return;
+    };
     let (head_column, head_top) = sprites::BEE_HEAD;
     let head_x = if facing_right {
         head_column
@@ -171,7 +175,7 @@ fn bee(shapes: &mut Vec<Shape>, at: Vec2, facing_right: bool, hat: &'static orbi
     };
     let head_x = top_left.x as f32 + head_x * BEE_SCALE as f32;
     let head_y = top_left.y + head_top * BEE_SCALE as i32;
-    // Hats are drawn for the angler's head, columns 4-8 (center 6.5).
+    // Hats are drawn on a head grid with the face in columns 4-8 (center 6.5).
     let hat_size = hat.size();
     let hat_center = if facing_right {
         6.5

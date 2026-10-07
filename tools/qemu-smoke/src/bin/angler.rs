@@ -1,8 +1,9 @@
 //! Angler in QEMU: scripted touch visits settings (saving a difficulty
 //! change) and the GUTEN easter egg, then button and tilt input casts onto the
-//! spot and fights with a steady hand, and MENU leads to the hat shop to spend
-//! the gold. Every save goes through `esp-storage` into the emulated flash,
-//! and the final log, settings and inventory are read back.
+//! spot and fights with a steady hand. The first catch is kept and named by
+//! turning to each letter, the second released. Every save goes through
+//! `esp-storage` into the emulated flash, and the final log, settings and
+//! tank are read back.
 
 #![no_std]
 #![no_main]
@@ -12,7 +13,7 @@ extern crate alloc;
 use alloc::vec;
 
 use angler_game::{
-    AnglerPlugin, BACKGROUND, Difficulty, FishLog, Inventory, Phase, Session, Settings, cast, save,
+    AnglerPlugin, BACKGROUND, Difficulty, FishLog, Phase, Session, Settings, cast, save,
     session::RESULT_GUARD_SECS,
     testing::{click_action, hold_action, phase, release_action, set_tilt, tap},
     ui,
@@ -25,6 +26,8 @@ use log::info;
 use orbit_core::SaveBlob;
 use orbit_qemu_smoke::Smoke;
 use orbit_save::SlotStore;
+use orbit_ui::{Key, key_turn};
+use pals::Pals;
 
 esp_bootloader_esp_idf::esp_app_desc!();
 
@@ -85,46 +88,58 @@ fn main() -> ! {
             persist(&mut smoke, &mut saves);
         }
         wait(&mut smoke, RESULT_GUARD_SECS + 0.2);
-        click_action(&mut smoke.app);
+        if landed == 1 && matches!(phase(&smoke.app), Phase::Caught { .. }) {
+            click_action(&mut smoke.app);
+            for key in [
+                Key::Letter('Q'),
+                Key::Letter('E'),
+                Key::Letter('M'),
+                Key::Done,
+            ] {
+                set_tilt(&mut smoke.app, key_turn(key), 0.0);
+                smoke.frame();
+                click_action(&mut smoke.app);
+            }
+            persist(&mut smoke, &mut saves);
+            wait(&mut smoke, 2.0);
+        } else {
+            set_tilt(&mut smoke.app, 25.0, 0.0);
+            smoke.frame();
+            click_action(&mut smoke.app);
+            set_tilt(&mut smoke.app, 0.0, 0.0);
+        }
         if landed == CATCHES {
             break;
         }
     }
 
-    tap(&mut smoke.app, ui::MENU.center());
-    tap(&mut smoke.app, ui::SHOP.center());
-    tap(&mut smoke.app, ui::NEXT_HAT.center());
-    tap(&mut smoke.app, ui::BUY.center());
-    persist(&mut smoke, &mut saves);
-    tap(&mut smoke.app, ui::BACK.center());
-
     let expected = (
         smoke.app.world().resource::<FishLog>().clone(),
         *smoke.app.world().resource::<Settings>(),
-        *smoke.app.world().resource::<Inventory>(),
     );
-    let reloaded = saves.load().and_then(|bytes| save::decode_stored(&bytes));
+    let tank = smoke.app.world().resource::<Pals>().clone();
+    let stored = saves.load();
+    let reloaded = stored.as_deref().and_then(save::decode_stored);
+    let reloaded_tank = pals::save::load(&SaveBlob::from_storage(stored));
     info!(
-        "landed {landed}; log total {}; gold {}, hat {}; flash holds {:?}",
+        "landed {landed}; log total {}; tank {:?}; flash holds {:?}, tank of {}",
         expected.0.total,
-        expected.2.gold,
-        expected.2.hat().name,
-        reloaded.as_ref().map(|(log, settings, inventory)| (
-            log.total,
-            settings.difficulty,
-            inventory.gold,
-            inventory.worn()
-        ))
+        tank.pets
+            .iter()
+            .map(|pet| pet.name.as_str())
+            .collect::<alloc::vec::Vec<_>>(),
+        reloaded
+            .as_ref()
+            .map(|(log, settings)| (log.total, settings.difficulty)),
+        reloaded_tank.pets.len()
     );
     let failure = if landed < CATCHES {
         Some("could not land the fish")
     } else if expected.1.difficulty != Difficulty::Normal {
         Some("settings taps did not land on the buttons")
-    } else if expected.2.gold == 0 && expected.2.worn() == 0 {
-        Some("the catches earned no gold")
-    } else if phase(&smoke.app) != Phase::Title {
-        Some("shop taps did not land on the buttons")
-    } else if reloaded != Some(expected) {
+    } else if tank.pets.len() != 1 || tank.pets[0].name.as_str() != "QEM" {
+        Some("the kept fish wasn't named QEM")
+    } else if reloaded != Some(expected) || reloaded_tank != tank {
         Some("save did not round-trip through flash")
     } else {
         None

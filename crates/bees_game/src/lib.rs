@@ -1,7 +1,7 @@
 //! Bees???: the Moon is a hollow jar of honey orbiting the Earth. Something
 //! keeps tipping it; turn the device to tip it back before the honey pours
 //! out of its mouth. The fuller the jar, the less tilt it takes to spill.
-//! Bees, wearing whatever hat the angler wears, circle the jar and fly
+//! Bees, wearing whatever hat the lead fish in the tank wears, circle the jar and fly
 //! refills up from Earth. The game ends when the jar runs dry; the best
 //! number of orbits persists.
 
@@ -181,17 +181,13 @@ impl Plugin for BeesPlugin {
     }
 }
 
-/// The best orbits, and the hat the angler wears (for the bees).
+/// The best orbits, and the hat the lead fish wears (for the bees).
 fn load(blob: Res<SaveBlob>, mut orbit: ResMut<Orbit>, mut hat: ResMut<draw::Hat>) {
     if let Some(best) = blob.section(&save::KEY).and_then(save::decode) {
         orbit.best = best;
     }
-    if let Some((_, _, inventory)) = blob
-        .section(&angler_game::save::KEY)
-        .and_then(angler_game::save::decode)
-    {
-        hat.0 = inventory.worn();
-    }
+    let tank = pals::save::load(&blob);
+    hat.0 = tank.lead().and_then(|pet| pet.hat).map(usize::from);
 }
 
 #[allow(clippy::too_many_arguments)]

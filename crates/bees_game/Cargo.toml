@@ -5,11 +5,11 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
-angler_game.workspace = true
 bevy.workspace = true
 orbit_core.workspace = true
 orbit_gfx.workspace = true
 orbit_ui.workspace = true
+pals.workspace = true
 
 [lints]
 workspace = true

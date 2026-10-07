@@ -4,7 +4,7 @@
 use std::{fs, path::Path};
 
 use angler_game::{
-    Inventory, Phase, Session,
+    Phase, Session,
     cast::{self, CHARGE_SECS, Flight},
     testing as angler, ui,
 };
@@ -161,25 +161,20 @@ fn skate(camera: &mut Camera) {
     camera.shoot(&app, "skate_halfpipe_360");
 }
 
-/// Bees??? with the angler wearing the cowboy hat, so the bees do too.
+/// Bees??? with the lead fish in the cowboy hat, so the bees wear it too.
 fn bees(camera: &mut Camera) {
     use bees_game::{CONTROL_GAIN, Orbit};
-    let mut inventory = angler_game::Inventory::default();
-    inventory.earn(1000);
-    let cowboy = angler_game::HATS
+    let mut tank = pals::Pals::default();
+    tank.earn(1000);
+    let cowboy = pals::HATS
         .iter()
         .position(|hat| hat.name == "COWBOY HAT")
         .unwrap_or(0);
-    inventory.buy(cowboy);
+    tank.buy_hat(cowboy);
+    tank.keep(pet("COWBOY", 4)).ok();
+    tank.wear(0, Some(cowboy));
     let mut blob = SaveBlob::from_storage(None);
-    blob.save_section(
-        angler_game::save::KEY,
-        angler_game::save::encode(
-            &angler_game::FishLog::default(),
-            &angler_game::Settings::default(),
-            &inventory,
-        ),
-    );
+    pals::save::store(&mut blob, &tank);
     let mut app = core_testing::headless(
         |app| {
             app.add_plugins(bees_game::BeesPlugin);
@@ -227,32 +222,64 @@ fn battery(app: &mut App, percent: u8) {
     app.update();
 }
 
+/// A pet named `name` of species `species`, for scripted saves.
+fn pet(name: &str, species: u8) -> pals::Pet {
+    let mut typed = pals::Name::default();
+    name.chars().for_each(|letter| {
+        typed.push(letter);
+    });
+    let tier = angler_game::SPECIES[usize::from(species)].tier;
+    pals::Pet::new(species, tier, 300, 60, typed, &mut orbit_core::Rng::new(7))
+}
+
+/// Casts onto the fishing spot and plays the fight to a catch, shooting each
+/// step when `camera` is given.
+fn land_a_fish(app: &mut App, mut camera: Option<&mut Camera>) {
+    let mut shoot = |app: &App, name: &str| {
+        if let Some(camera) = camera.as_deref_mut() {
+            camera.shoot(app, name);
+        }
+    };
+    angler::click_action(app);
+    angler::set_tilt(app, -12.0, 0.0);
+    let dots_end = Flight::launch(cast::elevation_deg(-12.0), 1.0).landing_x();
+    app.world_mut().resource_mut::<Session>().spot_x = dots_end;
+    angler::hold_action(app, (CHARGE_SECS * 60.0) as u32 + 1);
+    shoot(app, "angler_aim");
+    angler::release_action(app);
+    angler::tick(app, 20);
+    shoot(app, "angler_cast");
+    angler::run_until(app, 600, |p| matches!(p, Phase::Waiting { .. }));
+    angler::tick(app, 12);
+    shoot(app, "angler_waiting");
+    angler::run_until(app, 60 * 15, |p| matches!(p, Phase::Bite { .. }));
+    angler::tick(app, 5);
+    shoot(app, "angler_bite");
+    angler::run_until(app, 120, |p| matches!(p, Phase::Reel { .. }));
+    reel(app, 70);
+    shoot(app, "angler_reel");
+    reel(app, 60 * 60);
+    angler::tick(app, 60);
+}
+
 fn angler(camera: &mut Camera) {
+    use orbit_ui::{Key, key_turn};
     let mut app = angler::headless_app();
     battery(&mut app, 76);
     camera.shoot(&app, "angler_title");
-
-    angler::click_action(&mut app);
-    angler::set_tilt(&mut app, -12.0, 0.0);
-    let dots_end = Flight::launch(cast::elevation_deg(-12.0), 1.0).landing_x();
-    app.world_mut().resource_mut::<Session>().spot_x = dots_end;
-    angler::hold_action(&mut app, (CHARGE_SECS * 60.0) as u32 + 1);
-    camera.shoot(&app, "angler_aim");
-    angler::release_action(&mut app);
-    angler::tick(&mut app, 20);
-    camera.shoot(&app, "angler_cast");
-    angler::run_until(&mut app, 600, |p| matches!(p, Phase::Waiting { .. }));
-    angler::tick(&mut app, 12);
-    camera.shoot(&app, "angler_waiting");
-    angler::run_until(&mut app, 60 * 15, |p| matches!(p, Phase::Bite { .. }));
-    angler::tick(&mut app, 5);
-    camera.shoot(&app, "angler_bite");
-    angler::run_until(&mut app, 120, |p| matches!(p, Phase::Reel { .. }));
-    reel(&mut app, 70);
-    camera.shoot(&app, "angler_reel");
-    reel(&mut app, 60 * 60);
-    angler::tick(&mut app, 60);
+    land_a_fish(&mut app, Some(camera));
     camera.shoot(&app, "angler_caught");
+    angler::click_action(&mut app);
+    for letter in "BUBBA".chars() {
+        angler::set_tilt(&mut app, key_turn(Key::Letter(letter)), 0.0);
+        angler::tick(&mut app, 1);
+        angler::click_action(&mut app);
+    }
+    angler::set_tilt(&mut app, key_turn(Key::Done), 0.0);
+    angler::tick(&mut app, 2);
+    camera.shoot(&app, "angler_naming");
+    angler::click_action(&mut app);
+    camera.shoot(&app, "angler_in_the_tank");
 
     let saved = app.world_mut().resource_mut::<SaveBlob>().take_pending();
     let mut app = angler::headless_app_with_save(saved);
@@ -263,33 +290,28 @@ fn angler(camera: &mut Camera) {
     angler::tap(&mut app, Vec2::splat(233.0));
     angler::tap(&mut app, ui::SETTINGS.center());
     camera.shoot(&app, "angler_settings");
-    angler::tap(&mut app, ui::RESET.center());
-    camera.shoot(&app, "angler_reset");
-    angler::tap(&mut app, ui::KEEP.center());
     angler::tap(&mut app, ui::GUTEN.center());
     angler::tick(&mut app, 8);
     camera.shoot(&app, "angler_guten");
-
     angler::tick(&mut app, 40);
     angler::tap(&mut app, Vec2::splat(233.0));
     angler::tap(&mut app, ui::BACK.center());
-    app.world_mut().resource_mut::<Inventory>().earn(120);
-    angler::tap(&mut app, ui::SHOP.center());
-    for _ in 0..4 {
-        angler::tap(&mut app, ui::NEXT_HAT.center());
-    }
-    camera.shoot(&app, "angler_shop");
-    angler::tap(&mut app, ui::NEXT_HAT.center());
-    angler::tap(&mut app, ui::NEXT_HAT.center());
-    camera.shoot(&app, "angler_shop_clown");
-    angler::tap(&mut app, ui::PREVIOUS_HAT.center());
-    angler::tap(&mut app, ui::PREVIOUS_HAT.center());
-    angler::tap(&mut app, ui::BUY.center());
-    angler::tap(&mut app, ui::BACK.center());
-    camera.shoot(&app, "angler_title_hat");
     app.world_mut().resource_mut::<Buttons>().zero.set(true);
     angler::tick(&mut app, 50);
     camera.shoot(&app, "angler_hold_to_sleep");
+
+    let mut full = pals::Pals::default();
+    for (name, species) in [("BUBBA", 1), ("GILLY", 3), ("KOI", 7)] {
+        full.keep(pet(name, species)).ok();
+    }
+    let mut blob = SaveBlob::from_storage(None);
+    pals::save::store(&mut blob, &full);
+    let mut app = angler::headless_app_with_save(blob.take_pending());
+    land_a_fish(&mut app, None);
+    angler::click_action(&mut app);
+    angler::set_tilt(&mut app, 30.0, 0.0);
+    angler::tick(&mut app, 2);
+    camera.shoot(&app, "angler_swap");
 }
 
 /// Plays the fight with a steady hand for up to `frames` updates.

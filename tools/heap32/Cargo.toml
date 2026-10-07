@@ -18,6 +18,8 @@ arcade = { path = "../../crates/arcade" }
 spider_game = { path = "../../crates/spider_game" }
 skate_game = { path = "../../crates/skate_game" }
 bees_game = { path = "../../crates/bees_game" }
+pals = { path = "../../crates/pals" }
+orbit_ui = { path = "../../crates/orbit_ui" }
 orbit_core = { path = "../../crates/orbit_core" }
 
 [profile.release]

@@ -1,8 +1,8 @@
-use angler_game::{FishLog, HATS, Inventory, Settings, save as angler_save};
 use bees_game::{BeesPlugin, CONTROL_GAIN, Orbit, Phase, audio, spill_limit_deg, ui};
 use bevy::{app::AppExit, prelude::*};
 use orbit_core::{ClipRef, Frame, Launcher, SaveBlob, SoundCommand, SoundQueue, testing::*};
 use orbit_gfx::{Shape, SpriteRef};
+use pals::{HATS, Name, Pals, Pet};
 
 fn game(saved: Option<Vec<u8>>) -> App {
     headless(
@@ -92,15 +92,21 @@ fn bees_fly_refills_up_from_earth() {
     );
 }
 
+/// A save whose tank leads with a fish in `hat`, then one in no hat.
 fn wearing(hat: usize) -> Option<Vec<u8>> {
-    let mut inventory = Inventory::default();
-    inventory.earn(10_000);
-    inventory.buy(hat);
+    let mut tank = Pals::default();
+    tank.earn(10_000);
+    tank.buy_hat(hat);
+    let mut rng = orbit_core::Rng::new(1);
+    for _ in 0..2 {
+        assert!(
+            tank.keep(Pet::new(0, 0, 80, 50, Name::default(), &mut rng))
+                .is_ok()
+        );
+    }
+    tank.wear(0, Some(hat));
     let mut blob = SaveBlob::from_storage(None);
-    blob.save_section(
-        angler_save::KEY,
-        angler_save::encode(&FishLog::default(), &Settings::default(), &inventory),
-    );
+    pals::save::store(&mut blob, &tank);
     blob.take_pending()
 }
 
@@ -114,7 +120,7 @@ fn draws(app: &App, sprite: &'static orbit_gfx::Sprite) -> usize {
 }
 
 #[test]
-fn the_bees_wear_the_hat_picked_in_the_angler_shop() {
+fn the_bees_wear_the_hat_the_lead_fish_wears_and_none_without_one() {
     let crown = HATS.iter().position(|hat| hat.name == "CROWN").unwrap();
     let mut app = game(wearing(crown));
     click_action(&mut app);
@@ -125,8 +131,8 @@ fn the_bees_wear_the_hat_picked_in_the_angler_shop() {
     );
     let plain = game(None);
     assert!(
-        draws(&plain, HATS[0].sprite) >= 1,
-        "the straw hat by default"
+        HATS.iter().all(|hat| draws(&plain, hat.sprite) == 0),
+        "no fish, no hats"
     );
 }
 
