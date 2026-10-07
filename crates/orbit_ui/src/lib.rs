@@ -1,12 +1,13 @@
 //! What every game on the round board draws the same way: text and touch
-//! buttons, the battery level, the hold-to-sleep hint and goodbye, and the
-//! dial that turning the device sweeps around the glass.
+//! buttons, the battery level, the hold-to-sleep hint and goodbye, the dial
+//! that turning the device sweeps around the glass, and typing by turning.
 
 #![no_std]
 
 extern crate alloc;
 
 mod dial;
+mod keys;
 
 use alloc::{format, string::String, vec::Vec};
 
@@ -15,6 +16,7 @@ use orbit_core::{Battery, Clip, Power};
 use orbit_gfx::{Point, Rectangle, Rgb565, SCREEN_CENTER, Shape, Size, Sprite, SpriteRef};
 
 pub use dial::{DIAL_GAIN, dial_angle, dial_choice, dial_point, dial_pointer};
+pub use keys::{KEY_RING, KEYS, Key, KeyRing, key_ring};
 
 pub const fn rgb(r: u8, g: u8, b: u8) -> Rgb565 {
     Rgb565::new(r >> 3, g >> 2, b >> 3)
