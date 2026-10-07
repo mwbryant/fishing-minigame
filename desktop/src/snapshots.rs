@@ -452,7 +452,7 @@ fn orbit(camera: &mut Camera) {
 }
 
 /// What the board's power chip would report, so the menus show a level.
-fn battery(app: &mut App, percent: u8) {
+pub(crate) fn battery(app: &mut App, percent: u8) {
     app.world_mut().resource_mut::<Power>().battery = Some(Battery {
         percent: Some(percent),
         external_power: false,
@@ -462,7 +462,7 @@ fn battery(app: &mut App, percent: u8) {
 }
 
 /// A pet named `name` of species `species`, for scripted saves.
-fn pet(name: &str, species: u8) -> pals::Pet {
+pub(crate) fn pet(name: &str, species: u8) -> pals::Pet {
     let mut typed = pals::Name::default();
     name.chars().for_each(|letter| {
         typed.push(letter);
@@ -554,7 +554,7 @@ fn angler(camera: &mut Camera) {
 }
 
 /// Plays the fight with a steady hand for up to `frames` updates.
-fn reel(app: &mut App, frames: u32) {
+pub(crate) fn reel(app: &mut App, frames: u32) {
     for _ in 0..frames {
         let Phase::Reel { reel, .. } = angler::phase(app) else {
             return;

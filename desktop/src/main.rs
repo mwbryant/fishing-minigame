@@ -6,6 +6,8 @@
 //! cargo run -p orbit_desktop -- [GAME]   play (default town: Fish Pals)
 //!   Holding Z (BOOT) sleeps the board like the firmware does; Z again wakes it.
 //! cargo run -p orbit_desktop -- GAME snapshot <dir>   scripted PNGs, headless
+//! cargo run -p orbit_desktop -- footage <dir> [TAKE...]   the trailer's takes,
+//!   every frame as a PNG plus the speaker's WAV (see trailer/README.md)
 //!
 //! GAME: town home park contest shop angler spider skate bees orbit
 //! The desktop has no satellite receiver: turn on MOCK WALK in the town's
@@ -13,6 +15,7 @@
 //! ```
 
 mod device;
+mod footage;
 mod microphone;
 mod panel;
 mod snapshots;
@@ -133,6 +136,11 @@ enum Ended {
 
 fn main() {
     let args: Vec<String> = env::args().skip(1).collect();
+    if args.first().map(String::as_str) == Some("footage") {
+        let dir = args.get(1).map_or("trailer/cache/footage", String::as_str);
+        footage::run(Path::new(dir), args.get(2..).unwrap_or_default());
+        return;
+    }
     let (game, rest) = match args.first().map(String::as_str) {
         Some("town") => (Game::Town, &args[1..]),
         Some("home") => (Game::Home, &args[1..]),
