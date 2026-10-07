@@ -343,6 +343,33 @@ fn spider(camera: &mut Camera) {
     camera.shoot(&app, "spider_pounce");
     core_testing::tick(&mut app, 120);
     camera.shoot(&app, "spider_bitten");
+
+    let mut tank = pals::Pals::default();
+    tank.earn(120);
+    let mut blob = SaveBlob::from_storage(None);
+    pals::save::store(&mut blob, &tank);
+    let mut app = core_testing::headless(
+        |app| {
+            app.add_plugins(spider_game::SpiderPlugin);
+        },
+        blob.take_pending(),
+    );
+    battery(&mut app, 76);
+    core_testing::click_action(&mut app);
+    core_testing::set_tilt(&mut app, 2.0 * 360.0 / 6.0 / orbit_ui::DIAL_GAIN, 0.0);
+    core_testing::tick(&mut app, 2);
+    camera.shoot(&app, "spider_bet");
+    core_testing::click_action(&mut app);
+    core_testing::set_tilt(&mut app, 0.0, 0.0);
+    app.world_mut().resource_mut::<Table>().hide_spider(9);
+    for egg in [1, 4, 7] {
+        app.world_mut().resource_mut::<Table>().rig_next_spin(egg);
+        core_testing::click_action(&mut app);
+        core_testing::tick(&mut app, 60 * 4);
+    }
+    camera.shoot(&app, "spider_worth");
+    core_testing::tap(&mut app, spider_game::ui::CASH_OUT.center());
+    camera.shoot(&app, "spider_cashed_out");
 }
 
 fn skate(camera: &mut Camera) {

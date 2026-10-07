@@ -1958,6 +1958,7 @@ dependencies = [
  "orbit_core",
  "orbit_gfx",
  "orbit_ui",
+ "pals",
 ]
 
 [[package]]

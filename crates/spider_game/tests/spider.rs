@@ -249,3 +249,111 @@ fn launched_from_the_menu_the_title_offers_home() {
     tap(&mut app, ui::HOME.center());
     assert_eq!(app.should_exit(), Some(AppExit::Success));
 }
+
+fn with_gold(gold: u32) -> App {
+    let mut tank = pals::Pals::default();
+    tank.earn(gold);
+    let mut blob = SaveBlob::from_storage(None);
+    pals::save::store(&mut blob, &tank);
+    game(blob.take_pending())
+}
+
+fn purse(app: &App) -> u32 {
+    app.world().resource::<pals::Pals>().gold
+}
+
+fn saved_purse(app: &mut App) -> u32 {
+    let pending = app.world_mut().resource_mut::<SaveBlob>().take_pending();
+    pals::save::load(&SaveBlob::from_storage(pending)).gold
+}
+
+/// From the title, bets the stake `pointed` steps round the dial.
+fn bet(app: &mut App, pointed: usize) {
+    click_action(app);
+    assert_eq!(table(app).phase, Phase::Bet);
+    let count = spider_game::stakes(purse(app)).len();
+    let deg = pointed as f32 * 360.0 / count as f32;
+    let deg = if deg > 180.0 { deg - 360.0 } else { deg };
+    set_tilt(app, deg / orbit_ui::DIAL_GAIN, 0.0);
+    app.update();
+    click_action(app);
+    set_tilt(app, 0.0, 0.0);
+    app.update();
+    assert_eq!(table(app).phase, Phase::Ready);
+}
+
+#[test]
+fn with_gold_the_den_takes_a_bet_before_the_first_spin() {
+    let mut app = with_gold(60);
+    click_action(&mut app);
+    assert_eq!(table(&app).phase, Phase::Bet);
+    assert!(shows(&app, "PLACE YOUR BET"));
+    assert_eq!(
+        spider_game::stakes(60),
+        [5, 10, 25, 50, 0],
+        "only what you can pay, or free"
+    );
+    let mut app = with_gold(60);
+    bet(&mut app, 2);
+    assert_eq!(table(&app).stake, 25);
+    assert_eq!(purse(&app), 35);
+    assert_eq!(saved_purse(&mut app), 35);
+}
+
+#[test]
+fn each_safe_egg_raises_what_the_bet_is_worth_and_cashing_out_banks_it() {
+    let mut app = with_gold(100);
+    bet(&mut app, 3);
+    app.world_mut().resource_mut::<Table>().hide_spider(11);
+    let worth = |safe| spider_game::cash_value(50, safe);
+    assert!(worth(1) < 50 && worth(3) > 50 && worth(11) > worth(10));
+    assert!(!shows(&app, "CASH OUT"), "nothing to cash yet");
+    for egg in 0..3 {
+        spin_onto(&mut app, egg);
+    }
+    let line = format!("BET 50 | WORTH {}", worth(3));
+    assert!(shows(&app, &line), "{:?}", labels(&app));
+    tap(&mut app, ui::CASH_OUT.center());
+    assert_eq!(table(&app).phase, Phase::CashedOut);
+    assert!(shows(&app, &format!("+{} GOLD", worth(3))));
+    assert_eq!(purse(&app), 50 + worth(3));
+    assert_eq!(saved_purse(&mut app), 50 + worth(3));
+}
+
+#[test]
+fn the_spider_takes_the_stake() {
+    let mut app = with_gold(100);
+    bet(&mut app, 1);
+    app.world_mut().resource_mut::<Table>().hide_spider(4);
+    spin_onto(&mut app, 4);
+    tick(&mut app, 60 * 2);
+    assert_eq!(table(&app).phase, Phase::Bitten);
+    assert!(shows(&app, "LOST 10 GOLD"));
+    assert_eq!(purse(&app), 90);
+}
+
+#[test]
+fn trapping_the_spider_pays_the_whole_run() {
+    let mut app = with_gold(5);
+    bet(&mut app, 0);
+    app.world_mut().resource_mut::<Table>().hide_spider(11);
+    for egg in 0..11 {
+        spin_onto(&mut app, egg);
+    }
+    assert_eq!(table(&app).phase, Phase::Won);
+    let prize = spider_game::cash_value(5, 11);
+    assert_eq!(prize, 54);
+    assert_eq!(purse(&app), prize);
+}
+
+#[test]
+fn a_free_game_costs_and_pays_nothing() {
+    let mut app = with_gold(30);
+    let free = spider_game::stakes(30).len() - 1;
+    bet(&mut app, free);
+    assert_eq!(table(&app).stake, 0);
+    assert_eq!(purse(&app), 30);
+    app.world_mut().resource_mut::<Table>().hide_spider(11);
+    spin_onto(&mut app, 0);
+    assert!(!shows(&app, "CASH OUT"));
+}
