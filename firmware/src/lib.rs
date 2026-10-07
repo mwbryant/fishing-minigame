@@ -12,6 +12,8 @@ extern crate alloc;
 mod axp2101;
 mod co5300;
 mod idle;
+mod lc76g;
+mod mic;
 mod power_key;
 mod qmi8658;
 mod speaker;
@@ -28,10 +30,10 @@ use esp_hal::{
     clock::CpuClock,
     delay::Delay,
     dma_tx_buffer,
-    gpio::{Event, Input, InputConfig, Level, Output, OutputConfig, Pull, WakeupConfig},
+    gpio::{Event, Input, InputConfig, Level, NoPin, Output, OutputConfig, Pull, WakeupConfig},
     i2c::master::{Config as I2cConfig, I2c},
-    i2s::master::{Channels, DataFormat, I2s, TdmConfig},
-    peripherals::{DMA_CH1, GPIO8, GPIO9, GPIO42, GPIO45, GPIO46, I2S0, LPWR},
+    i2s::master::{Channels, DataFormat, I2s, I2sRx, TdmConfig},
+    peripherals::{DMA_CH1, GPIO8, GPIO9, GPIO10, GPIO42, GPIO45, GPIO46, I2S0, LPWR},
     rng::Rng as HardwareRng,
     rtc_cntl::{
         SocResetReason,
@@ -49,7 +51,8 @@ use esp_storage::FlashStorage;
 use log::{info, warn};
 use orbit_audio::{Mixer, SAMPLE_RATE};
 use orbit_core::{
-    Battery, Buttons, Frame, ImuFeed, ImuSample, Launcher, Power, Rng, SaveBlob, SoundQueue, Touch,
+    Battery, Buttons, Frame, Gps, ImuFeed, ImuSample, Launcher, Mic, Power, Rng, SaveBlob,
+    SoundQueue, Touch,
 };
 use orbit_gfx::{Presenter, Rgb565, SCREEN_SIZE};
 use orbit_save::SlotStore;
@@ -58,6 +61,8 @@ use crate::{
     axp2101::Axp2101,
     co5300::Co5300,
     idle::Idle,
+    lc76g::Lc76g,
+    mic::{Es7210, MicIn},
     power_key::PwrKey,
     qmi8658::Qmi8658,
     speaker::{AudioOut, Es8311},
@@ -113,6 +118,8 @@ struct SpeakerPins {
     bclk: GPIO9<'static>,
     ws: GPIO45<'static>,
     dout: GPIO8<'static>,
+    /// The ES7210 mics' data, received on the speaker's clocks.
+    din: GPIO10<'static>,
     amp: GPIO46<'static>,
 }
 
@@ -120,6 +127,15 @@ struct Speaker {
     audio: AudioOut,
     mixer: Mixer,
     amp: Output<'static>,
+    mic: MicPort,
+}
+
+/// The mics' receiver: built with the speaker, started (ADC and stream)
+/// the first time an app listens.
+enum MicPort {
+    Idle(I2sRx<'static, Blocking>),
+    Listening(MicIn),
+    Failed,
 }
 
 /// The board, brought up once. Apps run on it one after another: Fish Pals
@@ -145,6 +161,8 @@ pub struct Board {
     battery: Option<(Battery, u16)>,
     battery_read: Option<HalInstant>,
     last_imu_read: HalInstant,
+    gps: Option<Lc76g<Device>>,
+    gps_errors: u32,
 }
 
 impl Board {
@@ -233,6 +251,12 @@ impl Board {
             peripherals.GPIO0,
             InputConfig::default().with_pull(Pull::Up),
         );
+        let gps = Lc76g::new(RefCellDevice::new(bus));
+        if gps.is_some() {
+            info!("LC76G satellite receiver found");
+        } else {
+            info!("no satellite receiver (not a -G board); walks need MOCK WALK");
+        }
 
         let mut saves = SlotStore::new(FlashStorage::new(peripherals.FLASH), SAVE_FLASH_OFFSET);
         info!(
@@ -263,6 +287,7 @@ impl Board {
                 bclk: peripherals.GPIO9,
                 ws: peripherals.GPIO45,
                 dout: peripherals.GPIO8,
+                din: peripherals.GPIO10,
                 amp: peripherals.GPIO46,
             }),
             speaker: None,
@@ -273,6 +298,8 @@ impl Board {
             battery: None,
             battery_read: None,
             last_imu_read: HalInstant::now(),
+            gps,
+            gps_errors: 0,
         }
     }
 
@@ -310,6 +337,11 @@ impl Board {
             && let Some(pins) = self.speaker_pins.take()
         {
             self.speaker = Some(start_speaker(pins, self.bus));
+        }
+        if app.world().contains_resource::<Mic>()
+            && let Some(speaker) = self.speaker.as_mut()
+        {
+            start_mic(&mut speaker.mic, self.bus);
         }
         if let Err(err) = self.display.set_brightness(FULL_BRIGHTNESS) {
             warn!("brightness change failed: {err:?}");
@@ -432,6 +464,29 @@ impl Board {
             buttons.zero.set(held(ZERO_BUTTON));
         }
 
+        if let Some(speaker) = self.speaker.as_mut()
+            && let MicPort::Listening(mic_in) = &mut speaker.mic
+        {
+            match world.get_resource_mut::<Mic>() {
+                Some(mut mic) => mic_in.pump(|samples| mic.push(samples)),
+                None => mic_in.pump(|_| {}),
+            }
+        }
+
+        if let (Some(gps), Some(mut feed)) = (self.gps.as_mut(), world.get_resource_mut::<Gps>()) {
+            let mut text = [0u8; 1024];
+            match gps.poll(&mut text) {
+                Ok(read) => feed.push(&text[..read]),
+                Err(err) => {
+                    self.gps_errors += 1;
+                    if self.gps_errors.is_power_of_two() {
+                        warn!("LC76G read failed ({err:?}), {} so far", self.gps_errors);
+                    }
+                    gps.reset();
+                }
+            }
+        }
+
         if self.imu_ready
             && let Some(mut feed) = world.get_resource_mut::<ImuFeed>()
             && let Ok((accel, gyro)) = self.imu.read()
@@ -490,16 +545,25 @@ pub fn run(add_game: impl Fn(&mut App), background: Rgb565) -> ! {
 }
 
 fn start_speaker(pins: SpeakerPins, bus: &'static Bus) -> Speaker {
+    // Signal loopback: the receiver (the mics) runs on the transmitter's
+    // BCLK and WS, so both codecs share one clock.
     let i2s = I2s::new(
         pins.i2s,
         pins.dma,
         TdmConfig::new_tdm_philips()
             .with_sample_rate(Rate::from_hz(SAMPLE_RATE))
             .with_data_format(DataFormat::Data16Channel16)
-            .with_channels(Channels::STEREO),
+            .with_channels(Channels::STEREO)
+            .with_signal_loopback(true),
     )
     .expect("I2S config")
     .with_mclk(pins.mclk);
+    let i2s_rx = i2s
+        .i2s_rx
+        .with_bclk(NoPin)
+        .with_ws(NoPin)
+        .with_din(pins.din)
+        .build();
     let i2s_tx = i2s
         .i2s_tx
         .with_bclk(pins.bclk)
@@ -517,7 +581,30 @@ fn start_speaker(pins: SpeakerPins, bus: &'static Bus) -> Speaker {
     if let Err(err) = codec.init(SAMPLE_RATE, &mut amp) {
         warn!("ES8311 init failed: {err:?}");
     }
-    Speaker { audio, mixer, amp }
+    Speaker {
+        audio,
+        mixer,
+        amp,
+        mic: MicPort::Idle(i2s_rx),
+    }
+}
+
+/// Brings up the ES7210 and the receive stream, once; the speaker's stream
+/// is already supplying the clocks.
+fn start_mic(port: &mut MicPort, bus: &'static Bus) {
+    if !matches!(port, MicPort::Idle(_)) {
+        return;
+    }
+    let MicPort::Idle(i2s_rx) = core::mem::replace(port, MicPort::Failed) else {
+        return;
+    };
+    match Es7210::new(RefCellDevice::new(bus)).init() {
+        Ok(()) => {
+            info!("ES7210 mics listening");
+            *port = MicPort::Listening(MicIn::start(i2s_rx, mic::stream_buffer()));
+        }
+        Err(err) => warn!("ES7210 init failed ({err:?}); no voice commands"),
+    }
 }
 
 fn audio_status(audio: &AudioOut) -> String {
