@@ -158,6 +158,9 @@ SHOTS = [
     },
 ]
 
+# How loud the game's own sounds sit under the music.
+GAME_SOUNDS_DB = -5.0
+
 # Which music plays where. `offset` is seconds into the track (left out: where its sound
 # starts), fades are in seconds, and `level` is (time, dB) points, straight lines between.
 SCORE = [

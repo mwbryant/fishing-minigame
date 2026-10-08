@@ -935,7 +935,12 @@ def mix(takes, music_files):
                 continue
             sound = takes.audio(take)
             end = ring_out(sound, int((start + span) * SR))
-            add(sound[int(start * SR) : end], shot["start"] + at, db(-3), fade_out=0.03)
+            add(
+                sound[int(start * SR) : end],
+                shot["start"] + at,
+                db(edit.GAME_SOUNDS_DB),
+                fade_out=0.03,
+            )
     out = out[: int(edit.LENGTH * SR)]
     out *= 0.89 / (np.abs(out).max() + 1e-9)
     wav = CACHE / "mix.wav"
