@@ -759,27 +759,6 @@ class Trailer:
         )
         return Image.blend(canvas.convert("RGB"), Image.new("RGB", (W, H)), clamp(u * 1.4) ** 1.5)
 
-    def card(self, shot, t, index):
-        canvas = self.back.honey(t)
-        frame = int(t * FPS)
-        jitter = np.random.default_rng(frame)
-        label = self.text(shot["label"], 260, fill="#ffd21f", stroke="#1a1000", max_width=1700)
-        label.draw(
-            canvas,
-            (W / 2, H / 2),
-            t,
-            scale=1 + 0.03 * math.sin(t * 40),
-            angle=-3,
-            stagger=0.03,
-            jitter=jitter,
-        )
-        for i in range(8):
-            phase = t * (2.2 + 0.3 * i) + i * math.tau / 8
-            x = W / 2 + math.cos(phase) * (760 + 40 * math.sin(i))
-            y = H / 2 + math.sin(phase * 1.3) * 300
-            place(canvas, self.bee, (49, 28), (x, y), 1.0, 12 * math.sin(phase * 5))
-        return canvas
-
     def chaos(self, shot, t, index):
         if shot.get("honey"):
             canvas = self.back.honey(t * 2)
@@ -801,8 +780,15 @@ class Trailer:
             angle *= 1 - p
         at = (at[0] + jitter.uniform(-1, 1) * shake, at[1] + jitter.uniform(-1, 1) * shake)
         self.device.draw(canvas, self.screen(shot, t), at, scale, angle)
+        if shot.get("honey"):
+            for i in range(6):
+                phase = t * (2.2 + 0.3 * i) + i * math.tau / 6
+                x = 1450 + math.cos(phase) * (400 + 30 * math.sin(i))
+                y = 540 + math.sin(phase * 1.3) * 260
+                place(canvas, self.bee, (49, 28), (x, y), 1.0, 12 * math.sin(phase * 5))
         if has_label and not pounced:
-            label = self.text(shot["label"], 190, max_width=760)
+            colors = {"fill": "#ffd21f", "stroke": "#1a1000"} if shot.get("honey") else {}
+            label = self.text(shot["label"], 190, max_width=760, **colors)
             label.draw(
                 canvas,
                 (1450, 540),

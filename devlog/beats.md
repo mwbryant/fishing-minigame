@@ -573,7 +573,7 @@ Images are in `img/`. Newest beats go at the bottom.
 - **The cut:**
   - `trailer/build.py` composites the takes into the reel case's green rim on striped
     backdrops.
-  - The cozy half cuts on the beat of "Happy Whistling Ukulele" (130 BPM, six beats to a
+  - The cozy half cuts on the beat of "Happy Whistling Ukulele" (130 BPM, seven beats to a
     shot). A record scratch dragged out of the same track hands over to the US Army Band's
     "Flight of the Bumblebee".
 - **The man:**
@@ -585,8 +585,10 @@ Images are in `img/`. Newest beats go at the bottom.
   - His mouth opens wide for each bite and chews after it, and a synthesized crunch lands
     each time it shuts.
 - **What it leaves out:**
-  - no voice lines: YOU CAN EAT IT is only on screen, and the bumblebee crashes in on the
-    BEES card;
+  - no voice lines: YOU CAN EAT IT is only on screen;
+  - no BEES card: BEESSSS???? sits beside the bees, like the skate and spider labels. Its
+    1.6 s went to the gameplay shots (six beats each became seven) and to the YOU CAN EAT IT
+    words, which now come in just after the second bite and hold for 4 s;
   - no guten song: the GUTEN fish spins to the ukulele, picked up where the scratch cut it.
 - **Regenerating:** `uv run build.py --refilm` once the footage is final. `--sheets` shows
   where each take's moments fall, for the cuts in `trailer/edit.py`.

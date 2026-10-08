@@ -9,15 +9,31 @@ Times are seconds in the trailer. A shot's `takes` are clips filmed by `orbit_de
 
 FPS = 30
 SIZE = (1920, 1080)
-LENGTH = 45.0
 
-# Happy Whistling Ukulele runs at 130 BPM with its first beat 0.135 s in; the cozy half cuts
-# on its beats, six to a beat of the loop.
+# Happy Whistling Ukulele runs at 130 BPM with its first beat 0.135 s in. The cozy half cuts
+# on its beats: eight for the title, then LOOP_BEATS for each gameplay shot.
 BEAT = 60 / 130
+LOOP_BEATS = 7
 
 
 def on_beat(n):
     return 0.135 + n * BEAT
+
+
+def loop_shot(n):
+    """When gameplay shot n starts (FISH is 0, and 5 is when HATS ends)."""
+    return on_beat(8 + n * LOOP_BEATS)
+
+
+# After the loop each shot follows the last, (start, end), so changing one's length moves the
+# rest.
+SCRATCH = (loop_shot(5), loop_shot(5) + 0.7)
+BEES = (SCRATCH[1], SCRATCH[1] + 4.0)
+SKATE = (BEES[1], BEES[1] + 4.5)
+SPIDERS = (SKATE[1], SKATE[1] + 3.5)
+EAT = (SPIDERS[1], SPIDERS[1] + 8.5)
+FISH_HOLD = (EAT[1], EAT[1] + 5.0)
+LENGTH = FISH_HOLD[1]
 
 
 MUSIC = {
@@ -40,75 +56,75 @@ SHOTS = [
     {
         "kind": "opening",
         "start": 0.0,
-        "end": on_beat(8),
+        "end": loop_shot(0),
         "takes": [("opening", 0.0)],
         "title": ["FISHING", "MINIGAME"],
         # Then the camera dives into the player, blurring, until the first beat.
-        "dive": on_beat(8) - 1.15,
+        "dive": loop_shot(0) - 1.15,
     },
     {
         "kind": "beat",
-        "start": on_beat(8),
-        "end": on_beat(14),
+        "start": loop_shot(0),
+        "end": loop_shot(1),
         "label": "FISH",
         "color": "#2b9cf2",
-        "takes": [("fish_cast", 0.3, 1.1), ("fish_catch", 2.8)],
+        "takes": [("fish_cast", 0.3, 1.3), ("fish_catch", 2.6)],
     },
     {
         "kind": "beat",
-        "start": on_beat(14),
-        "end": on_beat(20),
+        "start": loop_shot(1),
+        "end": loop_shot(2),
         "label": "TRAIN",
         "color": "#ff8a3d",
         "takes": [("train", 0.2)],
     },
     {
         "kind": "beat",
-        "start": on_beat(20),
-        "end": on_beat(26),
+        "start": loop_shot(2),
+        "end": loop_shot(3),
         "label": "WALK",
         "color": "#43b45a",
         "takes": [("walk", 1.8)],
     },
     {
         "kind": "beat",
-        "start": on_beat(26),
-        "end": on_beat(32),
+        "start": loop_shot(3),
+        "end": loop_shot(4),
         "label": "COMPETE",
         "color": "#c2457e",
-        "takes": [("compete", 0.6, 1.9), ("compete_results", 0.0)],
+        "takes": [("compete", 0.6, 2.0), ("compete_results", 0.0)],
     },
     {
         "kind": "beat",
-        "start": on_beat(32),
-        "end": on_beat(38),
+        "start": loop_shot(4),
+        "end": loop_shot(5),
         "label": "HATS",
         "color": "#f2b01e",
         "takes": [("hats", 0.6)],
     },
     # The record scratches and HATS freezes, drains and goes dark.
-    {"kind": "scratch", "start": on_beat(38), "end": 18.4},
-    {"kind": "card", "start": 18.4, "end": 20.0, "label": "BEESSSS????"},
+    {"kind": "scratch", "start": SCRATCH[0], "end": SCRATCH[1]},
     {
         "kind": "chaos",
-        "start": 20.0,
-        "end": 24.0,
-        "color": "#2a1c05",
+        "start": BEES[0],
+        "end": BEES[1],
+        "label": "BEESSSS????",
+        # Honeycomb behind, the label in honey and pixel bees buzzing round it.
         "honey": True,
         "takes": [("bees", 1.6)],
     },
     {
         "kind": "chaos",
-        "start": 24.0,
-        "end": 28.5,
+        "start": SKATE[0],
+        "end": SKATE[1],
         "label": "SKATEBOARDS??",
         "color": "#4b2fbf",
         "takes": [("skate_grind", 0.3, 2.2), ("skate_halfpipe", 0.2)],
     },
     {
         "kind": "chaos",
-        "start": 28.5,
-        "end": 32.0,
+        "start": SPIDERS[0],
+        "end": SPIDERS[1],
         "label": "SPIDERS?!",
         "color": "#5e0a12",
         "takes": [("spider", 1.4)],
@@ -117,17 +133,18 @@ SHOTS = [
     },
     {
         "kind": "eat",
-        "start": 32.0,
-        "end": 40.0,
+        "start": EAT[0],
+        "end": EAT[1],
         "screen": ("tank", 2.0),
         "bites": [1.5, 2.97],
-        "words_at": 4.0,
+        # Just after the second bite, so the words have time to land.
+        "words_at": 3.3,
         "words": ["YOU", "CAN", "EAT", "IT"],
     },
     {
         "kind": "guten",
-        "start": 40.0,
-        "end": LENGTH,
+        "start": FISH_HOLD[0],
+        "end": FISH_HOLD[1],
         "takes": [("guten", 0.0)],
         # The fish spins to the ukulele, not its own song.
         "game_sounds": False,
@@ -140,10 +157,10 @@ SHOTS = [
 ]
 
 # Which music plays where: (track, from, to, offset into the track, seconds of fade-out). An
-# offset of None starts the track where its sound starts. The bumblebee crashes in on the
-# BEES card, and the ukulele comes back for the fish where the scratch stopped it.
+# offset of None starts the track where its sound starts. The bumblebee crashes in after the
+# scratch, and the ukulele comes back for the fish where the scratch stopped it.
 SCORE = [
-    ("cozy", 0.0, on_beat(38), 0.0, 0.005),
-    ("bees", 18.4, 32.0, None, 0.005),
-    ("cozy", 40.0, LENGTH, on_beat(38), 1.5),
+    ("cozy", 0.0, SCRATCH[0], 0.0, 0.005),
+    ("bees", BEES[0], SPIDERS[1], None, 0.005),
+    ("cozy", FISH_HOLD[0], FISH_HOLD[1], SCRATCH[0], 1.5),
 ]

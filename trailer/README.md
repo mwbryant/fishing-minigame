@@ -1,12 +1,12 @@
 # FISHING MINIGAME trailer
 
-A 45 second trailer cut from the game itself:
+A 46 second trailer cut from the game itself:
 
 1. **FISHING MINIGAME**, with the player at their house, and the camera dives into them.
 2. **FISH, TRAIN, WALK, COMPETE, HATS:** one beat each, tilted, zooming in and out, cut on
    the ukulele's beat.
-3. A record scratch, then **BEESSSS????** as "Flight of the Bumblebee" crashes in, and the
-   bees.
+3. A record scratch, then the bees with **BEESSSS????** beside them as "Flight of the
+   Bumblebee" crashes in.
 4. **SKATEBOARDS??** (a grind, then the halfpipe) and **SPIDERS?!** (the spider leaps at
    you).
 5. A crude man takes two bites out of the printed reel case: **YOU CAN EAT IT**.
@@ -32,7 +32,9 @@ uv run build.py --sheets     # cache/sheets/<take>.png: 24 frames of each take, 
 
 Then check that each cut in `edit.py` still lands where it should. A shot's takes are
 `(take, from)` or `(take, from, length)`, in seconds into the take. For example, FISH plays
-`fish_cast` from 0.3 s for 1.1 s, then `fish_catch` from 2.8 s to the end of the beat.
+`fish_cast` from 0.3 s for 1.3 s, then `fish_catch` from 2.6 s to the end of the beat.
+Each shot after the gameplay loop starts where the one before ends, so lengthening one (the
+tuples at the top of `edit.py`) moves everything after it, and the trailer grows to fit.
 
 The takes are scripted in `desktop/src/footage.rs` with the same test helpers as the
 snapshots. To film them yourself, with an optional list of take names:
