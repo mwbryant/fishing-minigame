@@ -93,6 +93,8 @@ SHOTS = [
         "label": "COMPETE",
         "color": "#c2457e",
         "takes": [("compete", 0.6, 2.0), ("compete_results", 0.0)],
+        # The judges' ding rings on over the results, so the results' own is left out.
+        "mute": ["compete_results"],
     },
     {
         "kind": "beat",
@@ -147,7 +149,7 @@ SHOTS = [
         "end": FISH_HOLD[1],
         "takes": [("guten", 0.0)],
         # The fish spins to the ukulele, not its own song.
-        "game_sounds": False,
+        "mute": ["guten"],
         "tag": "FISHING MINIGAME",
         # Stacked beside the fish, a line at a time from this many seconds in; the last line
         # in gold.
@@ -156,11 +158,21 @@ SHOTS = [
     },
 ]
 
-# Which music plays where: (track, from, to, offset into the track, seconds of fade-out). An
-# offset of None starts the track where its sound starts. The bumblebee crashes in after the
-# scratch, and the ukulele comes back for the fish where the scratch stopped it.
+# Which music plays where. `offset` is seconds into the track (left out: where its sound
+# starts), fades are in seconds, and `level` is (time, dB) points, straight lines between.
 SCORE = [
-    ("cozy", 0.0, SCRATCH[0], 0.0, 0.005),
-    ("bees", BEES[0], SPIDERS[1], None, 0.005),
-    ("cozy", FISH_HOLD[0], FISH_HOLD[1], SCRATCH[0], 1.5),
+    {"track": "cozy", "start": 0.0, "end": SCRATCH[0], "offset": 0.0},
+    # The bumblebee crashes in after the scratch and fades away across the cut to the man.
+    {"track": "bees", "start": BEES[0], "end": SPIDERS[1] + 0.6, "fade_out": 0.9},
+    # The ukulele creeps back in under the chewing, from where the scratch stopped it, and
+    # comes up for the fish.
+    {
+        "track": "cozy",
+        "start": EAT[0],
+        "end": FISH_HOLD[1],
+        "offset": SCRATCH[0],
+        "fade_in": 1.5,
+        "fade_out": 1.5,
+        "level": [(EAT[0], -11.0), (EAT[1] - 0.6, -11.0), (EAT[1], 0.0)],
+    },
 ]

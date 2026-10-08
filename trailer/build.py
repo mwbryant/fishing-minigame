@@ -196,18 +196,40 @@ def thump():
     return (np.sin(2 * math.pi * (95 - 120 * tau) * tau) * np.exp(-tau / 0.045)).astype(np.float32)
 
 
-def whoosh(secs):
+def whoosh(rise, tail=0.6):
+    """Air rushing past: brightening for `rise` seconds, then dying away over `tail`."""
     rng = np.random.default_rng(5)
-    n = int(secs * SR)
+    peak, n = int(rise * SR), int((rise + tail) * SR)
     noise = rng.standard_normal(n).astype(np.float32)
     out = np.empty(n, np.float32)
     acc = 0.0
     for i in range(n):
-        cutoff = 300 + 5000 * (i / n) ** 2
+        if i < peak:
+            cutoff = 300 + 5000 * (i / peak) ** 2
+        else:
+            cutoff = 5300 - 3800 * (i - peak) / (n - peak)
         acc += (1 - math.exp(-2 * math.pi * cutoff / SR)) * (noise[i] - acc)
         out[i] = acc
-    out *= (np.arange(n) / n) ** 2
+    tau = np.arange(n) / SR
+    out *= np.where(tau < rise, (tau / rise) ** 2, np.exp(-(tau - rise) / (tail / 4)))
     return out / (np.abs(out).max() + 1e-9)
+
+
+def ring_out(sound, cut, most=1.0):
+    """Where a sound playing at sample `cut` falls silent, up to `most` seconds on: a cut
+    lets the game's sounds finish instead of chopping them."""
+    end = min(len(sound), cut + int(most * SR))
+    window = SR // 100
+    for i in range(cut, end, window):
+        if np.abs(sound[i : i + window]).max() < 1e-4:
+            return i
+    return end
+
+
+def level(points, start, n):
+    """Gains for `n` samples from `start` seconds, along (time, dB) points."""
+    times = start + np.arange(n) / SR
+    return db(np.interp(times, [t for t, _ in points], [d for _, d in points])).astype(np.float32)
 
 
 def scratch(track, at, secs=0.6):
@@ -873,18 +895,27 @@ def mix(takes, music_files):
         out[start : start + len(clip)] += clip * gain
 
     music = {name: load_audio(path) for name, path in music_files.items()}
-    for name, start, end, offset, fade_out in edit.SCORE:
-        track = music[name]
+    for cue in edit.SCORE:
+        track = music[cue["track"]]
+        offset = cue.get("offset")
         offset = first_sound(track) if offset is None else offset
-        piece = track[int(offset * SR) : int((offset + end - start) * SR)]
-        add(piece, start, db(edit.MUSIC[name]["gain_db"]), fade_out=fade_out)
+        piece = track[int(offset * SR) : int((offset + cue["end"] - cue["start"]) * SR)].copy()
+        if "level" in cue:
+            piece *= level(cue["level"], cue["start"], len(piece))[:, None]
+        add(
+            piece,
+            cue["start"],
+            db(edit.MUSIC[cue["track"]]["gain_db"]),
+            fade_in=cue.get("fade_in", 0.005),
+            fade_out=cue.get("fade_out", 0.005),
+        )
     for shot in edit.SHOTS:
         if shot["kind"] == "scratch":
-            name, start, _, offset, _ = edit.SCORE[0]
+            cue = edit.SCORE[0]
             add(
-                scratch(music[name], offset + shot["start"] - start),
+                scratch(music[cue["track"]], cue["offset"] + shot["start"] - cue["start"]),
                 shot["start"],
-                db(edit.MUSIC[name]["gain_db"] + 2),
+                db(edit.MUSIC[cue["track"]]["gain_db"] + 2),
             )
         if shot["kind"] == "opening":
             add(whoosh(shot["end"] - shot["dive"]), shot["dive"], 0.35)
@@ -899,12 +930,12 @@ def mix(takes, music_files):
                 biting = any(bite - 0.6 < shuts < bite + 0.15 for bite in bites)
                 if shuts > bites[0] + 0.15 and not biting:
                     add(crunch(10 + k), shot["start"] + shuts, 0.45)
-        if not shot.get("game_sounds", True):
-            continue
         for take, start, at, span in segments(shot):
+            if take in shot.get("mute", []):
+                continue
             sound = takes.audio(take)
-            piece = sound[int(start * SR) : int((start + span) * SR)]
-            add(piece, shot["start"] + at, db(-3), fade_out=0.02)
+            end = ring_out(sound, int((start + span) * SR))
+            add(sound[int(start * SR) : end], shot["start"] + at, db(-3), fade_out=0.03)
     out = out[: int(edit.LENGTH * SR)]
     out *= 0.89 / (np.abs(out).max() + 1e-9)
     wav = CACHE / "mix.wav"

@@ -68,10 +68,15 @@ that step.
 - **Sound effects:**
   - the record scratch is the ukulele track dragged back and forth;
   - the dive's whoosh and the bites' crunches are synthesized;
-  - everything else is the game's own sounds, except on the GUTEN fish.
+  - everything else is the game's own sounds. A cut lets a sound finish (up to a second)
+    instead of chopping it. A shot's `mute` drops a take's sounds: the results after
+    COMPETE, so the judges' ding plays alone, and the GUTEN fish.
+- **Music:** the bumblebee fades across the cut to the man. The ukulele creeps back in under
+  the chewing, from where the scratch stopped it, and comes up to full for the fish
+  (`SCORE` in `edit.py`).
 - **No voice lines and no guten song:** YOU CAN EAT IT is only on screen. The GUTEN fish
   spins to the ukulele, because its own song is the "Guten Morgen, Sonnenschein" meme
-  audio, which isn't ours (`"game_sounds": False` in `edit.py`).
+  audio, which isn't ours (`"mute": ["guten"]` in `edit.py`).
 
 ## Credits
 
