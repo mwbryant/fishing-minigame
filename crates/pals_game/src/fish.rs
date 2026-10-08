@@ -5,7 +5,8 @@ use alloc::vec::Vec;
 
 use angler_game::SPECIES;
 use bevy::math::{Vec2, ops};
-use orbit_gfx::{Point, Shape, Size, SpriteRef};
+use orbit_gfx::{Point, Rgb565, Shape, Size, SpriteRef};
+use orbit_ui::{GOLD, TEXT, label_at, plated};
 use pals::{HATS, Pet, tricks::Motion};
 
 /// Where a hat sits on each species (by index into `SPECIES`): the column
@@ -70,6 +71,42 @@ pub fn draw(shapes: &mut Vec<Shape>, pet: &Pet, at: Vec2, scale: u32, facing_rig
         scale: hat_scale,
         flip_x: !facing_right,
     });
+}
+
+/// How far a picked fish's ring reaches from where it swims.
+const PICK_RING: u32 = 30;
+/// A picked fish's name sits this far under its middle, clear of the ring.
+const NAME_BELOW: i32 = PICK_RING as i32 + 16;
+
+/// The kept fish at `spots`, then `out` at the last spot, for picking one by
+/// turning: the pointed one ringed in gold, each name under its fish on a
+/// plate of `backing` so the scenery behind stays out of the letters.
+pub fn dial(
+    shapes: &mut Vec<Shape>,
+    pets: &[Pet],
+    out: &str,
+    spots: impl Iterator<Item = Point>,
+    pointed: usize,
+    backing: Rgb565,
+) {
+    for (i, at) in spots.enumerate().take(pets.len() + 1) {
+        let color = if i == pointed { GOLD } else { TEXT };
+        if i == pointed {
+            shapes.push(Shape::Ring {
+                center: at,
+                radius: PICK_RING,
+                width: 2,
+                color: GOLD,
+            });
+        }
+        let Some(pet) = pets.get(i) else {
+            plated(shapes, label_at(at, out, 1, color), backing);
+            continue;
+        };
+        draw(shapes, pet, Vec2::new(at.x as f32, at.y as f32), 2, true);
+        let name = label_at(at + Point::new(0, NAME_BELOW), pet.name.as_str(), 1, color);
+        plated(shapes, name, backing);
+    }
 }
 
 /// How long a trick takes to perform.

@@ -10,5 +10,10 @@ orbit_gfx.workspace = true
 orbit_motion.workspace = true
 orbit_audio.workspace = true
 
+[features]
+# Every test update checks that no text is crowded (`orbit_gfx::crowding`).
+# Tests and the desktop's snapshots only: it allocates.
+crowding = []
+
 [lints]
 workspace = true

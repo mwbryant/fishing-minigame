@@ -4,8 +4,8 @@ use bevy::{math::ops, prelude::*};
 use orbit_core::{Frame, Launcher, Power, Tilt};
 use orbit_gfx::{Point, Rectangle, Rgb565, SCREEN_CENTER, Shape, Size, SpriteRef};
 use orbit_ui::{
-    battery_level, button, dial_choice, framed_button, key_ring, labelled_button, power_overlay,
-    running_low,
+    battery_level, button, clear_text_of, dial_choice, framed_button, key_ring, labelled_button,
+    notice, power_overlay, running_low,
 };
 use pals::{MAX_PETS, Pals};
 
@@ -113,7 +113,7 @@ fn draw_frame(
             lake(shapes, &session, elevation, true);
             bobber(shapes, flight.pos, 0);
             if *perfect {
-                shapes.push(label(76, "PERFECT!", 2, GOLD));
+                notice(shapes, 380, "PERFECT!", GOLD);
             }
         }
         Phase::Waiting { bobber_x, .. } => {
@@ -129,12 +129,7 @@ fn draw_frame(
         Phase::Bite { bobber_x, .. } => {
             lake(shapes, &session, elevation, true);
             floating(shapes, elevation, *bobber_x, 4);
-            shapes.push(Shape::Label {
-                center: Point::new(*bobber_x as i32, WATER_Y as i32 - 40),
-                text: "!".into(),
-                scale: 3,
-                color: GOLD,
-            });
+            alarm(shapes, Point::new(*bobber_x as i32, WATER_Y as i32 - 40));
         }
         Phase::Notice(text) => {
             lake(shapes, &session, elevation, true);
@@ -188,8 +183,13 @@ fn draw_frame(
         battery_level(shapes, &battery);
     }
 
+    clear_text_of(
+        shapes,
+        2,
+        |shape| matches!(shape, Shape::Disc { color, .. } if *color == PREVIEW_DOT),
+    );
     if session.toast_secs > 0.0 && power.sleep_progress().is_none() {
-        shapes.push(label(140, "LEVEL SET", 2, TOAST));
+        notice(shapes, 140, "LEVEL SET", TOAST);
     }
     power_overlay(shapes, &power);
 }
@@ -279,6 +279,13 @@ fn splash(shapes: &mut Vec<Shape>, x: f32, t: f32) {
             }
         }
     }
+}
+
+/// A bite's "!" over the bobber, drawn as a mark rather than text since it
+/// stands over the hills.
+fn alarm(shapes: &mut Vec<Shape>, at: Point) {
+    shapes.push(rect(at.x - 3, at.y - 19, 6, 27, GOLD));
+    shapes.push(rect(at.x - 3, at.y + 13, 6, 6, GOLD));
 }
 
 /// Angry Birds-style dotted path of a full-power cast, ending exactly where
@@ -428,7 +435,7 @@ fn keep_or_release(shapes: &mut Vec<Shape>, pals: &Pals, release_pointed: bool) 
         format!("TANK {}/{MAX_PETS}", pals.pets.len())
     };
     shapes.push(label(392, &tank, 1, HINT));
-    shapes.push(label(414, "TURN RIGHT TO RELEASE, PRESS", 1, HINT));
+    shapes.push(label(414, "TURN TO PICK, PRESS", 1, HINT));
 }
 
 /// The kept fish round the glass and LET IT GO; the pointed one in gold.

@@ -86,7 +86,7 @@ fn one_ollie_per_turn_the_device_has_to_come_back_first() {
     let mut takeoffs = 0;
     let mut was_airborne = false;
     for _ in 0..150 {
-        app.update();
+        update(&mut app);
         let airborne = ride(&app).airborne();
         takeoffs += usize::from(airborne && !was_airborne);
         was_airborne = airborne;
@@ -143,7 +143,7 @@ fn run_until_grinding(app: &mut App) -> bool {
         if ride(app).grinding().is_some() {
             return true;
         }
-        app.update();
+        update(app);
     }
     false
 }
@@ -162,7 +162,7 @@ fn steady_rider(app: &mut App) {
         0.0
     };
     set_tilt(app, steer, 0.0);
-    app.update();
+    update(app);
 }
 
 #[test]
@@ -235,7 +235,7 @@ fn until_air(app: &mut App) {
         if ride(app).halfpipe_air() {
             return;
         }
-        app.update();
+        update(app);
     }
     panic!("never got air in the halfpipe");
 }
@@ -245,7 +245,7 @@ fn until_landed(app: &mut App) {
         if !ride(app).halfpipe_air() {
             return;
         }
-        app.update();
+        update(app);
     }
     panic!("never came back down");
 }

@@ -15,8 +15,8 @@ use orbit_core::{
 };
 use orbit_gfx::{Point, Rgb565, SCREEN_CENTER, Shape};
 use orbit_ui::{
-    CLICK, DANGER, DEEP, GOLD, HINT, TEXT, THUD, TOAST, battery_level, dial_choice, dial_point,
-    gold_label, label, label_at, list_choice, power_overlay, rect, rgb,
+    CLICK, DANGER, DEEP, GOLD, HINT, TEXT, THUD, TOAST, battery_level_on, dial_choice, dial_point,
+    gold_label_on, label, label_at, list_choice, plated, power_overlay, rect, rgb,
 };
 use pals::{Gesture, Pals, Pet, Strokes, TRICKS_PER_PET};
 
@@ -38,7 +38,14 @@ const REQUEST_SECS: f32 = 4.0;
 const COMBO_PCT: u32 = 10;
 const MAX_COMBO: u32 = 5;
 const ECHO_SECS: f32 = 1.0;
-const STAGE: Vec2 = Vec2::new(233.0, 220.0);
+/// Where the fish performs, low enough that its highest leap stays under the
+/// judge's banner and its deepest dive over the line of news under the water.
+const STAGE: Vec2 = Vec2::new(233.0, 262.0);
+/// Tricks here move this much of what they do in the house, to fit the stage.
+const STAGE_MOTION: f32 = 0.7;
+/// The banner a judge's request (or the start) goes up on, wide enough for
+/// the longest trick's name.
+const BANNER: (i32, i32, u32, u32) = (88, 76, 290, 58);
 const NAME_RING: f32 = 160.0;
 
 pub struct Tier {
@@ -437,10 +444,7 @@ fn draw_frame(
             list_choice(tilt.steer_deg, TIER_CHOICES, 0),
         ),
         ContestPhase::Show { pet, show, .. } => {
-            stage(shapes, &pals.pets[*pet], show);
-            if mic.speaking() {
-                shapes.push(label(306, "LISTENING...", 1, TOAST));
-            }
+            stage(shapes, &pals.pets[*pet], show, mic.speaking());
         }
         ContestPhase::Results {
             pet,
@@ -460,7 +464,7 @@ fn draw_frame(
         ),
     }
     if let Some(battery) = power.battery {
-        battery_level(shapes, &battery);
+        battery_level_on(shapes, &battery, CURTAIN);
     }
     power_overlay(shapes, &power);
 }
@@ -475,67 +479,57 @@ fn curtains(shapes: &mut Vec<Shape>) {
 fn choose_pet(shapes: &mut Vec<Shape>, pals: &Pals, steer: f32) {
     curtains(shapes);
     let count = pals.pets.len() + 1;
-    let pointed = dial_choice(steer, count);
     if pals.pets.is_empty() {
-        shapes.push(label(220, "NO FISH TO ENTER", 2, TEXT));
-        shapes.push(label(254, "KEEP ONE FROM THE POND", 1, HINT));
+        text(shapes, label(170, "NO FISH TO ENTER", 2, TEXT));
+        text(shapes, label(200, "KEEP ONE FROM THE POND", 1, HINT));
     } else {
-        shapes.push(label(214, "CONTEST HALL", 2, GOLD));
-        shapes.push(label(248, "WHO WILL PERFORM?", 1, TEXT));
+        text(shapes, label(170, "CONTEST HALL", 2, GOLD));
+        text(shapes, label(200, "WHO WILL PERFORM?", 1, TEXT));
     }
-    for i in 0..count {
+    let spots = (0..count).map(|i| {
         let at = choice_point(i, count);
-        let at = Point::new(at.x as i32, at.y as i32);
-        let color = if i == pointed { GOLD } else { TEXT };
-        if i == pointed {
-            shapes.push(Shape::Ring {
-                center: at,
-                radius: 30,
-                width: 2,
-                color: GOLD,
-            });
-        }
-        match pals.pets.get(i) {
-            Some(pet) => {
-                fish::draw(
-                    shapes,
-                    pet,
-                    Vec2::new(at.x as f32, at.y as f32 - 6.0),
-                    2,
-                    true,
-                );
-                shapes.push(label_at(
-                    at + Point::new(0, 18),
-                    pet.name.as_str(),
-                    1,
-                    color,
-                ));
-            }
-            None => shapes.push(label_at(at, "BACK", 1, color)),
-        }
-    }
-    gold_label(
+        Point::new(at.x as i32, at.y as i32)
+    });
+    fish::dial(
         shapes,
-        Point::new(240, 52),
+        &pals.pets,
+        "BACK",
+        spots,
+        dial_choice(steer, count),
+        CURTAIN,
+    );
+    gold_label_on(
+        shapes,
+        Point::new(240, 300),
         &format!("GOLD {}", pals.gold),
         1,
+        CURTAIN,
     );
+}
+
+/// Text on the curtains, so their folds stop short of its letters.
+fn text(shapes: &mut Vec<Shape>, label: Shape) {
+    plated(shapes, label, CURTAIN);
 }
 
 fn choose_tier(shapes: &mut Vec<Shape>, pals: &Pals, pet: &Pet, pointed: usize) {
     curtains(shapes);
-    gold_label(
+    gold_label_on(
         shapes,
         Point::new(240, 52),
         &format!("GOLD {}", pals.gold),
         1,
+        CURTAIN,
     );
-    shapes.push(label(
-        84,
-        &format!("{} IS LV {}", pet.name.as_str(), pet.stamina_level()),
-        1,
-        TEXT,
-    ));
+    text(
+        shapes,
+        label(
+            84,
+            &format!("{} IS LV {}", pet.name.as_str(), pet.stamina_level()),
+            1,
+            TEXT,
+        ),
+    );
     let level = pet.stamina_level();
     for (i, tier) in TIERS.iter().enumerate() {
         let y = 128 + i as i32 * 52;
@@ -562,20 +556,20 @@ fn choose_tier(shapes: &mut Vec<Shape>, pals: &Pals, pet: &Pet, pointed: usize) 
         ));
     }
     let back_color = if pointed == TIERS.len() { GOLD } else { TEXT };
-    shapes.push(label(346, "BACK", 1, back_color));
-    shapes.push(label(400, "TURN TO PICK, PRESS", 1, HINT));
+    text(shapes, label(346, "BACK", 1, back_color));
+    text(shapes, label(400, "TURN TO PICK, PRESS", 1, HINT));
 }
 
-fn stage(shapes: &mut Vec<Shape>, pet: &Pet, show: &Show) {
+fn stage(shapes: &mut Vec<Shape>, pet: &Pet, show: &Show, listening: bool) {
     curtains(shapes);
     shapes.push(Shape::Disc {
-        center: Point::new(233, 250),
-        radius: 150,
+        center: Point::new(STAGE.x as i32, STAGE.y as i32),
+        radius: 128,
         color: STAGE_WATER,
     });
     shapes.push(Shape::Disc {
-        center: Point::new(233, 236),
-        radius: 90,
+        center: Point::new(STAGE.x as i32, STAGE.y as i32),
+        radius: 80,
         color: SPOT,
     });
     let (offset, flipped) = match show.trying {
@@ -590,19 +584,25 @@ fn stage(shapes: &mut Vec<Shape>, pet: &Pet, show: &Show) {
         }
         None => (Vec2::ZERO, false),
     };
-    fish::draw(shapes, pet, STAGE + offset, 5, !flipped);
-    shapes.push(label(54, &format!("SCORE {}", show.score), 2, GOLD));
-    if show.secs < GO_SECS {
-        shapes.push(label(160, "GO!", 3, TEXT));
-    }
+    fish::draw(shapes, pet, STAGE + offset * STAGE_MOTION, 5, !flipped);
+    text(shapes, label(54, &format!("SCORE {}", show.score), 2, GOLD));
+    let (x, y, width, height) = BANNER;
     if let Some((slot, _)) = show.request {
         let want = format!("{}!", pet.tricks[slot].info().name);
-        shapes.push(rect(113, 80, 240, 58, GOLD));
-        shapes.push(label(96, "A JUDGE WANTS", 1, DEEP));
-        shapes.push(label(120, &want, 2, DEEP));
+        shapes.push(rect(x, y, width, height, GOLD));
+        shapes.push(label(y + 16, "A JUDGE WANTS", 1, DEEP));
+        shapes.push(label(y + 40, &want, 2, DEEP));
+    } else if show.secs < GO_SECS {
+        shapes.push(rect(x, y, width, height, GOLD));
+        shapes.push(label(y + height as i32 / 2, "GO!", 3, DEEP));
     }
-    if let Some(toast) = &show.toast {
-        shapes.push(label(330, toast, 1, TOAST));
+    let news = match (listening, &show.toast) {
+        (true, _) => Some(("LISTENING...", TOAST)),
+        (false, Some(toast)) => Some((toast.as_str(), TOAST)),
+        (false, None) => None,
+    };
+    if let Some((news, color)) = news {
+        text(shapes, label(404, news, 1, color));
     }
     let left = (1.0 - show.secs / SHOW_SECS).clamp(0.0, 1.0);
     shapes.push(Shape::Arc {
@@ -614,10 +614,10 @@ fn stage(shapes: &mut Vec<Shape>, pet: &Pet, show: &Show) {
         color: GOLD,
     });
     let full = pet.stamina_max().max(1);
-    let width = 200 * show.stamina / full;
-    shapes.push(rect(133, 372, 200, 12, BAR_BACK));
-    shapes.push(rect(133, 372, width.max(1), 12, rgb(110, 220, 90)));
-    shapes.push(label(396, "STAMINA", 1, HINT));
+    let width = 160 * show.stamina / full;
+    shapes.push(rect(153, 418, 160, 10, BAR_BACK));
+    shapes.push(rect(153, 418, width.max(1), 10, rgb(110, 220, 90)));
+    text(shapes, label(440, "STAMINA", 1, HINT));
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -636,13 +636,19 @@ fn results(
     } else {
         format!("{} PLACE", ordinal(place))
     };
-    shapes.push(label(80, &title, 3, GOLD));
+    text(shapes, label(80, &title, 3, GOLD));
     if tired {
-        shapes.push(label(118, "TOO TIRED TO GO ON", 1, HINT));
+        text(shapes, label(118, "TOO TIRED TO GO ON", 1, HINT));
     }
     let prize = TIERS[tier].prizes.get(place).copied().unwrap_or(0);
     if prize > 0 {
-        gold_label(shapes, Point::new(240, 146), &format!("+{prize} GOLD"), 2);
+        gold_label_on(
+            shapes,
+            Point::new(240, 146),
+            &format!("+{prize} GOLD"),
+            2,
+            CURTAIN,
+        );
     }
     let mut table: Vec<(&str, u32, bool)> = RIVALS
         .iter()
@@ -654,8 +660,11 @@ fn results(
     for (row, (name, points, yours)) in table.iter().enumerate() {
         let y = 196 + row as i32 * 34;
         let color = if *yours { GOLD } else { TEXT };
-        shapes.push(label_at(Point::new(170, y), name, 1, color));
-        shapes.push(label_at(Point::new(310, y), &format!("{points}"), 1, color));
+        text(shapes, label_at(Point::new(170, y), name, 1, color));
+        text(
+            shapes,
+            label_at(Point::new(310, y), &format!("{points}"), 1, color),
+        );
     }
-    shapes.push(label(400, "PRESS TO GO ON", 1, HINT));
+    text(shapes, label(400, "PRESS TO GO ON", 1, HINT));
 }

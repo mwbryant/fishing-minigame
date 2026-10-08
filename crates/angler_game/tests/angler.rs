@@ -9,7 +9,7 @@ use angler_game::{
     ui,
 };
 use bevy::prelude::*;
-use orbit_core::{Buttons, ClipRef, Frame, SaveBlob, SoundCommand, SoundQueue};
+use orbit_core::{Buttons, ClipRef, Frame, SaveBlob, SoundCommand, SoundQueue, testing::update};
 use orbit_gfx::{Point, Shape, SpriteRef};
 use orbit_ui::{Key, key_center, key_turn};
 use pals::{Name, Pals, Pet};
@@ -73,7 +73,7 @@ fn reel_skillfully(app: &mut App) {
         }
         let lean = reel_lean(app);
         set_tilt(app, 0.0, lean);
-        app.update();
+        update(app);
     }
     panic!("fight never ended");
 }
@@ -108,10 +108,10 @@ fn turning_the_device_counterclockwise_raises_the_aim() {
     let mut app = headless_app();
     start_aiming(&mut app);
     set_tilt(&mut app, -30.0, 0.0);
-    app.update();
+    update(&mut app);
     assert!(shows(&app, "ANGLE 70"));
     set_tilt(&mut app, 20.0, 0.0);
-    app.update();
+    update(&mut app);
     assert!(shows(&app, "ANGLE 20"));
 }
 
@@ -163,7 +163,7 @@ fn the_full_power_path_is_dotted_while_aiming_before_any_press() {
     let mut app = headless_app();
     start_aiming(&mut app);
     set_tilt(&mut app, -10.0, 0.0);
-    app.update();
+    update(&mut app);
     let dots = preview_dots(&app);
     assert!(dots.len() >= 8, "{} dots", dots.len());
     let end = *dots.last().unwrap();
@@ -725,7 +725,7 @@ fn the_menu_button_hides_while_charging_and_a_tap_there_keeps_the_cast() {
     app.world_mut()
         .resource_mut::<orbit_core::Touch>()
         .set(Some(ui::MENU.center()));
-    app.update();
+    update(&mut app);
     assert!(matches!(
         phase(&app),
         Phase::Aim {
@@ -901,7 +901,7 @@ fn report_battery(app: &mut App, percent: Option<u8>, external_power: bool, char
         external_power,
         charging,
     });
-    app.update();
+    update(app);
 }
 
 fn power(app: &App) -> orbit_core::Power {

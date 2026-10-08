@@ -115,7 +115,7 @@ fn walking_far_enough_levels_up_stamina() {
 fn turning_picks_which_fish_walks() {
     let mut app = park(&[("GILLY", 0.0), ("BUBBA", 0.0)], true);
     set_tilt(&mut app, 40.0, 0.0);
-    app.update();
+    update(&mut app);
     click_action(&mut app);
     assert!(matches!(phase(&app), WalkPhase::Walking { pet: 1, .. }));
     tick(&mut app, 60 * 30);
@@ -139,7 +139,7 @@ fn done_goes_back_to_choosing_and_back_leaves() {
     click_action(&mut app);
     assert_eq!(phase(&app), WalkPhase::Choose);
     set_tilt(&mut app, 60.0, 0.0);
-    app.update();
+    update(&mut app);
     click_action(&mut app);
     assert_eq!(app.should_exit(), Some(AppExit::Success));
 }

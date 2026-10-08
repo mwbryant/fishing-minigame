@@ -13,8 +13,8 @@ use orbit_core::{
 };
 use orbit_gfx::{Point, Rgb565, SCREEN_CENTER, Shape};
 use orbit_ui::{
-    CLICK, DEEP, GOLD, HINT, TEXT, TOAST, battery_level, button, dial_choice, dial_point, disc,
-    label, label_at, power_overlay, rect, rgb,
+    CLICK, DEEP, GOLD, HINT, TEXT, TOAST, battery_level, battery_level_on, button, dial_choice,
+    dial_point, disc, label, plated, plated_lines, power_overlay, rect, rgb,
 };
 use pals::{MOCK_PACES, MockWalk, Pals, Trail};
 
@@ -261,21 +261,27 @@ fn draw_frame(
             park(shapes);
             bowl(shapes, fish, walk.clock);
             progress(shapes, fish);
-            shapes.push(label(66, fish.name.as_str(), 2, TEXT));
-            shapes.push(label(330, &format!("{} M", trail.meters as u32), 3, TEXT));
+            text(shapes, label(66, fish.name.as_str(), 2, TEXT));
+            text(
+                shapes,
+                label(330, &format!("{} M", trail.meters as u32), 3, TEXT),
+            );
             let level = format!("STAMINA LV {}", fish.stamina_level());
-            shapes.push(label(368, &level, 1, GOLD));
             let status = match (mock, gps.latest()) {
                 (Some(mock), _) => format!("MOCK WALK x{}", mock.pace() as u32),
                 (None, Some(_)) => format!("SATELLITES {}", gps.satellites),
                 (None, None) if *secs >= NO_SKY_SECS => "NO SKY? TRY MOCK WALK".into(),
                 (None, None) => "LOOKING FOR THE SKY".into(),
             };
-            shapes.push(label(392, &status, 1, HINT));
+            let lines = [
+                label(368, &level, 1, GOLD),
+                label(392, &status, 1, HINT),
+                label(420, "PRESS TO STOP", 1, HINT),
+            ];
+            plated_lines(shapes, lines, GRASS);
             if levelled_at.is_some_and(|at| secs - at < LEVEL_UP_SECS) {
-                shapes.push(label(104, "LEVEL UP!", 2, GOLD));
+                text(shapes, label(104, "LEVEL UP!", 2, GOLD));
             }
-            shapes.push(label(420, "PRESS TO STOP", 1, HINT));
             if mock.is_some() {
                 button(shapes, &ui::SLOWER);
                 button(shapes, &ui::FASTER);
@@ -297,13 +303,18 @@ fn draw_frame(
                 format!("STAMINA LV {now}")
             };
             shapes.push(label(270, &level, 1, GOLD));
-            let left = fish.next_level_m() - fish.walked_m;
-            shapes.push(label(296, &format!("{left} M TO THE NEXT LEVEL"), 1, HINT));
+            let next = match fish.next_level_m() {
+                Some(next) => format!("{} M TO THE NEXT LEVEL", next - fish.walked_m),
+                None => "THE TOP LEVEL!".into(),
+            };
+            shapes.push(label(296, &next, 1, HINT));
             shapes.push(label(400, "PRESS TO GO ON", 1, HINT));
         }
     }
-    if let Some(battery) = power.battery {
-        battery_level(shapes, &battery);
+    match (power.battery, walk.phase.as_ref()) {
+        (Some(battery), WalkPhase::Done { .. }) => battery_level(shapes, &battery),
+        (Some(battery), _) => battery_level_on(shapes, &battery, GRASS),
+        (None, _) => {}
     }
     power_overlay(shapes, &power);
 }
@@ -311,45 +322,30 @@ fn draw_frame(
 fn choose(shapes: &mut Vec<Shape>, pals: &Pals, steer: f32) {
     park(shapes);
     let count = pals.pets.len() + 1;
-    let pointed = dial_choice(steer, count);
-    if pals.pets.is_empty() {
-        shapes.push(label(220, "NO FISH TO WALK", 2, TEXT));
-        shapes.push(label(254, "KEEP ONE FROM THE POND", 1, HINT));
+    let (title, hint) = if pals.pets.is_empty() {
+        ("NO FISH TO WALK", "KEEP ONE FROM THE POND")
     } else {
-        shapes.push(label(222, "WHO IS WALKING?", 2, TEXT));
-        shapes.push(label(256, "TURN TO PICK, PRESS", 1, HINT));
-    }
-    for i in 0..count {
+        ("WHO IS WALKING?", "TURN TO PICK, PRESS")
+    };
+    let lines = [label(170, title, 2, TEXT), label(200, hint, 1, HINT)];
+    plated_lines(shapes, lines, GRASS);
+    let spots = (0..count).map(|i| {
         let at = choice_point(i, count);
-        let at = Point::new(at.x as i32, at.y as i32);
-        let color = if i == pointed { GOLD } else { TEXT };
-        if i == pointed {
-            shapes.push(Shape::Ring {
-                center: at,
-                radius: 30,
-                width: 2,
-                color: GOLD,
-            });
-        }
-        match pals.pets.get(i) {
-            Some(pet) => {
-                fish::draw(
-                    shapes,
-                    pet,
-                    Vec2::new(at.x as f32, at.y as f32 - 6.0),
-                    2,
-                    true,
-                );
-                shapes.push(label_at(
-                    at + Point::new(0, 18),
-                    pet.name.as_str(),
-                    1,
-                    color,
-                ));
-            }
-            None => shapes.push(label_at(at, "BACK", 1, color)),
-        }
-    }
+        Point::new(at.x as i32, at.y as i32)
+    });
+    fish::dial(
+        shapes,
+        &pals.pets,
+        "BACK",
+        spots,
+        dial_choice(steer, count),
+        GRASS,
+    );
+}
+
+/// Text on the park's grass, so the path stops short of its letters.
+fn text(shapes: &mut Vec<Shape>, label: Shape) {
+    plated(shapes, label, GRASS);
 }
 
 fn park(shapes: &mut Vec<Shape>) {
@@ -379,8 +375,10 @@ fn bowl(shapes: &mut Vec<Shape>, pet: &pals::Pet, clock: f32) {
 fn progress(shapes: &mut Vec<Shape>, pet: &pals::Pet) {
     let level = pet.stamina_level();
     let from = (level - 1) * (level - 1) * 100;
-    let to = pet.next_level_m();
-    let done = (pet.walked_m.saturating_sub(from)) as f32 / (to - from).max(1) as f32;
+    let done = match pet.next_level_m() {
+        Some(to) => pet.walked_m.saturating_sub(from) as f32 / (to - from).max(1) as f32,
+        None => 1.0,
+    };
     shapes.push(Shape::Arc {
         center: SCREEN_CENTER,
         radius: 224,

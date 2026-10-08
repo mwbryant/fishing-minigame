@@ -103,6 +103,89 @@ pub fn label_at(center: Point, text: &str, scale: u32, color: Rgb565) -> Shape {
     }
 }
 
+/// How far a plate reaches past the letters it backs.
+const PLATE_PAD: i32 = 3;
+
+/// Pushes `label` on a plate of `backing` a little bigger than its letters,
+/// so scenery behind it (a path, a web, stars) stops short of the text.
+pub fn plated(shapes: &mut Vec<Shape>, label: Shape, backing: Rgb565) {
+    if let Some(ink) = orbit_gfx::ink(&label) {
+        shapes.push(Shape::Rect {
+            area: ink.offset(PLATE_PAD),
+            color: backing,
+        });
+    }
+    shapes.push(label);
+}
+
+/// Pushes `lines` on one plate of `backing` round them all, so nothing
+/// behind shows in the gaps between them either.
+pub fn plated_lines(
+    shapes: &mut Vec<Shape>,
+    lines: impl IntoIterator<Item = Shape>,
+    backing: Rgb565,
+) {
+    let lines: Vec<Shape> = lines.into_iter().collect();
+    let inks = lines.iter().filter_map(orbit_gfx::ink);
+    let around = |a: Rectangle, b: Rectangle| {
+        let (Some(a_end), Some(b_end)) = (a.bottom_right(), b.bottom_right()) else {
+            return a;
+        };
+        Rectangle::with_corners(
+            Point::new(
+                a.top_left.x.min(b.top_left.x),
+                a.top_left.y.min(b.top_left.y),
+            ),
+            Point::new(a_end.x.max(b_end.x), a_end.y.max(b_end.y)),
+        )
+    };
+    if let Some(area) = inks.reduce(around) {
+        shapes.push(Shape::Rect {
+            area: area.offset(LINES_PLATE_PAD),
+            color: backing,
+        });
+    }
+    shapes.extend(lines);
+}
+
+/// Pushes `label` in a box framed in `frame`, e.g. the pointed name on a
+/// dial, sized to its letters however long the name is.
+pub fn framed_label(shapes: &mut Vec<Shape>, label: Shape, frame: Rgb565, fill: Rgb565) {
+    if let Some(ink) = orbit_gfx::ink(&label) {
+        shapes.push(Shape::Rect {
+            area: ink.offset(FRAME_PAD + 2),
+            color: frame,
+        });
+        shapes.push(Shape::Rect {
+            area: ink.offset(FRAME_PAD),
+            color: fill,
+        });
+    }
+    shapes.push(label);
+}
+
+/// How far a framed label's box reaches past its letters, inside the frame.
+const FRAME_PAD: i32 = 5;
+
+/// Drops the decorations (bubbles, stars, windows: whatever `decor` picks
+/// out) that come within `margin` of any text in the frame, so scenery never
+/// runs through it or peeks out from behind its plate. Call it once the
+/// frame's text is all pushed.
+pub fn clear_text_of(shapes: &mut Vec<Shape>, margin: i32, decor: impl Fn(&Shape) -> bool) {
+    let inks: Vec<Rectangle> = shapes.iter().filter_map(orbit_gfx::ink).collect();
+    shapes.retain(|shape| {
+        !decor(shape)
+            || inks.iter().all(|ink| {
+                ink.offset(margin)
+                    .intersection(&shape.bounds())
+                    .is_zero_sized()
+            })
+    });
+}
+
+/// How far past their letters [`plated_lines`] plates reach.
+pub const LINES_PLATE_PAD: i32 = PLATE_PAD * 2;
+
 pub fn rect(x: i32, y: i32, w: u32, h: u32, color: Rgb565) -> Shape {
     Shape::Rect {
         area: Rectangle::new(Point::new(x, y), Size::new(w, h)),
@@ -130,6 +213,27 @@ pub static COIN: Sprite = Sprite {
 
 /// Gold-colored text with a coin in front.
 pub fn gold_label(shapes: &mut Vec<Shape>, center: Point, text: &str, scale: u32) {
+    gold_on(shapes, center, text, scale, None);
+}
+
+/// A gold amount with its text on a plate of `backing` (see [`plated`]).
+pub fn gold_label_on(
+    shapes: &mut Vec<Shape>,
+    center: Point,
+    text: &str,
+    scale: u32,
+    backing: Rgb565,
+) {
+    gold_on(shapes, center, text, scale, Some(backing));
+}
+
+fn gold_on(
+    shapes: &mut Vec<Shape>,
+    center: Point,
+    text: &str,
+    scale: u32,
+    backing: Option<Rgb565>,
+) {
     let text = label_at(center, text, scale, GOLD);
     let coin_scale = scale * 2;
     let coin = COIN.size() * coin_scale;
@@ -142,7 +246,10 @@ pub fn gold_label(shapes: &mut Vec<Shape>, center: Point, text: &str, scale: u32
         scale: coin_scale,
         flip_x: false,
     });
-    shapes.push(text);
+    match backing {
+        Some(backing) => plated(shapes, text, backing),
+        None => shapes.push(text),
+    }
 }
 
 /// Charging, beside the battery level.
@@ -162,6 +269,16 @@ pub fn running_low(battery: &Battery) -> bool {
 /// A battery outline filled to the charge, the percentage (or USB with no
 /// cell), and a bolt while charging, at the top of the glass.
 pub fn battery_level(shapes: &mut Vec<Shape>, battery: &Battery) {
+    battery_on(shapes, battery, None);
+}
+
+/// The battery level on a plate of `backing`, for screens with scenery
+/// (a path) running under the top of the glass.
+pub fn battery_level_on(shapes: &mut Vec<Shape>, battery: &Battery, backing: Rgb565) {
+    battery_on(shapes, battery, Some(backing));
+}
+
+fn battery_on(shapes: &mut Vec<Shape>, battery: &Battery, backing: Option<Rgb565>) {
     let (x, y) = (196, 17);
     shapes.push(rect(x, y, 24, 14, TEXT));
     shapes.push(rect(x + 2, y + 2, 20, 10, BLACK));
@@ -187,11 +304,40 @@ pub fn battery_level(shapes: &mut Vec<Shape>, battery: &Battery) {
         Some(percent) => format!("{percent}%"),
         None => String::from("USB"),
     };
-    shapes.push(label_at(Point::new(x + 54, y + 7), &text, 1, TEXT));
+    let text = label_at(Point::new(x + 54, y + 7), &text, 1, TEXT);
+    match backing {
+        Some(backing) => plated(shapes, text, backing),
+        None => shapes.push(text),
+    }
 }
 
-/// Draw last: while the zero button is held toward sleep, a hint and the rim
-/// filling; once the goodbye starts, it replaces the whole frame.
+/// A message across the screen at height `y` on its own dark banner, over
+/// whatever is there; any text the banner would half cover gives way.
+pub fn notice(shapes: &mut Vec<Shape>, y: i32, text: &str, color: Rgb565) {
+    let message = label(y, text, 2, color);
+    let Some(ink) = orbit_gfx::ink(&message) else {
+        return;
+    };
+    let banner = Rectangle::with_center(
+        Point::new(SCREEN_CENTER.x, y),
+        Size::new(ink.size.width.max(NOTICE_WIDTH) + 24, NOTICE_HEIGHT),
+    );
+    shapes.retain(|shape| {
+        orbit_gfx::ink(shape).is_none_or(|ink| ink.offset(2).intersection(&banner).is_zero_sized())
+    });
+    shapes.push(Shape::Rect {
+        area: banner,
+        color: DEEP,
+    });
+    shapes.push(message);
+}
+
+const NOTICE_WIDTH: u32 = 256;
+const NOTICE_HEIGHT: u32 = 44;
+
+/// Draw last: while the zero button is held toward sleep, a hint (any text
+/// it would half cover gives way) and the rim filling; once the goodbye
+/// starts, it replaces the whole frame.
 pub fn power_overlay(shapes: &mut Vec<Shape>, power: &Power) {
     if power.saying_good_night() {
         shapes.clear();
@@ -202,8 +348,7 @@ pub fn power_overlay(shapes: &mut Vec<Shape>, power: &Power) {
     let Some(progress) = power.sleep_progress() else {
         return;
     };
-    shapes.push(rect(93, 211, 280, 44, DEEP));
-    shapes.push(label(233, "HOLD TO SLEEP", 2, TOAST));
+    notice(shapes, 233, "HOLD TO SLEEP", TOAST);
     shapes.push(Shape::Arc {
         center: SCREEN_CENTER,
         radius: 226,

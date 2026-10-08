@@ -5,8 +5,8 @@ use bevy::prelude::*;
 use orbit_core::{Frame, Power, SoundQueue, Tilt};
 use orbit_gfx::{Point, Rgb565, Shape, SpriteRef};
 use orbit_ui::{
-    DANGER, DEEP, GOLD, HINT, TEXT, battery_level, button, dial_choice, disc, framed_button,
-    gold_label, label, labelled_button, power_overlay, rect, rgb,
+    DANGER, DEEP, GOLD, HINT, TEXT, battery_level, battery_level_on, button, dial_choice, disc,
+    framed_button, gold_label_on, label, labelled_button, plated_lines, power_overlay, rect, rgb,
 };
 use pals::Pals;
 
@@ -22,6 +22,9 @@ const WATER: Rgb565 = rgb(48, 110, 180);
 const SHORE: Rgb565 = rgb(196, 180, 120);
 const PATH_WIDTH: u32 = 40;
 const AVATAR_SCALE: u32 = 2;
+/// A door's sign is at least this wide, and this much wider than its name.
+const SIGN_WIDTH: u32 = 240;
+const SIGN_PAD: u32 = 28;
 
 pub(crate) fn draw_frame(
     town: Res<Town>,
@@ -47,8 +50,10 @@ pub(crate) fn draw_frame(
         ),
         TownPhase::ConfirmReset => confirm_reset(shapes, tilt.steer_deg >= ERASE_TURN_DEG),
     }
-    if let Some(battery) = power.battery {
-        battery_level(shapes, &battery);
+    match (power.battery, town.phase) {
+        (Some(battery), TownPhase::Walking) => battery_level_on(shapes, &battery, GRASS),
+        (Some(battery), _) => battery_level(shapes, &battery),
+        (None, _) => {}
     }
     power_overlay(shapes, &power);
 }
@@ -109,21 +114,28 @@ fn avatar(shapes: &mut Vec<Shape>, town: &Town) {
 
 /// The purse on top, and at a door, its name and how to go in.
 fn hud(shapes: &mut Vec<Shape>, town: &Town, pals: &Pals) {
-    gold_label(
+    gold_label_on(
         shapes,
         Point::new(240, 52),
         &format!("GOLD {}", pals.gold),
         1,
+        GRASS,
     );
     match town.near() {
         Some(place) => {
-            shapes.push(rect(113, 366, 240, 76, DEEP));
-            shapes.push(label(384, place.name(), 2, GOLD));
+            let name = label(384, place.name(), 2, GOLD);
+            let wide = orbit_gfx::ink(&name).map_or(0, |ink| ink.size.width + SIGN_PAD);
+            let width = wide.max(SIGN_WIDTH);
+            shapes.push(rect(233 - width as i32 / 2, 366, width, 76, DEEP));
+            shapes.push(name);
             button(shapes, &ui::ENTER);
         }
         None => {
-            shapes.push(label(420, town.screen().name(), 1, rgb(230, 240, 220)));
-            shapes.push(label(440, "TAP WHERE TO GO", 1, rgb(200, 220, 190)));
+            let lines = [
+                label(420, town.screen().name(), 1, rgb(230, 240, 220)),
+                label(440, "TAP WHERE TO GO", 1, rgb(200, 220, 190)),
+            ];
+            plated_lines(shapes, lines, GRASS);
         }
     }
 }

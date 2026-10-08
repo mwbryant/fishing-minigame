@@ -64,7 +64,7 @@ fn the_title_has_a_spider_dancing_in_the_middle_and_pwr_starts_a_round() {
     assert!(shows(&app, "PRESS TO SPIN"));
     let mut seen = Vec::new();
     for _ in 0..40 {
-        app.update();
+        update(&mut app);
         seen.extend(dancer_frames(&app));
     }
     assert!(
@@ -204,7 +204,7 @@ fn the_heartbeat_quickens_as_the_eggs_run_out() {
             .for_each(drop);
         let mut count = 0;
         for _ in 0..60 * 4 {
-            app.update();
+            update(app);
             count += app
                 .world_mut()
                 .resource_mut::<SoundQueue>()
@@ -275,10 +275,10 @@ fn bet(app: &mut App, pointed: usize) {
     let deg = pointed as f32 * 360.0 / count as f32;
     let deg = if deg > 180.0 { deg - 360.0 } else { deg };
     set_tilt(app, deg / orbit_ui::DIAL_GAIN, 0.0);
-    app.update();
+    update(app);
     click_action(app);
     set_tilt(app, 0.0, 0.0);
-    app.update();
+    update(app);
     assert_eq!(table(app).phase, Phase::Ready);
 }
 
@@ -287,7 +287,7 @@ fn with_gold_the_den_takes_a_bet_before_the_first_spin() {
     let mut app = with_gold(60);
     click_action(&mut app);
     assert_eq!(table(&app).phase, Phase::Bet);
-    assert!(shows(&app, "PLACE YOUR BET"));
+    assert!(shows(&app, "YOUR BET?"));
     assert_eq!(
         spider_game::stakes(60),
         [5, 10, 25, 50, 0],

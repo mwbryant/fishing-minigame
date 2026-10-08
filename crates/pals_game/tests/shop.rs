@@ -52,7 +52,7 @@ fn drawn(app: &App, sprite: &'static Sprite) -> usize {
 
 fn point_at(app: &mut App, choice: usize) {
     set_tilt(app, hat_turn(choice), 0.0);
-    app.update();
+    update(app);
 }
 
 fn hat(named: &str) -> usize {

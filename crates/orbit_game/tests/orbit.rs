@@ -196,10 +196,20 @@ fn hitting_a_paddle_tip_sends_the_ball_toward_that_side() {
     );
 }
 
+fn shows_score(app: &App) -> bool {
+    app.world()
+        .resource::<Frame>()
+        .shapes
+        .iter()
+        .any(|s| matches!(s, Shape::Label { text, .. } if text == "0"))
+}
+
 #[test]
 fn the_frame_draws_the_rim_score_paddle_and_ball_during_play() {
     let mut app = headless_app();
     tap(&mut app, SCREEN_CENTER);
+    place_ball(&mut app, Vec2::new(0.0, -120.0), Vec2::new(0.0, -1.0));
+    tick(&mut app, 1);
     let shapes = &app.world().resource::<Frame>().shapes;
     assert!(matches!(shapes.first(), Some(Shape::Ring { .. })));
     assert!(
@@ -209,6 +219,18 @@ fn the_frame_draws_the_rim_score_paddle_and_ball_during_play() {
     );
     assert!(shapes.iter().any(|s| matches!(s, Shape::Arc { .. })));
     assert!(matches!(shapes.last(), Some(Shape::Disc { .. })));
+}
+
+#[test]
+fn the_score_behind_play_steps_aside_while_the_ball_crosses_it() {
+    let mut app = headless_app();
+    tap(&mut app, SCREEN_CENTER);
+    place_ball(&mut app, Vec2::ZERO, Vec2::new(0.0, -1.0));
+    tick(&mut app, 1);
+    assert!(!shows_score(&app));
+    place_ball(&mut app, Vec2::new(0.0, -120.0), Vec2::new(0.0, -1.0));
+    tick(&mut app, 1);
+    assert!(shows_score(&app));
 }
 
 #[test]

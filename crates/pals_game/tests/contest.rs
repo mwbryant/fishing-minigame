@@ -62,12 +62,12 @@ fn swipe(app: &mut App, down: bool) {
         app.world_mut()
             .resource_mut::<orbit_core::Touch>()
             .set(Some(Vec2::new(233.0, 230.0 + sign * i as f32 * 12.0)));
-        app.update();
+        update(app);
     }
     app.world_mut()
         .resource_mut::<orbit_core::Touch>()
         .set(None);
-    app.update();
+    update(app);
 }
 
 /// Picks the first fish and the tier `tier` steps down the list.
@@ -75,10 +75,10 @@ fn enter(app: &mut App, tier: usize) {
     click_action(app);
     assert_eq!(phase(app), ContestPhase::ChooseTier { pet: 0 });
     set_tilt(app, tier as f32 * orbit_ui::LIST_STEP_DEG, 0.0);
-    app.update();
+    update(app);
     click_action(app);
     set_tilt(app, 0.0, 0.0);
-    app.update();
+    update(app);
 }
 
 fn score(app: &App) -> u32 {
@@ -101,7 +101,7 @@ fn every_fish_can_enter_beginner_but_higher_tiers_need_stamina() {
     click_action(&mut app);
     assert!(shows(&app, "BEGINNER") && shows(&app, "NEEDS LV 3"));
     set_tilt(&mut app, orbit_ui::LIST_STEP_DEG, 0.0);
-    app.update();
+    update(&mut app);
     click_action(&mut app);
     assert_eq!(
         phase(&app),
@@ -139,7 +139,7 @@ fn doing_the_trick_a_judge_calls_for_scores_double() {
     let mut app = hall(vec![performer(0.0, 50)], 0);
     enter(&mut app, 0);
     contest(&mut app).rig_request(0);
-    app.update();
+    update(&mut app);
     assert!(shows(&app, "SPLASH!"), "{:?}", labels(&app));
     contest(&mut app).rig_next_try(true);
     swipe(&mut app, false);
@@ -225,7 +225,7 @@ fn a_rare_good_looking_fish_scores_its_appeal_even_without_tricks() {
 fn back_from_choosing_a_fish_leaves_the_hall() {
     let mut app = hall(vec![performer(0.0, 50)], 0);
     set_tilt(&mut app, 60.0, 0.0);
-    app.update();
+    update(&mut app);
     click_action(&mut app);
     assert_eq!(app.should_exit(), Some(AppExit::Success));
 }

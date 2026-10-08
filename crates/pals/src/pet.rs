@@ -175,9 +175,11 @@ impl Pet {
     }
 
     /// The walked distance at which the next level comes.
-    pub fn next_level_m(&self) -> u32 {
+    /// How far it has to have walked for the next stamina level; `None` at the
+    /// top level.
+    pub fn next_level_m(&self) -> Option<u32> {
         let level = self.stamina_level();
-        level * level * METRES_PER_LEVEL_SQUARED
+        (level < MAX_STAMINA_LEVEL).then(|| level * level * METRES_PER_LEVEL_SQUARED)
     }
 
     /// The stamina a contest starts with.

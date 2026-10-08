@@ -4,8 +4,8 @@ use bevy::{math::ops, prelude::*};
 use orbit_core::{Frame, Launcher, Power};
 use orbit_gfx::{Point, Rgb565, SCREEN_CENTER, Shape, Sprite, SpriteRef};
 use orbit_ui::{
-    BLACK, DANGER, GOLD, HINT, TEXT, battery_level, button, disc, label, power_overlay, rect, rgb,
-    running_low,
+    BLACK, DANGER, GOLD, HINT, TEXT, battery_level_on, button, disc, label, plated, power_overlay,
+    rect, rgb, running_low,
 };
 use pals::HATS;
 
@@ -44,11 +44,11 @@ pub(crate) fn draw_frame(
         Phase::Title => {
             jar(shapes, &orbit);
             swarm(shapes, &orbit, hat);
-            shapes.push(label(320, "BEES???", 3, GOLD));
-            shapes.push(label(364, "THE MOON IS A JAR OF HONEY", 1, TEXT));
-            shapes.push(label(386, "TURN TO KEEP IT FROM SPILLING", 1, HINT));
-            shapes.push(label(410, "PRESS TO PLAY", 1, GOLD));
-            shapes.push(label(430, &format!("BEST {}", orbit.best), 1, TEXT));
+            text(shapes, label(320, "BEES???", 3, GOLD));
+            text(shapes, label(364, "THE MOON IS A JAR OF HONEY", 1, TEXT));
+            text(shapes, label(386, "TURN TO KEEP IT FROM SPILLING", 1, HINT));
+            text(shapes, label(410, "PRESS TO PLAY", 1, GOLD));
+            text(shapes, label(430, &format!("BEST {}", orbit.best), 1, TEXT));
         }
         Phase::Orbiting => {
             for drop in &orbit.drops {
@@ -58,21 +58,27 @@ pub(crate) fn draw_frame(
             swarm(shapes, &orbit, hat);
             delivery(shapes, &orbit, hat);
             gauge(shapes, orbit.honey);
-            shapes.push(label(318, &format!("ORBIT {}", orbit.orbits), 1, TEXT));
+            text(
+                shapes,
+                label(318, &format!("ORBIT {}", orbit.orbits), 1, TEXT),
+            );
             if orbit.spilling() {
-                shapes.push(label(148, "SPILLING!", 2, DANGER));
+                text(shapes, label(165, "SPILLING!", 2, DANGER));
             }
         }
         Phase::Empty => {
-            shapes.push(label(150, "THE JAR IS EMPTY", 2, HONEY));
-            shapes.push(label(300, &format!("ORBITS {}", orbit.orbits), 2, TEXT));
+            text(shapes, label(150, "THE JAR IS EMPTY", 2, HONEY));
+            text(
+                shapes,
+                label(300, &format!("ORBITS {}", orbit.orbits), 2, TEXT),
+            );
             if orbit.new_best {
-                shapes.push(label(340, "NEW BEST!", 2, GOLD));
+                text(shapes, label(340, "NEW BEST!", 2, GOLD));
             } else {
-                shapes.push(label(340, &format!("BEST {}", orbit.best), 1, HINT));
+                text(shapes, label(340, &format!("BEST {}", orbit.best), 1, HINT));
             }
             if orbit.phase_secs >= RESULT_GUARD_SECS {
-                shapes.push(label(390, "PRESS TO PLAY AGAIN", 1, GOLD));
+                text(shapes, label(390, "PRESS TO PLAY AGAIN", 1, GOLD));
             }
         }
     }
@@ -83,9 +89,14 @@ pub(crate) fn draw_frame(
     if let Some(battery) = power.battery
         && (menu || running_low(&battery))
     {
-        battery_level(shapes, &battery);
+        battery_level_on(shapes, &battery, BLACK);
     }
     power_overlay(shapes, &power);
+}
+
+/// Text in space, so stars and passing bees stay out of its letters.
+fn text(shapes: &mut Vec<Shape>, label: Shape) {
+    plated(shapes, label, BLACK);
 }
 
 /// Stars and the Earth, static after the first frame.

@@ -5,8 +5,9 @@ use bevy::prelude::*;
 use orbit_core::{Frame, Mic, Power, Tilt};
 use orbit_gfx::{Point, Rgb565, SCREEN_CENTER, Shape};
 use orbit_ui::{
-    DEEP, GOLD, HINT, TEXT, TOAST, battery_level, dial_choice, dial_point, disc, framed_button,
-    key_ring, label, label_at, labelled_button, list_choice, power_overlay, rect, rgb,
+    DEEP, GOLD, HINT, TEXT, TOAST, battery_level, clear_text_of, dial_choice, dial_point, disc,
+    framed_button, framed_label, key_ring, label, label_at, labelled_button, list_choice,
+    power_overlay, rect, rgb,
 };
 use pals::{Pals, Pet, Rarity, TrickSlot};
 
@@ -127,6 +128,11 @@ pub(crate) fn draw_frame(
     if let Some(battery) = power.battery {
         battery_level(shapes, &battery);
     }
+    clear_text_of(
+        shapes,
+        2,
+        |shape| matches!(shape, Shape::Disc { color, .. } if *color == BUBBLE),
+    );
     power_overlay(shapes, &power);
 }
 
@@ -172,16 +178,11 @@ fn tank(shapes: &mut Vec<Shape>, home: &Home, pals: &Pals, steer: f32) {
     for i in 0..count {
         let text = pals.pets.get(i).map_or("OUT", |pet| pet.name.as_str());
         let at = dial_point(i as f32 * step, NAME_RING);
-        let color = if i == pointed { GOLD } else { TEXT };
         if i == pointed {
-            shapes.push(Shape::Ring {
-                center: at,
-                radius: 26,
-                width: 2,
-                color: GOLD,
-            });
+            framed_label(shapes, label_at(at, text, 1, GOLD), GOLD, DEEP);
+        } else {
+            shapes.push(label_at(at, text, 1, TEXT));
         }
-        shapes.push(label_at(at, text, 1, color));
     }
 }
 

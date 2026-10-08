@@ -217,11 +217,11 @@ fn draw_frame(
             (shelf.name, status, hint)
         }
     };
-    shapes.push(label(310, name, 2, TEXT));
-    shapes.push(label(336, &status, 1, GOLD));
-    shapes.push(label(356, &hint, 1, HINT));
+    shapes.push(label(301, name, 2, TEXT));
+    shapes.push(label(327, &status, 1, GOLD));
+    shapes.push(label(347, &hint, 1, HINT));
     if pals.pets.len() > 1 {
-        shapes.push(label(376, "TAP THE FISH FOR THE NEXT ONE", 1, HINT));
+        shapes.push(label(367, "TAP THE FISH TO SWAP", 1, HINT));
     }
     if let Some(battery) = power.battery {
         battery_level(shapes, &battery);

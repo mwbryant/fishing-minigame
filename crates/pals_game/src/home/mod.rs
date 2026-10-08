@@ -29,10 +29,14 @@ pub const PRAISE_SECS: f32 = 2.5;
 const ECHO_SECS: f32 = 1.0;
 /// Where trained fish perform, and how close a tap has to be to pet one.
 pub const STAGE: Vec2 = Vec2::new(233.0, 230.0);
+/// Tricks move this much of their full size here, so the highest leap stays
+/// under the lesson's text and the deepest dive over the mic's.
+const STAGE_MOTION: f32 = 0.65;
 const PET_REACH: f32 = 60.0;
 /// The tank's water, where fish swim.
-const SWIM_LOW: Vec2 = Vec2::new(120.0, 170.0);
-const SWIM_HIGH: Vec2 = Vec2::new(346.0, 300.0);
+/// Where tank fish swim: clear of the names round the rim, however long.
+const SWIM_LOW: Vec2 = Vec2::new(150.0, 170.0);
+const SWIM_HIGH: Vec2 = Vec2::new(316.0, 290.0);
 const SWIM_SPEED: f32 = 40.0;
 /// The card's buttons, left to right: rename, the tricks, back.
 pub const CARD_CHOICES: usize = 3;
@@ -602,5 +606,6 @@ pub(crate) fn performing(home: &Home, pals: &Pals) -> Option<(Vec2, bool)> {
         _ => return None,
     };
     let motion = pals.pets.get(pet)?.tricks[slot].info().motion;
-    Some(pose(motion, home.secs % TRICK_SECS))
+    let (offset, flipped) = pose(motion, home.secs % TRICK_SECS);
+    Some((offset * STAGE_MOTION, flipped))
 }

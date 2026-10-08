@@ -5,6 +5,9 @@
 
 #![no_std]
 
+#[cfg(feature = "crowding")]
+extern crate std;
+
 extern crate alloc;
 
 mod buttons;

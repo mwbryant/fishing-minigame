@@ -210,6 +210,10 @@ buffers (sprites, framebuffers) in PSRAM explicitly with `esp_alloc::ExternalMem
 
 ### Checking a change without the board
 
+- `cargo test --workspace` checks every frame of every game test for crowded text:
+  text touching other text, half on scenery, under a shape or off the glass. It also
+  plays each app at random with full tanks of 8-letter names, the tallest hat, a huge
+  purse and every trick, looking for more.
 - `tools/heap32/run.sh` measures the game's heap on a 32-bit target and checks it
   against the firmware's internal-SRAM budget. Run it after adding Bevy plugins,
   systems or resources.

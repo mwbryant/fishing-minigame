@@ -18,13 +18,13 @@ pub fn headless_app() -> App {
         )));
     app.finish();
     app.cleanup();
-    app.update();
+    orbit_core::testing::update(&mut app);
     app
 }
 
 pub fn tick(app: &mut App, frames: u32) {
     for _ in 0..frames {
-        app.update();
+        orbit_core::testing::update(app);
     }
 }
 
@@ -37,5 +37,5 @@ pub fn tap(app: &mut App, at: Vec2) {
 /// Sets the finger position and runs one frame.
 pub fn press(app: &mut App, at: Option<Vec2>) {
     app.world_mut().resource_mut::<Touch>().set(at);
-    app.update();
+    orbit_core::testing::update(app);
 }

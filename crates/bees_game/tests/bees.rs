@@ -22,7 +22,7 @@ fn steady_hand(app: &mut App, frames: u32) {
     for _ in 0..frames {
         let steer = orbit(app).drift_deg / CONTROL_GAIN;
         set_tilt(app, steer, 0.0);
-        app.update();
+        update(app);
     }
 }
 

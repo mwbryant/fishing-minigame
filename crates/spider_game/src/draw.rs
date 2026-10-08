@@ -2,18 +2,19 @@ use alloc::{format, vec::Vec};
 
 use bevy::{math::ops, prelude::*};
 use orbit_core::{Frame, Launcher, Power, Tilt};
-use orbit_gfx::{Point, SCREEN_CENTER, Shape, Sprite, SpriteRef};
+use orbit_gfx::{Point, Rgb565, SCREEN_CENTER, Shape, Sprite, SpriteRef};
 use orbit_ui::{
-    DANGER, GOLD, HINT, TEXT, battery_level, button, dial_choice, dial_point, gold_label, label,
-    label_at, power_overlay, rect, rgb, running_low,
+    BLACK, DANGER, GOLD, HINT, TEXT, battery_level_on, button, dial_choice, dial_point,
+    framed_label, gold_label_on, label, label_at, plated, plated_lines, power_overlay, rect, rgb,
+    running_low,
 };
 use pals::Pals;
 
 use crate::{EGG_DEG, EGGS, Phase, RESULT_GUARD_SECS, Table, cash_value, sprites, stakes, ui};
 
-const WEB: orbit_gfx::Rgb565 = rgb(58, 58, 70);
-const FLASH: orbit_gfx::Rgb565 = rgb(170, 10, 10);
-const BLOOD: orbit_gfx::Rgb565 = rgb(70, 0, 0);
+const WEB: Rgb565 = rgb(58, 58, 70);
+const FLASH: Rgb565 = rgb(170, 10, 10);
+const BLOOD: Rgb565 = rgb(70, 0, 0);
 const DANCER_SCALE: u32 = 5;
 const POSE_SECS: f32 = 0.22;
 
@@ -34,18 +35,19 @@ pub(crate) fn draw_frame(
     match table.phase {
         Phase::Title => {
             web(shapes);
-            shapes.push(label(100, "SPIDER", 3, TEXT));
-            shapes.push(label(160, "ROULETTE", 3, TEXT));
             dancer(shapes, table.clock, Point::new(233, 262));
-            shapes.push(label(330, "ONE EGG HIDES A SPIDER", 1, HINT));
-            shapes.push(label(356, "PRESS TO SPIN", 1, GOLD));
-            shapes.push(label(390, &format!("BEST {}", table.best), 1, TEXT));
+            text(shapes, label(100, "SPIDER", 3, TEXT));
+            text(shapes, label(160, "ROULETTE", 3, TEXT));
+            text(shapes, label(330, "ONE EGG HIDES A SPIDER", 1, HINT));
+            text(shapes, label(356, "PRESS TO SPIN", 1, GOLD));
+            text(shapes, label(390, &format!("BEST {}", table.best), 1, TEXT));
             if pals.gold > 0 {
-                gold_label(
+                gold_label_on(
                     shapes,
                     Point::new(240, 416),
                     &format!("GOLD {}", pals.gold),
                     1,
+                    BLACK,
                 );
             }
         }
@@ -65,29 +67,36 @@ pub(crate) fn draw_frame(
             });
             dancer(shapes, table.clock, SCREEN_CENTER);
             let status = format!("SAFE {} | 1 IN {}", table.safe, table.whole());
-            shapes.push(label(36, &status, 1, TEXT));
+            let status = label(140, &status, 1, TEXT);
             if table.stake > 0 {
                 let worth = cash_value(table.stake, table.safe);
                 let line = format!("BET {} | WORTH {worth}", table.stake);
-                shapes.push(label(284, &line, 1, GOLD));
+                text(shapes, label(284, &line, 1, GOLD));
             }
             if table.phase == Phase::Ready {
                 if table.stake > 0 && table.safe > 0 {
                     button(shapes, &ui::CASH_OUT);
                 }
-                shapes.push(label(432, "PRESS TO SPIN", 1, GOLD));
+                plated_lines(
+                    shapes,
+                    [status, label(166, "PRESS TO SPIN", 1, GOLD)],
+                    BLACK,
+                );
+            } else {
+                text(shapes, status);
             }
         }
         Phase::CashedOut => {
             web(shapes);
-            shapes.push(label(150, "CASHED OUT", 2, GOLD));
-            gold_label(
+            text(shapes, label(150, "CASHED OUT", 2, GOLD));
+            gold_label_on(
                 shapes,
                 Point::new(240, 196),
                 &format!("+{} GOLD", table.payout),
                 2,
+                BLACK,
             );
-            result(shapes, &table);
+            result(shapes, &table, BLACK);
         }
         Phase::Pounce => pounce(shapes, table.phase_secs),
         Phase::Bitten => {
@@ -96,21 +105,22 @@ pub(crate) fn draw_frame(
             if table.stake > 0 {
                 shapes.push(label(196, &format!("LOST {} GOLD", table.stake), 1, TEXT));
             }
-            result(shapes, &table);
+            result(shapes, &table, BLOOD);
         }
         Phase::Won => {
             web(shapes);
-            shapes.push(label(150, "SPIDER TRAPPED!", 2, GOLD));
-            shapes.push(label(190, "EVERY SAFE EGG FOUND", 1, TEXT));
+            text(shapes, label(150, "SPIDER TRAPPED!", 2, GOLD));
+            text(shapes, label(190, "EVERY SAFE EGG FOUND", 1, TEXT));
             if table.payout > 0 {
-                gold_label(
+                gold_label_on(
                     shapes,
                     Point::new(240, 214),
                     &format!("+{} GOLD", table.payout),
                     1,
+                    BLACK,
                 );
             }
-            result(shapes, &table);
+            result(shapes, &table, BLACK);
         }
     }
     if menu && launcher.is_some() {
@@ -119,7 +129,12 @@ pub(crate) fn draw_frame(
     if let Some(battery) = power.battery
         && (menu || running_low(&battery))
     {
-        battery_level(shapes, &battery);
+        let backing = if table.phase == Phase::Bitten {
+            BLOOD
+        } else {
+            BLACK
+        };
+        battery_level_on(shapes, &battery, backing);
     }
     power_overlay(shapes, &power);
 }
@@ -129,12 +144,13 @@ fn bet(shapes: &mut Vec<Shape>, pals: &Pals, steer: f32) {
     web(shapes);
     let offered = stakes(pals.gold);
     let pointed = dial_choice(steer, offered.len());
-    shapes.push(label(196, "PLACE YOUR BET", 2, TEXT));
-    gold_label(
+    text(shapes, label(196, "YOUR BET?", 2, TEXT));
+    gold_label_on(
         shapes,
         Point::new(240, 232),
         &format!("GOLD {}", pals.gold),
         1,
+        BLACK,
     );
     let worth = cash_value(offered[pointed], (EGGS - 1) as u8);
     let note = if offered[pointed] == 0 {
@@ -142,26 +158,22 @@ fn bet(shapes: &mut Vec<Shape>, pals: &Pals, steer: f32) {
     } else {
         format!("TRAP IT FOR {worth}")
     };
-    shapes.push(label(262, &note, 1, HINT));
-    shapes.push(label(420, "TURN TO PICK, PRESS", 1, HINT));
+    text(shapes, label(262, &note, 1, HINT));
+    text(shapes, label(420, "TURN TO PICK, PRESS", 1, HINT));
     for (i, stake) in offered.iter().enumerate() {
         let at = ui::stake_center(i, offered.len());
         let at = Point::new(at.x as i32, at.y as i32);
-        if i == pointed {
-            shapes.push(Shape::Ring {
-                center: at,
-                radius: 26,
-                width: 2,
-                color: GOLD,
-            });
-        }
-        let text = if *stake == 0 {
+        let amount = if *stake == 0 {
             "FREE".into()
         } else {
             format!("{stake}")
         };
-        let color = if i == pointed { GOLD } else { TEXT };
-        shapes.push(label_at(at, &text, if *stake == 0 { 1 } else { 2 }, color));
+        let scale = if *stake == 0 { 1 } else { 2 };
+        if i == pointed {
+            framed_label(shapes, label_at(at, &amount, scale, GOLD), GOLD, BLACK);
+        } else {
+            text(shapes, label_at(at, &amount, scale, TEXT));
+        }
     }
 }
 
@@ -230,20 +242,27 @@ fn pounce(shapes: &mut Vec<Shape>, t: f32) {
     centered(shapes, &sprites::DANCER[0], SCREEN_CENTER, scale, false);
 }
 
-fn result(shapes: &mut Vec<Shape>, table: &Table) {
-    shapes.push(label(240, &format!("SAFE PICKS {}", table.safe), 2, TEXT));
-    if table.new_best {
-        shapes.push(label(284, "NEW BEST!", 2, GOLD));
+/// Text on the web, so its threads stop short of the letters.
+fn text(shapes: &mut Vec<Shape>, label: Shape) {
+    plated(shapes, label, BLACK);
+}
+
+fn result(shapes: &mut Vec<Shape>, table: &Table, backing: Rgb565) {
+    let safe = label(240, &format!("SAFE PICKS {}", table.safe), 2, TEXT);
+    plated(shapes, safe, backing);
+    let best = if table.new_best {
+        label(284, "NEW BEST!", 2, GOLD)
     } else {
-        shapes.push(label(284, &format!("BEST {}", table.best), 1, HINT));
-    }
+        label(284, &format!("BEST {}", table.best), 1, HINT)
+    };
+    plated(shapes, best, backing);
     if table.phase_secs >= RESULT_GUARD_SECS {
         let color = if table.phase == Phase::Won {
             GOLD
         } else {
             DANGER
         };
-        shapes.push(label(340, "PRESS TO PLAY AGAIN", 1, color));
+        plated(shapes, label(340, "PRESS TO PLAY AGAIN", 1, color), backing);
     }
 }
 

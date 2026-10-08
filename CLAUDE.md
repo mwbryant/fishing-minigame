@@ -61,14 +61,22 @@ Rules that bite:
     - a desktop `Game` with snapshots.
 - The heap budget is tight: Bevy must fit in about 284 KB of internal SRAM, because PSRAM
   atomics are unreliable on the S3.
-  - Peak headroom: Orbit 12 KB, Angler 69, the house 73, the contest 75, the park 80,
-    Skate 82, Bees??? 84, the town 84, Spider Roulette 86, the shop 86.
+  - Peak headroom: Orbit 12 KB, Angler 67, the house 73, the contest 75, the park 80,
+    Skate 82, Bees??? 84, the town 84, Spider Roulette 85, the shop 86.
   - Fish Pals drops each app before building the next, so only one is ever in memory.
   - **A resource costs about 64 times its size in heap**: a 3 KB resource cost 204 KB. Keep
     resources under about 100 bytes and box anything bigger, phase enums included.
   After adding plugins, systems, resources or states, run `tools/heap32/run.sh`.
   `tools/qemu-smoke/run.sh` checks the full firmware runtime of every game and Fish Pals'
   app switching (a leak check) in QEMU. QEMU scripts run on game time, never frame counts.
+- No text ever crowds: no other text within 2 px, nothing over or half under it, nothing
+  past the glass.
+  - **Checked automatically:** every game test frame is checked (`orbit_gfx::crowding`, via
+    `orbit_core`'s `crowding` feature in each game's dev-dependencies).
+  - **Fixes:** put text over scenery on `orbit_ui::plated`/`plated_lines`, drop drifting
+    decor with `clear_text_of`, and lay out moving things to stay clear.
+  - **New apps:** add a `tests/crowding.rs` that runs `testing::monkey` with the most
+    crowded data.
 - Shapes are diffed with `PartialEq` every frame and must report tight `bounds()`. The
   presenter draws every overlapping shape once per 8-row band, so a shape's draw cost must
   scale with the band: never draw embedded-graphics `Arc`s directly (they test their whole

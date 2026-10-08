@@ -593,3 +593,58 @@ Images are in `img/`. Newest beats go at the bottom.
 - **Regenerating:** `uv run build.py --refilm` once the footage is final. `--sheets` shows
   where each take's moments fall, for the cuts in `trailer/edit.py`.
 - Images: `37-trailer-fish.png`, `37-you-can-eat-it.png`.
+
+## 37. No text gets in anything's way
+
+- **The ask:** "Ensure that no where in the game there is text overlapping."
+- **Eyeballing doesn't scale**, so the renderer got a checker: `orbit_gfx::crowding`.
+  - It measures the box a label's letters actually ink, not its 10x20 font cells. A
+    capital uses 13 of the cell's 20 rows, so cells would flag lines that never touch.
+  - Then it renders every other shape alone into that box, twice on two backgrounds (so a
+    pixel the color of one still shows on the other), and reports:
+    - text within 2 px of text;
+    - anything drawn over part of a label;
+    - anything under part of it but not all of it;
+    - letters past the round glass.
+  - Bands across the whole screen (sky, water, ground) count as backdrops.
+- **The first survey:** with `CROWDING_LOG`, every frame of the whole test suite.
+  - 275,888 findings, 820 kinds once numbers were folded together.
+  - Only one was text on text: with five stakes on the bet dial, PLACE YOUR BET ran into
+    FREE and 10.
+  - Everything else was text half on scenery: the park's path, the contest curtain's folds,
+    Spider Roulette's web, Skate's windows, stars, bubbles, picker rings through names.
+- **Two refinements before the rule was right:**
+  - a door sign hides the path behind it, so only what's above the last shape covering the
+    whole label counts;
+  - a label the GOOD NIGHT screen hides entirely doesn't count either.
+- **The fixes:**
+  - **Plates:** text over scenery sits on a plate of the background's color. Lines that
+    belong together share one, or slivers of path and windows show between them.
+  - **Decor that gives way:** bubbles, aim dots and windows near text are dropped.
+  - **Rings:** picker rings go round the fish, with the name below. A pointed name gets a
+    frame sized to it.
+  - **Leaps:** RAINBOW LEAP rises 140 px, and the tallest fish in a TOP HAT already stands
+    47 px above the house's stage. So tricks move 0.65 of their size in the house and 0.7 on
+    the contest stage, which was laid out in zones: score, judge's banner, fish, news,
+    stamina.
+  - **Orbit:** the faint score behind play steps aside while the ball crosses it.
+- **Random play found what the scripts didn't.** `testing::monkey` turns, leans, presses,
+  holds, taps anywhere and holds BOOT toward sleep. Each app got a run with the most crowded
+  data: full tanks of 8-letter names, the tallest hat, 999,999 gold, the top stamina level,
+  every trick on both stages. It found:
+  - **A crash:** at the top stamina level, "metres to the next level" underflowed. A debug
+    build panics; a release build would have shown about 4 billion metres.
+  - **Banners:** HOLD TO SLEEP half covered whatever text was behind it, and LEVEL SET
+    landed on REELED IN. Both are now notices whose banner clears the text it would cut.
+  - **Flight paths:** the bobber flew through PERFECT!, and the aim dots ran through HOLD
+    BUTTON TO CAST.
+  - **Too wide:** RAINBOW LEAP! was wider than the judge's banner, A HUMMING TREE wider
+    than its door sign, and TURN RIGHT TO RELEASE, PRESS ran off the glass.
+  - **The shop:** its last line sat under the hats at the bottom of the ring.
+- **Speed:** checking every frame made the full-tank run take 172 s on its own. Two changes
+  brought the whole crowding file to 38 s:
+  - skipping frames identical to the last one checked;
+  - working out a rectangle's coverage arithmetically instead of rendering it.
+- Image: `37-before-after.png` (before on the left: the web, the judge's banner over GO!,
+  the ring through GILLY, the windows in the score).
+

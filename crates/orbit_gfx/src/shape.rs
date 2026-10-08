@@ -244,7 +244,7 @@ fn arc_bounds(center: Point, radius: u32, width: u32, start_deg: f32, sweep_deg:
     Rectangle::with_corners(top_left, bottom_right)
 }
 
-fn label_rect(center: Point, text: &str, scale: u32) -> Rectangle {
+pub(crate) fn label_rect(center: Point, text: &str, scale: u32) -> Rectangle {
     let size = Size::new(
         text.len() as u32 * GLYPH_WIDTH * scale,
         GLYPH_HEIGHT * scale,

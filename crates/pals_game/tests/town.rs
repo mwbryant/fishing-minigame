@@ -32,10 +32,10 @@ fn state(app: &App) -> &Town {
 fn hold(app: &mut App, at: Vec2, frames: u32) {
     for _ in 0..frames {
         app.world_mut().resource_mut::<Touch>().set(Some(at));
-        app.update();
+        update(app);
     }
     app.world_mut().resource_mut::<Touch>().set(None);
-    app.update();
+    update(app);
 }
 
 /// A tap at `at`, then `frames` updates to walk there.
@@ -95,7 +95,7 @@ fn you_follow_a_finger_dragged_across_the_glass() {
     for frame in 0..90 {
         let finger = start + Vec2::new(frame as f32 * 2.0, 40.0);
         app.world_mut().resource_mut::<Touch>().set(Some(finger));
-        app.update();
+        update(&mut app);
     }
     let finger = start + Vec2::new(178.0, 40.0);
     assert!(
@@ -156,7 +156,7 @@ fn every_door_leads_to_its_place() {
     for place in Place::ALL {
         let mut app = town(None);
         app.world_mut().resource_mut::<Town>().stand_at(place);
-        app.update();
+        update(&mut app);
         assert_eq!(state(&app).near(), Some(place));
         assert!(shows(&app, place.name()), "{place:?}");
         click_action(&mut app);
@@ -200,7 +200,7 @@ fn open_settings() -> App {
     app.world_mut()
         .resource_mut::<Town>()
         .stand_at(Place::Settings);
-    app.update();
+    update(&mut app);
     click_action(&mut app);
     assert_eq!(state(&app).phase, TownPhase::Settings);
     app
@@ -237,7 +237,7 @@ fn mock_walk_steps_through_its_paces_then_off() {
 fn the_settings_dial_turns_and_pwr_picks() {
     let mut app = open_settings();
     set_tilt(&mut app, 30.0, 0.0);
-    app.update();
+    update(&mut app);
     click_action(&mut app);
     assert!(
         app.world().resource::<Pals>().mock_walk,

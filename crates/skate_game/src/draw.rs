@@ -4,8 +4,8 @@ use bevy::{math::ops, prelude::*};
 use orbit_core::{Frame, Launcher, Power};
 use orbit_gfx::{Point, Rgb565, Shape, Sprite, SpriteRef};
 use orbit_ui::{
-    DANGER, GOLD, HINT, TEXT, battery_level, button, disc, label, power_overlay, rect, rgb,
-    running_low,
+    DANGER, GOLD, HINT, LINES_PLATE_PAD, TEXT, battery_level, button, clear_text_of, disc, label,
+    plated, plated_lines, power_overlay, rect, rgb, running_low,
 };
 
 use crate::{
@@ -37,6 +37,17 @@ const SHIRT: Rgb565 = rgb(230, 70, 60);
 const PANTS: Rgb565 = rgb(60, 70, 110);
 const SKIN: Rgb565 = rgb(236, 190, 150);
 const SKATER_SCALE: u32 = 3;
+/// The skyline: each building's left edge, width and height.
+const BUILDINGS: [(i32, i32, i32); 7] = [
+    (10, 60, 120),
+    (74, 44, 80),
+    (122, 70, 150),
+    (196, 50, 100),
+    (250, 80, 170),
+    (334, 46, 90),
+    (384, 72, 130),
+];
+const TALLEST: i32 = 170;
 
 pub(crate) fn draw_frame(
     ride: Res<Ride>,
@@ -70,17 +81,20 @@ pub(crate) fn draw_frame(
     match ride.phase {
         Phase::Title => {
             skater(shapes, &ride);
-            shapes.push(label(130, "SKATE", 4, TEXT));
-            shapes.push(label(186, "TURN LEFT TO OLLIE", 1, HINT));
-            shapes.push(label(208, "LEVEL OUT TO LAND", 1, HINT));
-            shapes.push(label(400, "PRESS TO PLAY", 1, GOLD));
-            shapes.push(label(424, &format!("BEST {}", ride.best), 1, TEXT));
+            street_text(shapes, label(130, "SKATE", 4, TEXT));
+            let how = [
+                label(186, "TURN LEFT TO OLLIE", 1, HINT),
+                label(208, "LEVEL OUT TO LAND", 1, HINT),
+            ];
+            plated_lines(shapes, how, CITY);
+            street_text(shapes, label(400, "PRESS TO PLAY", 1, GOLD));
+            street_text(shapes, label(424, &format!("BEST {}", ride.best), 1, TEXT));
         }
         Phase::Riding => {
             skater(shapes, &ride);
-            shapes.push(label(70, &format!("{}", ride.score), 2, TEXT));
+            street_text(shapes, label(70, &format!("{}", ride.score), 2, TEXT));
             if let Some((text, _)) = ride.toast {
-                shapes.push(label(116, text, 2, GOLD));
+                street_text(shapes, label(116, text, 2, GOLD));
             }
         }
         Phase::Bailed => {
@@ -89,18 +103,24 @@ pub(crate) fn draw_frame(
                 &sprites::FALLEN,
                 Point::new(SKATER_X as i32 + 10, GROUND_Y as i32 - 7),
             );
-            shapes.push(label(110, "BAILED!", 3, DANGER));
-            shapes.push(label(168, &format!("SCORE {}", ride.score), 2, TEXT));
-            if ride.new_best {
-                shapes.push(label(208, "NEW BEST!", 2, GOLD));
+            street_text(shapes, label(110, "BAILED!", 3, DANGER));
+            let best = if ride.new_best {
+                label(208, "NEW BEST!", 2, GOLD)
             } else {
-                shapes.push(label(208, &format!("BEST {}", ride.best), 1, HINT));
-            }
+                label(208, &format!("BEST {}", ride.best), 1, HINT)
+            };
+            let score = label(168, &format!("SCORE {}", ride.score), 2, TEXT);
+            plated_lines(shapes, [score, best], CITY);
             if ride.phase_secs >= RESULT_GUARD_SECS {
-                shapes.push(label(400, "PRESS TO PLAY AGAIN", 1, GOLD));
+                street_text(shapes, label(400, "PRESS TO PLAY AGAIN", 1, GOLD));
             }
         }
     }
+    clear_text_of(
+        shapes,
+        LINES_PLATE_PAD + 4,
+        |shape| matches!(shape, Shape::Rect { color, .. } if *color == WINDOW),
+    );
     if menu && launcher.is_some() {
         button(shapes, &ui::HOME);
     }
@@ -120,15 +140,7 @@ fn street(shapes: &mut Vec<Shape>, distance: f32) {
         shapes.push(rect(0, i as i32 * band, 466, band as u32, *color));
     }
     shapes.push(disc(390, 120, 22, MOON));
-    for (x, width, height) in [
-        (10, 60, 120),
-        (74, 44, 80),
-        (122, 70, 150),
-        (196, 50, 100),
-        (250, 80, 170),
-        (334, 46, 90),
-        (384, 72, 130),
-    ] {
+    for (x, width, height) in BUILDINGS {
         let top = GROUND_Y as i32 - height;
         shapes.push(rect(x, top, width as u32, height as u32, CITY));
         for row in 0..height / 30 {
@@ -199,25 +211,47 @@ fn halfpipe(shapes: &mut Vec<Shape>, ride: &Ride, pipe: &Halfpipe) {
     };
     figure(shapes, base, angle);
 
-    shapes.push(label(70, &format!("{}", ride.score), 2, TEXT));
+    pipe_text(shapes, label(70, &format!("{}", ride.score), 2, TEXT));
     if let Some((text, _)) = ride.toast {
-        shapes.push(label(116, text, 2, GOLD));
+        pipe_text(shapes, label(116, text, 2, GOLD));
     }
     match ride.trick {
         Some((Trick::Landed(trick), _)) => {
             let (name, points) = TRICKS[trick];
-            shapes.push(label(150, &format!("{name} +{points}"), 2, GOLD));
+            pipe_text(shapes, label(150, &format!("{name} +{points}"), 2, GOLD));
         }
-        Some((Trick::Slam, _)) => shapes.push(label(150, "SLAM!", 2, DANGER)),
+        Some((Trick::Slam, _)) => pipe_text(shapes, label(150, "SLAM!", 2, DANGER)),
         None => {}
     }
     let left = (HALFPIPE_SECS - pipe.secs).max(0.0);
-    shapes.push(label(
-        186,
-        &format!("FREESTYLE {}", ops::ceil(left) as u32),
-        1,
-        HINT,
-    ));
+    pipe_text(
+        shapes,
+        label(
+            186,
+            &format!("FREESTYLE {}", ops::ceil(left) as u32),
+            1,
+            HINT,
+        ),
+    );
+}
+
+/// Text on the street: where it meets the skyline, on a plate the color of
+/// the buildings so their windows stay out of its letters.
+fn street_text(shapes: &mut Vec<Shape>, label: Shape) {
+    let skyline = (GROUND_Y as i32 - TALLEST)..GROUND_Y as i32;
+    let meets = orbit_gfx::ink(&label).is_some_and(|ink| {
+        ink.top_left.y < skyline.end && ink.top_left.y + ink.size.height as i32 > skyline.start
+    });
+    if meets {
+        plated(shapes, label, CITY);
+    } else {
+        shapes.push(label);
+    }
+}
+
+/// Text in the halfpipe's night sky, clear of the stars.
+fn pipe_text(shapes: &mut Vec<Shape>, label: Shape) {
+    plated(shapes, label, NIGHT);
 }
 
 /// How far above the board the figure's hips are; airs spin about them.

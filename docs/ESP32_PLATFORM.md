@@ -367,6 +367,43 @@ tilt demos. Expected at rest:
 - **Round glass:** pixels outside radius 233 are invisible. Pure black means the AMOLED pixel
   is off, which is free and power-saving.
 
+**Text never crowds** [verified on every test frame]:
+- **The rule:** nothing gets in a label's way. `orbit_gfx::crowding` measures the box each
+  label's letters ink (not its font cells), then reports:
+  - another label within 2 px;
+  - any shape drawn over part of it;
+  - any shape under part of it, but not all of it, above the last shape that hides it all;
+  - letters past the round glass.
+- **What doesn't count:** bands across the whole screen (sky, water, ground) are
+  backdrops, so their edges may cross text. A label hidden entirely, for example by the
+  GOOD NIGHT screen, doesn't count either.
+- **Where it runs:**
+  - `orbit_core`'s `crowding` feature makes `testing::update` check every frame and panic
+    with what crowds what. The feature is on in every game's dev-dependencies and the
+    desktop's snapshots.
+  - It allocates, so the firmware, heap32 and QEMU builds leave it off.
+  - `CROWDING_LOG=<file>` logs the findings instead of panicking, for a survey.
+- **The tools for scenery behind text** (`orbit_ui`):
+  - `plated(shapes, label, backing)` puts a label on a plate of the background color, so a
+    path, web, curtain fold or skyline stops short of the letters;
+  - `plated_lines` puts lines that belong together on one plate, so nothing shows in the
+    gaps between them;
+  - `clear_text_of(shapes, margin, decor)` drops drifting decorations near text: bubbles,
+    aim dots, Skate's windows;
+  - `framed_label` boxes a pointed name, where a ring would cut through it;
+  - `notice(shapes, y, text, color)` puts a message on its own banner, and any text the
+    banner would half cover gives way. LEVEL SET, PERFECT! and HOLD TO SLEEP use it.
+- **Moving things stay clear by layout:**
+  - tricks in the house move 0.65 of their full size and on the contest stage 0.7, so the
+    tallest fish in the tallest hat (TOP HAT) never reaches the text;
+  - the tank's fish swim inside 150-316 x 170-290, clear of names round the rim.
+- **Coverage:**
+  - `testing::monkey(app, secs, seed)` plays at random: it turns, leans, presses, holds,
+    taps all over and holds BOOT toward sleep.
+  - Each app has a `tests/crowding.rs` that runs it with the most crowded data: full tanks
+    of 8-letter names, the tallest hat, 999,999 gold, the top stamina level, every trick on
+    both stages and every count of stakes.
+
 ## 7. Memory: the binding constraint
 
 Measured **[verified]** with `tools/heap32/run.sh`:
@@ -374,14 +411,14 @@ Measured **[verified]** with `tools/heap32/run.sh`:
 | App | After build | During play | Peak | Headroom in 284 KB (with the 7 KB band) |
 |---|---|---|---|---|
 | Orbit | 205 KB | 213 KB | 265 KB | **12 KB** |
-| Angler (the pond) | 200 KB | 208 KB | 208 KB | **69 KB** |
+| Angler (the pond) | 200 KB | 208 KB | 209 KB | **67 KB** |
 | House (tank, trick school) | 201 KB | 203 KB | 204 KB | **73 KB** |
-| Contest hall | 198 KB | 200 KB | 201 KB | **75 KB** |
-| Park (walks) | 193 KB | 196 KB | 196 KB | **80 KB** |
+| Contest hall | 198 KB | 201 KB | 202 KB | **75 KB** |
+| Park (walks) | 194 KB | 196 KB | 197 KB | **80 KB** |
 | Skate | 190 KB | 194 KB | 194 KB | **82 KB** |
 | Bees??? | 189 KB | 192 KB | 193 KB | **84 KB** |
 | Town | 190 KB | 192 KB | 193 KB | **84 KB** |
-| Spider Roulette | 188 KB | 190 KB | 191 KB | **86 KB** |
+| Spider Roulette | 188 KB | 191 KB | 191 KB | **85 KB** |
 | Hat shop | 188 KB | 190 KB | 191 KB | **86 KB** |
 
 Fish Pals drops each app before building the next (`Board::run` returns the app, the
@@ -471,6 +508,9 @@ Other memory facts:
 
 - **Host tests:**
   - `crates/orbit_game/tests/orbit.rs`: gameplay, headless at a fixed 60 Hz.
+  - Every game's tests run with crowded text checked on every frame, and a
+    `tests/crowding.rs` per app plays it at random with the most crowded data (see "Text
+    never crowds" in section 6).
   - `orbit_gfx` unit tests:
     - arc bounds contain every drawn pixel;
     - banded render equals full render;
@@ -965,6 +1005,7 @@ pet*`.
 
 **Rotation first:** turning the device selects and steers; PWR confirms; touch works
 everywhere too.
+
 - `orbit_ui::dial_choice(steer, n)` picks one of `n` options round the glass from 12 o'clock,
   with the pointer at 3x the turn (`DIAL_GAIN`).
 - `orbit_ui::list_choice(steer, n, start)` walks a list, one item per 12 degrees.
@@ -1202,6 +1243,13 @@ for Skate and 42 KB for Bees???. The pals places reuse Angler's and `orbit_ui`'s
   clocks (signal loopback), and esp-hal stops BCLK/WS when the TX FIFO empties.
 - **The LC76G is on the shared I2C bus**, and Quectel reports its `0x54` side locking up on
   busy buses. Reads are spread one step per frame; if they fail, try a slower bus.
+- **Text over scenery needs a plate.** A label on a path, web or skyline reads as
+  overlapping even when nothing touches its letters, so put it on `plated`, and lines that
+  belong together on one `plated_lines` (separate plates leave slivers between them). The
+  crowding check catches what's missed.
+- **The top stamina level has no next one.** `Pet::next_level_m` is `None` at level 20.
+  Subtracting from it underflowed, and the random-play test found it on the park's done
+  screen.
 - **A clock kept in integer hundredths drifts:** a 1/60 s frame truncates to one hundredth,
   and a show ran at 60% speed. Keep game time in `f32` seconds.
 - **esp-generate templates and older answers predate esp-hal 1.1–1.2.** The `psram` feature,

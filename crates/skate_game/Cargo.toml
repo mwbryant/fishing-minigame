@@ -10,5 +10,8 @@ orbit_core.workspace = true
 orbit_gfx.workspace = true
 orbit_ui.workspace = true
 
+[dev-dependencies]
+orbit_core = { workspace = true, features = ["crowding"] }
+
 [lints]
 workspace = true

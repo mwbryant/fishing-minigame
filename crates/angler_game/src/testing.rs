@@ -21,7 +21,7 @@ pub fn headless_app_with_save(saved: Option<Vec<u8>>) -> App {
         )));
     app.finish();
     app.cleanup();
-    app.update();
+    orbit_core::testing::update(&mut app);
     app
 }
 
@@ -31,7 +31,7 @@ pub fn headless_app() -> App {
 
 pub fn tick(app: &mut App, frames: u32) {
     for _ in 0..frames {
-        app.update();
+        orbit_core::testing::update(app);
     }
 }
 
@@ -47,7 +47,7 @@ pub fn hold_action(app: &mut App, frames: u32) {
 
 pub fn release_action(app: &mut App) {
     app.world_mut().resource_mut::<Buttons>().action.set(false);
-    app.update();
+    orbit_core::testing::update(app);
 }
 
 /// Press and release on consecutive frames.
@@ -58,16 +58,16 @@ pub fn click_action(app: &mut App) {
 
 pub fn press_zero(app: &mut App) {
     app.world_mut().resource_mut::<Buttons>().zero.set(true);
-    app.update();
+    orbit_core::testing::update(app);
     app.world_mut().resource_mut::<Buttons>().zero.set(false);
-    app.update();
+    orbit_core::testing::update(app);
 }
 
 pub fn tap(app: &mut App, at: Vec2) {
     app.world_mut().resource_mut::<Touch>().set(Some(at));
-    app.update();
+    orbit_core::testing::update(app);
     app.world_mut().resource_mut::<Touch>().set(None);
-    app.update();
+    orbit_core::testing::update(app);
 }
 
 /// Poses the device directly, as if the IMU had reported it.
@@ -83,7 +83,7 @@ pub fn run_until(app: &mut App, max_frames: u32, done: impl Fn(&Phase) -> bool) 
         if done(&phase(app)) {
             return true;
         }
-        app.update();
+        orbit_core::testing::update(app);
     }
     done(&phase(app))
 }

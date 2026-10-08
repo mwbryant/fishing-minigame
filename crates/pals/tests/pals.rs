@@ -90,10 +90,22 @@ fn walking_levels_up_stamina_and_each_level_takes_longer() {
     pet.walk(1.0);
     assert_eq!(pet.stamina_level(), 2);
     assert!(pet.stamina_max() > start);
-    let first = pet.next_level_m() - 100;
+    let first = pet.next_level_m().unwrap() - 100;
     pet.walk(first as f32);
-    let second = pet.next_level_m() - pet.walked_m;
+    let second = pet.next_level_m().unwrap() - pet.walked_m;
     assert!(second > first, "{second} after {first}");
+}
+
+#[test]
+fn past_the_top_stamina_level_there_is_no_next_one_however_far_it_walks() {
+    let mut pet = pet(1, &mut Rng::new(1));
+    pet.walk(1_000_000.0);
+    assert_eq!(pet.stamina_level(), pals::MAX_STAMINA_LEVEL);
+    assert_eq!(pet.next_level_m(), None);
+    let mut almost = pet.clone();
+    almost.walked_m = (pals::MAX_STAMINA_LEVEL - 1).pow(2) * 100 - 1;
+    assert_eq!(almost.stamina_level(), pals::MAX_STAMINA_LEVEL - 1);
+    assert!(almost.next_level_m().is_some());
 }
 
 #[test]

@@ -11,12 +11,14 @@ extern crate alloc;
 
 mod arc;
 mod canvas;
+mod crowding;
 mod dirty;
 mod present;
 mod shape;
 mod sprite;
 
 pub use canvas::Canvas;
+pub use crowding::{Clash, Crowding, crowding, ink};
 pub use dirty::{FrameDiff, align_even, bands};
 pub use embedded_graphics::{
     pixelcolor::{Rgb565, RgbColor},

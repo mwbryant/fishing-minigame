@@ -76,10 +76,10 @@ fn spoken(word: &str) -> Vec<i16> {
 /// Turns to the pointed choice and presses PWR.
 fn choose(app: &mut App, steer: f32) {
     set_tilt(app, steer, 0.0);
-    app.update();
+    update(app);
     click_action(app);
     set_tilt(app, 0.0, 0.0);
-    app.update();
+    update(app);
 }
 
 fn swipe_up(app: &mut App) {
@@ -87,12 +87,12 @@ fn swipe_up(app: &mut App) {
         app.world_mut()
             .resource_mut::<orbit_core::Touch>()
             .set(Some(Vec2::new(233.0, 330.0 - i as f32 * 12.0)));
-        app.update();
+        update(app);
     }
     app.world_mut()
         .resource_mut::<orbit_core::Touch>()
         .set(None);
-    app.update();
+    update(app);
 }
 
 fn open_card(app: &mut App) {
@@ -155,7 +155,7 @@ fn turning_points_at_a_fish_and_its_card_shows_who_it_is_and_what_it_knows() {
 fn turning_to_out_leaves_for_the_street() {
     let mut app = home_with(vec![pet("GILLY", None)]);
     set_tilt(&mut app, 60.0, 0.0);
-    app.update();
+    update(&mut app);
     click_action(&mut app);
     assert_eq!(app.should_exit(), Some(AppExit::Success));
 }

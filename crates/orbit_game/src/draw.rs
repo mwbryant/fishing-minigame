@@ -1,7 +1,7 @@
 use alloc::format;
 
 use bevy::prelude::*;
-use orbit_gfx::{Point, Rgb565, RgbColor, SCREEN_CENTER, Shape};
+use orbit_gfx::{Point, Rectangle, Rgb565, RgbColor, SCREEN_CENTER, Shape, Size};
 
 use crate::{Ball, Frame, Paddle, Score, Screen, arena::*};
 
@@ -39,12 +39,20 @@ fn draw_frame(
             shapes.push(label(40, "TAP TO PLAY", 1, HINT));
         }
         Screen::Playing => {
-            shapes.push(label(
-                0,
-                &format!("{}", score.current),
-                6,
-                SCORE_BEHIND_PLAY,
-            ));
+            let watermark = label(0, &format!("{}", score.current), 6, SCORE_BEHIND_PLAY);
+            let ink = orbit_gfx::ink(&watermark);
+            let crossed = balls.iter().any(|ball| {
+                let at = SCREEN_CENTER + Point::new(ball.pos.x as i32, ball.pos.y as i32);
+                let reach = BALL_RADIUS as i32 + 3;
+                ink.is_some_and(|ink| {
+                    let near = Rectangle::with_center(at, Size::new_equal(reach as u32 * 2 + 1));
+                    !ink.intersection(&near).is_zero_sized()
+                })
+            });
+            // The score sits behind play, and steps aside while a ball crosses it.
+            if !crossed {
+                shapes.push(watermark);
+            }
         }
         Screen::GameOver => {
             shapes.push(label(-72, "GAME OVER", 2, TEXT));
