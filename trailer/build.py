@@ -845,7 +845,20 @@ class Trailer:
     def guten(self, shot, t, index):
         canvas = self.back.sky(t + 40)
         u = t / (shot["end"] - shot["start"])
-        self.device.draw(canvas, self.screen(shot, t), (W / 2, H / 2), 0.6 * (1 + 0.05 * u), 0.0)
+        lines = shot.get("message", [])
+        at = (680, H / 2) if lines else (W / 2, H / 2)
+        scale = (0.54 if lines else 0.6) * (1 + 0.05 * u)
+        self.device.draw(canvas, self.screen(shot, t), at, scale, 0.0)
+        for i, line in enumerate(lines):
+            gold = i == len(lines) - 1
+            letters = self.text(line, 200, fill="#ffd21f" if gold else "#ffffff", max_width=700)
+            letters.draw(
+                canvas,
+                (1440, H / 2 + (i - (len(lines) - 1) / 2) * 215),
+                t - shot["message_at"] - i * 0.35,
+                angle=(-5, 3, -3)[i % 3],
+                bob=6,
+            )
         if t > 1.8:
             tag = self.text(shot["tag"], 64)
             tag.draw(

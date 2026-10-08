@@ -10,7 +10,8 @@ A 45 second trailer cut from the game itself:
 4. **SKATEBOARDS??** (a grind, then the halfpipe) and **SPIDERS?!** (the spider leaps at
    you).
 5. A crude man takes two bites out of the printed reel case: **YOU CAN EAT IT**.
-6. The GUTEN MORGEN spinning fish, held for 5 seconds as the ukulele comes back.
+6. The GUTEN MORGEN spinning fish, held for 5 seconds as the ukulele comes back, beside
+   **HAPPY BIRTHDAY ETHAN**.
 
 ```sh
 cd trailer

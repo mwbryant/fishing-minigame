@@ -132,6 +132,10 @@ SHOTS = [
         # The fish spins to the ukulele, not its own song.
         "game_sounds": False,
         "tag": "FISHING MINIGAME",
+        # Stacked beside the fish, a line at a time from this many seconds in; the last line
+        # in gold.
+        "message": ["HAPPY", "BIRTHDAY", "ETHAN"],
+        "message_at": 0.4,
     },
 ]
 

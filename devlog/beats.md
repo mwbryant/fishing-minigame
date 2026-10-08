@@ -563,7 +563,7 @@ Images are in `img/`. Newest beats go at the bottom.
   - FISH, TRAIN, WALK, COMPETE, HATS at slight angles, zooming in and out;
   - then BEESSSS????, skateboarding and spiders;
   - a crude 3D man eating the printed case: YOU CAN EAT IT;
-  - the guten morgen fish, held for 5 seconds.
+  - the guten morgen fish, held for 5 seconds, then HAPPY BIRTHDAY ETHAN beside it.
 - **The camera is the game:**
   - `orbit_desktop footage` runs scripted takes headless, with the same test helpers and
     `rig_*` hooks as the snapshots.
