@@ -641,6 +641,9 @@ Images are in `img/`. Newest beats go at the bottom.
   - **Too wide:** RAINBOW LEAP! was wider than the judge's banner, A HUMMING TREE wider
     than its door sign, and TURN RIGHT TO RELEASE, PRESS ran off the glass.
   - **The shop:** its last line sat under the hats at the bottom of the ring.
+- **The trailer's footage found one more.** The tests had never shown a battery. In the hat
+  shop, the gold highlight round the hat at 12 o'clock covered the battery level. The ring
+  came in from 186 to 176 px, and the random player now plays with the battery showing.
 - **Speed:** checking every frame made the full-tank run take 172 s on its own. Two changes
   brought the whole crowding file to 38 s:
   - skipping frames identical to the last one checked;

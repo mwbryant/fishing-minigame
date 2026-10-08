@@ -398,8 +398,10 @@ tilt demos. Expected at rest:
     tallest fish in the tallest hat (TOP HAT) never reaches the text;
   - the tank's fish swim inside 150-316 x 170-290, clear of names round the rim.
 - **Coverage:**
-  - `testing::monkey(app, secs, seed)` plays at random: it turns, leans, presses, holds,
-    taps all over and holds BOOT toward sleep.
+  - `testing::monkey(app, secs, seed)` plays at random, with the battery level at its
+    widest (100%, charging): it turns, leans, presses, holds, taps all over and holds BOOT
+    toward sleep.
+  - The desktop's snapshots and trailer footage are checked too.
   - Each app has a `tests/crowding.rs` that runs it with the most crowded data: full tanks
     of 8-letter names, the tallest hat, 999,999 gold, the top stamina level, every trick on
     both stages and every count of stakes.

@@ -94,11 +94,19 @@ pub fn set_tilt(app: &mut App, steer_deg: f32, lean_deg: f32) {
     tilt.lean_deg = lean_deg;
 }
 
-/// Plays like someone who doesn't know the game, for `secs` of game time:
-/// turns and leans the device anywhere, presses, holds, taps all over the
-/// glass and sometimes holds BOOT toward sleep (never long enough to sleep).
+/// Plays like someone who doesn't know the game, for `secs` of game time, on
+/// a battery reading at its widest (100%, charging): turns and leans the
+/// device anywhere, presses, holds, taps all over the glass and sometimes
+/// holds BOOT toward sleep (never long enough to sleep).
 /// With the `crowding` feature every frame on the way is checked.
 pub fn monkey(app: &mut App, secs: f32, seed: u32) {
+    if let Some(mut power) = app.world_mut().get_resource_mut::<crate::Power>() {
+        power.battery = Some(crate::Battery {
+            percent: Some(100),
+            external_power: true,
+            charging: true,
+        });
+    }
     let mut rng = crate::Rng::new(seed);
     let mut left = (secs * TICK_HZ as f32) as u32;
     let frames = |rng: &mut crate::Rng, most: u32| 1 + rng.next_u32() % most;

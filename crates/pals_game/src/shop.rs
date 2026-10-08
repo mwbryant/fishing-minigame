@@ -26,7 +26,8 @@ const MIRROR_FRAME: Rgb565 = rgb(200, 160, 80);
 /// Round the ring, clockwise from 12 o'clock: NO HAT, the shelf, then OUT.
 pub const CHOICES: usize = HATS.len() + 2;
 pub const OUT: usize = HATS.len() + 1;
-const RING: f32 = 186.0;
+/// The hat ring's radius: inside the battery level at the top of the glass.
+const RING: f32 = 176.0;
 /// A tap this close to a hat on the ring picks it (they're about 83 px apart).
 const HAT_REACH: f32 = 40.0;
 const MIRROR: Point = Point::new(233, 214);
@@ -42,7 +43,7 @@ pub mod ui {
     pub use orbit_ui::Button;
 
     /// The mirror: tap it to dress the next fish.
-    pub const MIRROR: Button = Button::new(163, 144, 140, 140, "");
+    pub const MIRROR: Button = Button::new(167, 148, 132, 132, "");
 }
 
 #[derive(Resource, Debug, Default)]
@@ -155,8 +156,8 @@ fn draw_frame(
         &format!("GOLD {}", pals.gold),
         1,
     );
-    shapes.push(disc(MIRROR.x, MIRROR.y, 72, MIRROR_FRAME));
-    shapes.push(disc(MIRROR.x, MIRROR.y, 66, MIRROR_GLASS));
+    shapes.push(disc(MIRROR.x, MIRROR.y, 66, MIRROR_FRAME));
+    shapes.push(disc(MIRROR.x, MIRROR.y, 60, MIRROR_GLASS));
     let hat = pointed.checked_sub(1).filter(|&hat| hat < HATS.len());
     match pals.pets.get(shop.pet) {
         Some(pet) => {
@@ -171,7 +172,7 @@ fn draw_frame(
                 4,
                 true,
             );
-            shapes.push(label(102, pet.name.as_str(), 1, TEXT));
+            shapes.push(label(106, pet.name.as_str(), 1, TEXT));
         }
         None => {
             if let Some(hat) = hat {
@@ -183,7 +184,7 @@ fn draw_frame(
                     flip_x: false,
                 });
             }
-            shapes.push(label(102, "NO FISH TO DRESS", 1, HINT));
+            shapes.push(label(106, "NO FISH TO DRESS", 1, HINT));
         }
     }
     let worn = pals
@@ -220,11 +221,11 @@ fn draw_frame(
             (shelf.name, status, hint)
         }
     };
-    shapes.push(label(301, name, 2, TEXT));
-    shapes.push(label(327, &status, 1, GOLD));
-    shapes.push(label(347, &hint, 1, HINT));
+    shapes.push(label(296, name, 2, TEXT));
+    shapes.push(label(320, &status, 1, GOLD));
+    shapes.push(label(339, &hint, 1, HINT));
     if pals.pets.len() > 1 {
-        shapes.push(label(367, "TAP THE FISH TO SWAP", 1, HINT));
+        shapes.push(label(358, "TAP THE FISH TO SWAP", 1, HINT));
     }
     if let Some(battery) = power.battery {
         battery_level(shapes, &battery);
