@@ -22,8 +22,8 @@ const WATER: Rgb565 = rgb(48, 110, 180);
 const SHORE: Rgb565 = rgb(196, 180, 120);
 const PATH_WIDTH: u32 = 40;
 const AVATAR_SCALE: u32 = 2;
-/// A door's sign is at least this wide, and this much wider than its name.
-const SIGN_WIDTH: u32 = 240;
+/// A door's sign is this much wider than its name, if that's wider than
+/// `ui::SIGN`.
 const SIGN_PAD: u32 = 28;
 
 pub(crate) fn draw_frame(
@@ -125,8 +125,10 @@ fn hud(shapes: &mut Vec<Shape>, town: &Town, pals: &Pals) {
         Some(place) => {
             let name = label(384, place.name(), 2, GOLD);
             let wide = orbit_gfx::ink(&name).map_or(0, |ink| ink.size.width + SIGN_PAD);
-            let width = wide.max(SIGN_WIDTH);
-            shapes.push(rect(233 - width as i32 / 2, 366, width, 76, DEEP));
+            let sign = ui::SIGN.area;
+            let width = wide.max(sign.size.width);
+            let left = 233 - width as i32 / 2;
+            shapes.push(rect(left, sign.top_left.y, width, sign.size.height, DEEP));
             shapes.push(name);
             button(shapes, &ui::ENTER);
         }

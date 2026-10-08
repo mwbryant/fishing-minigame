@@ -152,6 +152,30 @@ fn turning_points_at_a_fish_and_its_card_shows_who_it_is_and_what_it_knows() {
 }
 
 #[test]
+fn a_tap_just_off_a_card_button_presses_it_and_between_two_the_nearer_one_wins() {
+    let mut app = home_with(vec![pet("GILLY", None)]);
+    choose(&mut app, 0.0);
+    assert_eq!(phase(&app), HomePhase::Card { pet: 0 });
+    let tricks = pals_game::home::ui::TRICKS.area;
+    tap(&mut app, Vec2::new(233.0, tricks.top_left.y as f32 - 10.0));
+    assert_eq!(
+        phase(&app),
+        HomePhase::Tricks { pet: 0 },
+        "just above TRICKS"
+    );
+
+    let mut app = home_with(vec![pet("GILLY", None)]);
+    choose(&mut app, 0.0);
+    let edge = tricks.top_left.x as f32;
+    tap(&mut app, Vec2::new(edge + 1.0, tricks.center().y as f32));
+    assert_eq!(
+        phase(&app),
+        HomePhase::Tricks { pet: 0 },
+        "on TRICKS beside RENAME"
+    );
+}
+
+#[test]
 fn turning_to_out_leaves_for_the_street() {
     let mut app = home_with(vec![pet("GILLY", None)]);
     set_tilt(&mut app, 60.0, 0.0);

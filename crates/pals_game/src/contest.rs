@@ -261,7 +261,8 @@ fn perform(
             let count = pals.pets.len();
             let pointed = dial_choice(tilt.steer_deg, count + 1);
             let tapped = tap.and_then(|at| {
-                (0..=count).find(|&i| choice_point(i, count + 1).distance(at) < 40.0)
+                let spots = (0..=count).map(|i| choice_point(i, count + 1));
+                orbit_ui::nearest(at, spots, fish::DIAL_REACH)
             });
             match tapped.or(pressed.then_some(pointed)) {
                 Some(pet) if pet < count => next = Some(ContestPhase::ChooseTier { pet }),

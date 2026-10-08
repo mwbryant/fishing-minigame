@@ -648,3 +648,19 @@ Images are in `img/`. Newest beats go at the bottom.
 - Image: `37-before-after.png` (before on the left: the web, the judge's banner over GO!,
   the ring through GILLY, the windows in the score).
 
+## 38. Buttons a bit easier to tap
+
+- **The ask:** "make the buttons a bit easier to tap".
+- **The numbers:** 466 px over 44.5 mm of glass is about 10.5 px per mm. A 32 px button is
+  3 mm tall, and a fingertip's contact patch is closer to 8 mm.
+- **The change:** a button now takes taps up to 16 px (1.5 mm) outside its box.
+- **What the test caught first:** on a fish's card, RENAME, TRICKS and BACK are 2 px apart.
+  With the slop alone, RENAME, checked first, stole a tap that landed on TRICKS.
+  - So a screen picks between its buttons by distance (`orbit_ui::tapped`): the one under
+    the finger, else the nearest within reach.
+- **Dial spots work the same way** (`orbit_ui::nearest`):
+  - fish on a dial reach 64 px, so tapping a fish's name picks it;
+  - hats 40, stakes 48, keys 30.
+- **One place the slop was wrong:** at a door, GO IN's padding caught taps on the end of
+  the path just below the sign, which should walk you down it. Now the whole sign is the
+  target, and below it you walk.

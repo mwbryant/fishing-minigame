@@ -27,6 +27,8 @@ const MIRROR_FRAME: Rgb565 = rgb(200, 160, 80);
 pub const CHOICES: usize = HATS.len() + 2;
 pub const OUT: usize = HATS.len() + 1;
 const RING: f32 = 186.0;
+/// A tap this close to a hat on the ring picks it (they're about 83 px apart).
+const HAT_REACH: f32 = 40.0;
 const MIRROR: Point = Point::new(233, 214);
 
 /// The device turn that points at ring choice `choice`.
@@ -97,10 +99,11 @@ fn browse(
         return;
     }
     let tapped = tap.and_then(|at| {
-        (0..CHOICES).find(|&choice| {
+        let spots = (0..CHOICES).map(|choice| {
             let center = dial_point(choice as f32 * 360.0 / CHOICES as f32, RING);
-            Vec2::new(center.x as f32, center.y as f32).distance(at) < 26.0
-        })
+            Vec2::new(center.x as f32, center.y as f32)
+        });
+        orbit_ui::nearest(at, spots, HAT_REACH)
     });
     let Some(choice) = tapped.or(buttons
         .action

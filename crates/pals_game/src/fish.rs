@@ -73,6 +73,8 @@ pub fn draw(shapes: &mut Vec<Shape>, pet: &Pet, at: Vec2, scale: u32, facing_rig
     });
 }
 
+/// A tap this close to a fish on a dial picks it, its name under it included.
+pub const DIAL_REACH: f32 = 64.0;
 /// How far a picked fish's ring reaches from where it swims.
 const PICK_RING: u32 = 30;
 /// A picked fish's name sits this far under its middle, clear of the ring.

@@ -29,6 +29,8 @@ pub const PRAISE_SECS: f32 = 2.5;
 const ECHO_SECS: f32 = 1.0;
 /// Where trained fish perform, and how close a tap has to be to pet one.
 pub const STAGE: Vec2 = Vec2::new(233.0, 230.0);
+/// A tap this close to a swimming fish picks it.
+const FISH_REACH: f32 = 48.0;
 /// Tricks move this much of their full size here, so the highest leap stays
 /// under the lesson's text and the deepest dive over the mic's.
 const STAGE_MOTION: f32 = 0.65;
@@ -272,7 +274,15 @@ fn play(
     }
     let pressed = buttons.action.pressed();
     let tap = touch.just_pressed().then(|| touch.position()).flatten();
-    let tapped = |button: &ui::Button| tap.is_some_and(|at| button.hit(at));
+    let on_screen: &[ui::Button] = match home.phase.as_ref() {
+        HomePhase::Tank => &[ui::OUT],
+        HomePhase::Card { .. } => &ui::CARD_BUTTONS,
+        HomePhase::Tricks { .. } => &ui::TRICK_ROWS,
+        HomePhase::Practice { .. } => &[ui::NEW_WORD],
+        _ => &[],
+    };
+    let pressed_button = tap.and_then(|at| orbit_ui::tapped(at, on_screen));
+    let tapped = |button: &ui::Button| pressed_button == Some(button);
     let mut sfx: Option<&'static Clip> = None;
     let mut save = false;
     let mut next: Option<HomePhase> = None;
@@ -304,8 +314,9 @@ fn play(
         HomePhase::Tank => {
             let count = pals.pets.len();
             let pointed = dial_choice(tilt.steer_deg, count + 1);
-            let touched =
-                tap.and_then(|at| (0..count).find(|&pet| home.swimmer(pet).distance(at) < 40.0));
+            let touched = tap.and_then(|at| {
+                orbit_ui::nearest(at, (0..count).map(|pet| home.swimmer(pet)), FISH_REACH)
+            });
             let picked = touched
                 .or(tapped(&ui::OUT).then_some(count))
                 .or(pressed.then_some(pointed));

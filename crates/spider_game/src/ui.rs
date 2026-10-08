@@ -14,6 +14,8 @@ pub const HOME: Button = Button::new(193, 40, 80, 30, "OUT");
 pub const CASH_OUT: Button = Button::new(173, 300, 120, 32, "CASH OUT");
 /// How far out the bet dial's stakes sit.
 pub const STAKE_RING: f32 = 150.0;
+/// A tap this close to a stake picks it.
+pub const STAKE_REACH: f32 = 48.0;
 
 /// Where stake `index` of `count` sits on the bet dial.
 pub fn stake_center(index: usize, count: usize) -> bevy::math::Vec2 {

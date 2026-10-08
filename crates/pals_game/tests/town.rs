@@ -222,6 +222,15 @@ fn settings_mute_the_board_and_turn_on_mock_walks_and_both_are_saved() {
 }
 
 #[test]
+fn a_tap_just_off_a_settings_button_presses_it() {
+    let mut app = open_settings();
+    let back = ui::BACK.area;
+    let below = back.top_left.y as f32 + back.size.height as f32 + 10.0;
+    tap(&mut app, Vec2::new(back.center().x as f32, below));
+    assert_eq!(state(&app).phase, TownPhase::Walking);
+}
+
+#[test]
 fn mock_walk_steps_through_its_paces_then_off() {
     let mut app = open_settings();
     for pace in ["x1", "x2", "x5", "x10", "x25"] {

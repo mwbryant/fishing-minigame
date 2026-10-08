@@ -186,9 +186,23 @@ fn play(
     let action = buttons.action;
 
     let tap = touch.just_pressed();
+    let on_screen: &[ui::Button] = match session.phase {
+        Phase::Title => &[ui::HOME, ui::LOG, ui::SETTINGS],
+        Phase::Settings => &[ui::EASIER, ui::HARDER, ui::GUTEN, ui::BACK],
+        Phase::Aim {
+            charging_secs: None,
+        } => &[ui::MENU],
+        Phase::Caught { .. } => &[ui::KEEP_FISH, ui::RELEASE_FISH],
+        Phase::Swap { .. } => &ui::SWAP_SLOTS,
+        _ => &[],
+    };
+    let pressed_button = touch
+        .position()
+        .filter(|_| tap)
+        .and_then(|at| orbit_ui::tapped(at, on_screen));
     let hit_button = Cell::new(false);
     let tapped = |button: &ui::Button| {
-        let hit = tap && touch.position().is_some_and(|at| button.hit(at));
+        let hit = pressed_button == Some(button);
         hit_button.set(hit_button.get() || hit);
         hit
     };

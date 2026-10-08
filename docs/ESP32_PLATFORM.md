@@ -1006,6 +1006,23 @@ pet*`.
 **Rotation first:** turning the device selects and steers; PWR confirms; touch works
 everywhere too.
 
+**Taps** (`orbit_ui`):
+- A `Button` takes taps up to `TAP_SLOP` (16 px, about 1.5 mm of glass) outside its box.
+- Where a screen has more than one button, `tapped(at, buttons)` picks the one the tap lands
+  on, or else the nearest within reach, so a padded neighbor can't steal it. RENAME, TRICKS
+  and BACK on a fish's card are 2 px apart.
+- Dial spots are picked with `nearest(at, spots, reach)`:
+
+  | Spots | Reach |
+  |---|---|
+  | Fish on a dial (their names included) | 64 px |
+  | Swimming fish | 48 px |
+  | Stakes | 48 px |
+  | Hats on the ring | 40 px |
+  | Keys | 30 px |
+
+- At a door, the whole sign is the GO IN target, and a tap below it still walks down the
+  path.
 - `orbit_ui::dial_choice(steer, n)` picks one of `n` options round the glass from 12 o'clock,
   with the pointer at 3x the turn (`DIAL_GAIN`).
 - `orbit_ui::list_choice(steer, n, start)` walks a list, one item per 12 degrees.

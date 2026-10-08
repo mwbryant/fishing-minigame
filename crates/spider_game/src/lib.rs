@@ -267,7 +267,8 @@ fn play(
         Phase::Bet => {
             let offered = stakes(pals.gold);
             let tapped = tap.and_then(|at| {
-                (0..offered.len()).find(|&i| ui::stake_center(i, offered.len()).distance(at) < 30.0)
+                let spots = (0..offered.len()).map(|i| ui::stake_center(i, offered.len()));
+                orbit_ui::nearest(at, spots, ui::STAKE_REACH)
             });
             let picked = tapped.or(buttons
                 .action

@@ -54,8 +54,9 @@ pub const KEYS: [Key; 29] = {
 
 /// How far out the keys sit.
 pub const KEY_RING: f32 = 196.0;
-/// A tap this close to a key's center types it.
-const TAP_PX: f32 = 22.0;
+/// A tap this close to a key's center types it (the nearest key, since
+/// they're about 42 px apart).
+const TAP_PX: f32 = 30.0;
 const STEP_DEG: f32 = 360.0 / KEYS.len() as f32;
 /// The pointer has to get this far (in keys) from the pointed key's middle
 /// before the next one is pointed, so a hand held on a boundary doesn't
@@ -87,11 +88,11 @@ impl KeyRing {
 
     /// The key a tap at `at` lands on.
     pub fn key_at(at: Vec2) -> Option<Key> {
-        KEYS.iter().enumerate().find_map(|(i, key)| {
+        let centers = (0..KEYS.len()).map(|i| {
             let center = dial_point(i as f32 * STEP_DEG, KEY_RING);
-            let center = Vec2::new(center.x as f32, center.y as f32);
-            (center.distance(at) <= TAP_PX).then_some(*key)
-        })
+            Vec2::new(center.x as f32, center.y as f32)
+        });
+        crate::nearest(at, centers, TAP_PX).map(|i| KEYS[i])
     }
 }
 

@@ -247,12 +247,18 @@ fn roam(
     let dt = time.delta_secs();
     let pressed = buttons.action.pressed();
     let tap = touch.just_pressed().then(|| touch.position()).flatten();
-    let tapped = |button: &orbit_ui::Button| tap.is_some_and(|at| button.hit(at));
+    let on_screen: &[orbit_ui::Button] = match town.phase {
+        TownPhase::Walking => &[],
+        TownPhase::Settings => &ui::SETTINGS_BUTTONS,
+        TownPhase::ConfirmReset => &[ui::KEEP, ui::ERASE],
+    };
+    let pressed_button = tap.and_then(|at| orbit_ui::tapped(at, on_screen));
+    let tapped = |button: &orbit_ui::Button| pressed_button == Some(button);
     match town.phase {
         TownPhase::Walking => {
             let near = town.near();
-            if let Some(place) = near.filter(|_| pressed || tap.is_some_and(|at| ui::ENTER.hit(at)))
-            {
+            let on_sign = tap.is_some_and(|at| ui::SIGN.miss(at) == 0.0);
+            if let Some(place) = near.filter(|_| pressed || on_sign) {
                 sound.play(&CLICK);
                 if place == Place::Settings {
                     town.phase = TownPhase::Settings;

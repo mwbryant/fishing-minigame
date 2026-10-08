@@ -77,6 +77,9 @@ Rules that bite:
     decor with `clear_text_of`, and lay out moving things to stay clear.
   - **New apps:** add a `tests/crowding.rs` that runs `testing::monkey` with the most
     crowded data.
+- Taps: a `Button` takes taps within `TAP_SLOP` (16 px) of its box; a screen with more than
+  one button picks with `orbit_ui::tapped(at, buttons)` (nearest wins), and dial spots with
+  `orbit_ui::nearest`.
 - Shapes are diffed with `PartialEq` every frame and must report tight `bounds()`. The
   presenter draws every overlapping shape once per 8-row band, so a shape's draw cost must
   scale with the band: never draw embedded-graphics `Arc`s directly (they test their whole

@@ -36,8 +36,13 @@ const BATTERY_LOW: Rgb565 = rgb(250, 210, 60);
 /// At or below this, games show the battery during play too (unless charging).
 pub const LOW_BATTERY_PERCENT: u8 = 15;
 
+/// How far outside its box a tap still presses a button (about 1.5 mm of
+/// glass), so a fingertip that lands just off one still counts.
+pub const TAP_SLOP: f32 = 16.0;
+
 /// An on-screen touch button. Its rectangle is shared by drawing and hit
-/// testing, so what you see is what you tap.
+/// testing, so what you see is what you tap, give or take [`TAP_SLOP`].
+#[derive(Debug, PartialEq, Eq)]
 pub struct Button {
     pub area: Rectangle,
     pub text: &'static str,
@@ -56,9 +61,42 @@ impl Button {
         Vec2::new(c.x as f32, c.y as f32)
     }
 
-    pub fn hit(&self, at: Vec2) -> bool {
-        self.area.contains(Point::new(at.x as i32, at.y as i32))
+    /// How far `at` is from the button's box: 0 on it.
+    pub fn miss(&self, at: Vec2) -> f32 {
+        let low = Vec2::new(self.area.top_left.x as f32, self.area.top_left.y as f32);
+        let size = Vec2::new(self.area.size.width as f32, self.area.size.height as f32);
+        let high = low + size - Vec2::ONE;
+        at.clamp(low, high).distance(at)
     }
+
+    /// A tap on the button or within [`TAP_SLOP`] of it. Where buttons sit
+    /// closer together than that, pick between them with [`tapped`].
+    pub fn hit(&self, at: Vec2) -> bool {
+        self.miss(at) <= TAP_SLOP
+    }
+}
+
+/// Which of `buttons` (the ones on screen together) a tap at `at` meant: the
+/// one it lands on, or else the nearest within [`TAP_SLOP`].
+pub fn tapped<'a>(at: Vec2, buttons: impl IntoIterator<Item = &'a Button>) -> Option<&'a Button> {
+    buttons
+        .into_iter()
+        .map(|button| (button, button.miss(at)))
+        .filter(|(_, miss)| *miss <= TAP_SLOP)
+        .min_by(|a, b| a.1.total_cmp(&b.1))
+        .map(|(button, _)| button)
+}
+
+/// Which of `spots` (dial choices, keys, fish) a tap at `at` meant: the
+/// nearest, if it's within `reach`.
+pub fn nearest(at: Vec2, spots: impl IntoIterator<Item = Vec2>, reach: f32) -> Option<usize> {
+    spots
+        .into_iter()
+        .map(|spot| spot.distance(at))
+        .enumerate()
+        .filter(|(_, distance)| *distance <= reach)
+        .min_by(|a, b| a.1.total_cmp(&b.1))
+        .map(|(i, _)| i)
 }
 
 pub fn button(shapes: &mut Vec<Shape>, button: &Button) {
