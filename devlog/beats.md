@@ -594,7 +594,7 @@ Images are in `img/`. Newest beats go at the bottom.
   where each take's moments fall, for the cuts in `trailer/edit.py`.
 - Images: `37-trailer-fish.png`, `37-you-can-eat-it.png`.
 
-## 37. No text gets in anything's way
+## 38. No text gets in anything's way
 
 - **The ask:** "Ensure that no where in the game there is text overlapping."
 - **Eyeballing doesn't scale**, so the renderer got a checker: `orbit_gfx::crowding`.
@@ -645,10 +645,10 @@ Images are in `img/`. Newest beats go at the bottom.
   brought the whole crowding file to 38 s:
   - skipping frames identical to the last one checked;
   - working out a rectangle's coverage arithmetically instead of rendering it.
-- Image: `37-before-after.png` (before on the left: the web, the judge's banner over GO!,
+- Image: `38-before-after.png` (before on the left: the web, the judge's banner over GO!,
   the ring through GILLY, the windows in the score).
 
-## 38. Buttons a bit easier to tap
+## 39. Buttons a bit easier to tap
 
 - **The ask:** "make the buttons a bit easier to tap".
 - **The numbers:** 466 px over 44.5 mm of glass is about 10.5 px per mm. A 32 px button is
