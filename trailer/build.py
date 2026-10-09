@@ -8,7 +8,7 @@
     uv run build.py              everything that's missing or out of date
     uv run build.py --refilm     film the game's takes again (after the game changes)
     uv run build.py --sheets     contact sheets of every take, to check the cuts in edit.py
-    uv run build.py --still 9.5  one frame of the trailer, as out/still.png
+    uv run build.py --still 9.5  one frame of the trailer, as out/still-09.50.png
     uv run build.py --preview    half size and 15 fps, quick to check the edit
 
 The edit (what plays when) is in edit.py. Downloads (music, font), the filmed takes and the

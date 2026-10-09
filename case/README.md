@@ -61,8 +61,8 @@ without GPS (`GPS_ANTENNA = None`) they are 18.2 and 23.6 mm, and without the sp
   outer rim are the first layers on the plate and take its texture. The background is printed as
   short bridges, so it comes out slightly striated, which makes the lettering stand out.
 - **Two-tone rim (no AMS needed):** in the preview, add a filament change at the two heights that
-  `build.py` prints (2.0 mm and 16.0 mm for the USB case). The line between the flanges then comes
-  out in a second colour.
+  `build.py` prints (2.0 mm and 22.4 mm for the USB case, 2.0 mm and 29.2 mm for the battery
+  case). The line between the flanges then comes out in a second colour.
 - **Two-colour back (AMS):** open `reel_case_two_colour.3mf` instead. The case comes in as one
   object in two parts; give the "raised art" part your second filament.
 
