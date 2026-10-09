@@ -168,7 +168,9 @@ cd trailer && uv run build.py      # ~2 min: trailer/out/fishing_minigame_traile
 python3 docs/architecture/build.py # the architecture slides below, as 1080p PNGs
 ```
 
-[case/README.md](case/README.md) and [trailer/README.md](trailer/README.md) cover the details.
+`check.py` and `render.py` need Waveshare's 3D model of the board in `docs/`; see
+[docs/WAVESHARE_FILES.md](docs/WAVESHARE_FILES.md). [case/README.md](case/README.md) and
+[trailer/README.md](trailer/README.md) cover the details.
 
 ## Build your own
 
@@ -385,5 +387,6 @@ The display, touch, mic and GPS protocols can only be proven on the real board.
 ## License
 
 Licensed under either of [Apache License 2.0](LICENSE-APACHE) or [MIT](LICENSE-MIT), at your
-option. Waveshare's board files in `docs/` (the schematic PDF and the 3D models) are theirs. The
-trailer's music and font are downloaded when it builds and keep their own licenses.
+option. Waveshare's board files (the schematic and 3D models) aren't included;
+[docs/WAVESHARE_FILES.md](docs/WAVESHARE_FILES.md) links them. The GUTEN song isn't included
+either. The trailer's music and font are downloaded when it builds and keep their own licenses.

@@ -69,6 +69,8 @@ SD_OFFSET = 0.25  # card centre, along the rim
 def load() -> Compound:
     """The whole board in the case frame. The STEP is unzipped into .cache/ on first use."""
     step = CACHE / STEP_NAME
+    if not step.exists() and not STEP_ZIP.exists():
+        raise SystemExit(f"Missing {STEP_ZIP}: download it as docs/WAVESHARE_FILES.md says.")
     if not step.exists():
         CACHE.mkdir(exist_ok=True)
         with zipfile.ZipFile(STEP_ZIP) as z:

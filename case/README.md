@@ -11,7 +11,8 @@ around the edge between the screw heads.
 PWR, BOOT, USB-C and the microSD slot all stay reachable. The case is parametric
 [build123d](https://build123d.readthedocs.io) Python: every size lives in `params.py`, one command
 rebuilds the STEP/STL/3MF files, and `check.py` fit-tests the parts against Waveshare's own STEP
-model of the board (in `../docs/`).
+model of the board (download it into `../docs/` first: see
+[WAVESHARE_FILES.md](../docs/WAVESHARE_FILES.md)).
 
 ## How it goes together
 
