@@ -25,7 +25,7 @@ use crate::{
 /// skip the celebration.
 pub const RESULT_GUARD_SECS: f32 = 0.8;
 /// GUTEN ignores taps and presses this long, so a touch that flickers as the
-/// finger lifts off the GUTEN button can't stop the song it just started.
+/// finger lifts off the GUTEN button can't stop it as soon as it starts.
 pub const GUTEN_GUARD_SECS: f32 = 0.6;
 /// IT GOT AWAY goes back to aiming on its own after this long.
 pub const ESCAPED_SECS: f32 = 3.0;

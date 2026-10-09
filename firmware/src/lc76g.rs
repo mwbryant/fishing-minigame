@@ -16,7 +16,7 @@ const ASK_LENGTH: [u8; 8] = [0x08, 0x00, 0x51, 0xAA, 0x04, 0x00, 0x00, 0x00];
 const ASK_DATA: [u8; 4] = [0x00, 0x20, 0x51, 0xAA];
 /// The receiver wants this long between the steps of a read.
 const STEP_MS: u64 = 10;
-/// It reports once a second; there's no point asking more often.
+/// It reports once a second, so it's asked once a second.
 const POLL_MS: u64 = 1000;
 const TCA9554_ADDRESS: u8 = 0x20;
 const TCA_OUTPUT: u8 = 0x01;

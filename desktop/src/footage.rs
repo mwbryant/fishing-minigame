@@ -548,7 +548,7 @@ fn spider(dir: &Path) {
     cut(&mut app);
 }
 
-/// The GUTEN easter egg: the spinning fish and its song.
+/// The GUTEN easter egg: the spinning fish.
 fn guten(dir: &Path) {
     let mut app = angler::headless_app();
     rig(&mut app);

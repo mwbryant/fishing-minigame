@@ -12,8 +12,7 @@
 //!   trailer/cache/footage; see trailer/README.md)
 //!
 //! GAME: town home park contest shop angler spider skate bees orbit
-//! The desktop has no satellite receiver: turn on MOCK WALK in the town's
-//! settings for walks.
+//! On the desktop, walks use MOCK WALK (in the town's settings).
 //! ```
 
 mod device;

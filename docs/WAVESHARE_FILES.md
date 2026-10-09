@@ -1,7 +1,7 @@
 # Waveshare's board files
 
-Waveshare publishes the board's schematic and 3D models; they aren't kept in this repo. Download
-them into `docs/` under these names (git ignores them there):
+Waveshare publishes the board's schematic and 3D models. Download them into `docs/` under these
+names:
 
 | Save as | What it is | Where to get it |
 |---|---|---|

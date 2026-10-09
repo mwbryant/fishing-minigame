@@ -336,7 +336,7 @@ def overview():
     )
 
     b.band(64, 168, 1792, 512)
-    b.text(100, 186, tag("CRATES/", (184, 194, 214)) + "&nbsp; one Bevy 0.19 app · no_std, no renderer, no threads", size=15, color=MUTED, line=20)
+    b.text(100, 186, tag("CRATES/", (184, 194, 214)) + "&nbsp; one Bevy 0.19 app · no_std, on one thread", size=15, color=MUTED, line=20)
     b.text(
         None,
         186,
@@ -398,7 +398,7 @@ def overview():
         font_size="16px",
     )
 
-    b.text(100, 696, tag("NO_STD LIBRARIES", GREEN) + "&nbsp; plain Rust, no ECS: each one is fed by the board or the simulator", size=15, color=MUTED, line=20)
+    b.text(100, 696, tag("NO_STD LIBRARIES", GREEN) + "&nbsp; plain Rust, fed by the board or the simulator", size=15, color=MUTED, line=20)
     for i, (lib, what, board, desk, flow, crossing) in enumerate(BACKENDS):
         left = 100 + i * 349
         if lib:
@@ -501,7 +501,7 @@ def pipeline():
     header(
         b,
         "how a frame gets to the glass",
-        "Bevy never touches the panel. Each frame is a list of shapes; only what changed is drawn, "
+        "Each frame, Bevy hands over a list of shapes; only what changed is drawn, "
         "8 rows at a time, and sent while the next band draws.",
         ["40 MHz quad SPI", "RGB565", "466×466", "8-row bands"],
     )
@@ -601,7 +601,7 @@ def pipeline():
         56,
         span(
             span("panel_ram_always_matches_a_full_render_of_the_latest_frame", font_family=MONO, font_weight=500, color=rgb(GREEN))
-            + "&nbsp;&nbsp; plays 40 frames through this path and checks the panel's RAM against a full render every time: no stale pixels."
+            + "&nbsp;&nbsp; plays 40 frames through this path and checks that the panel's RAM equals a full render, every time."
         ),
         WHITE,
         fill=0.03,
@@ -646,7 +646,7 @@ def core():
     header(
         b,
         "orbit_core meets the hardware",
-        "Games never touch a driver. Each frame the platform writes the inputs into Bevy resources, "
+        "Games only see Bevy resources. Each frame the platform writes the inputs into them, "
         "runs app.update(), then drains the outputs.",
         ["5 plugins, 4 opt-in", "7 chips on one I2C bus", "60 fps, 20 when idle"],
     )
@@ -754,7 +754,7 @@ def trailer():
     header(
         b,
         "how the trailer was made",
-        "No screen recording. The desktop build plays scripted takes on game time and keeps every frame "
+        "Filmed by the game itself: the desktop build plays scripted takes on game time and keeps every frame "
         "and sound; Python cuts them to the beat, and Blender eats the case.",
         ["14 takes in ~7 s", "130 BPM", "46 s at 1080p30", "~2 min to build"],
     )
@@ -923,7 +923,7 @@ def trailer():
 
 # The case board's "worth a closer look" cards: (title, what).
 TRICKS = [
-    ("Line, not a helix", "16 stacked rings, the pitch stretched to fit a whole number of them"),
+    ("Line as stacked rings", "16 rings, the pitch stretched to fit a whole number of them"),
     ("Art that prints face down", "the background is recessed 0.7 mm and the art mirrored, to read from behind"),
     ("Words that fit", "each word's arc is measured against the gap between screws, or the build stops"),
     ("Buttons that stay put", "nub, flange, 45° cone, cap; the slot's shape keeps them from turning"),
@@ -938,7 +938,7 @@ def case():
         "how the case was made",
         "The case is code: build123d turns about 60 tunables into solids, and a fit test drops "
         "Waveshare's model of the board into them.",
-        ["build123d 0.13", "53.9 mm across", "3 × M2×6 screws", "no supports"],
+        ["build123d 0.13", "53.9 mm across", "3 × M2×6 screws", "support-free"],
     )
 
     b.card(64, 184, 300, 120, span(mono("params.py", YELLOW, 16) + "<br>about 60 tunables in mm: glass gap 0.30, wall 1.5, line pitch 1.2", line_height="20px"), YELLOW, fill=0.07, font_size="15px", color=SOFT)
@@ -979,7 +979,7 @@ def case():
         184,
         span(
             mono("check.py", PINK, 16)
-            + "<br>with the real board inside: nothing overlaps, it lowers in from 16 mm without catching, "
+            + "<br>with the real board inside: every part clears it, it lowers in cleanly from 16 mm, "
             "a 0.35 mm press works each switch, and an M2×6 screw bites",
             line_height="20px",
         ),

@@ -62,8 +62,8 @@ tools/qemu-smoke/run.sh [secs] ["orbit angler spider skate bees pals"]   # QEMU;
   stays turned), held up/down leans it 15 degrees (it springs back), C straightens, Esc quits.
 - **Desktop saves:** `~/.logic-orbit/<mode>.flash`, in the device's flash format. The town and
   its places share `town.flash`, a section each, like the board.
-- **Desktop mic and GPS:** the laptop's mic stands in (macOS asks once). There's no GPS, so
-  turn on MOCK WALK in the town's settings for walks.
+- **Desktop mic and walks:** the laptop's mic stands in (macOS asks once), and walks use MOCK
+  WALK from the town's settings.
 - **Dev Mac:** `espup` 0.18, `espflash` 4.6, the `esp` Rust toolchain (rustc 1.97.0.0, from
   `espup install --targets esp32s3`, which writes `~/export-esp.sh`), and Homebrew
   `libgcrypt` (QEMU only).
@@ -518,7 +518,7 @@ board.
   1,956,544 B (**11.9%**, 2026-10-07), Angler alone 1,562,768 B (9.5%), Orbit 952,480 B
   (5.8%). About 14.4 MB is free.
 - Angler's image is about 800 KB of code (`.text`, mostly Bevy) and 696 KB of read-only data:
-  485 KB of GUTEN song, 117 KB of sound effects, and the rest fonts, sprites and strings.
+  sound clips, fonts, sprites and strings.
 - Anything that can be `static` (sprites, sounds, level data, text) lives in flash at no RAM
   cost; about 7.7 minutes of 16 kHz audio would still fit. The limits on more game are
   internal SRAM and frame time.
@@ -635,7 +635,7 @@ hold BOOT, plug in, release BOOT, flash, then replug to boot.
     `sleeping; press BOOT to wake`. A BOOT press boots afresh and logs `woke from sleep`.
 
 13. **Audio:** after a catch (its flash save stalls the loop), the stats line may show
-    `audio restarted Nx`. Sound must keep working, and GUTEN must play.
+    `audio restarted Nx`. Sound must keep working.
 
 **Fishing Minigame** (`./flash.sh`):
 
@@ -700,7 +700,7 @@ How game sounds reach the speaker, and the ES8311 and esp-hal facts behind it.
   start the driver refuses is retried on the next pump. Restarts and failed starts are in the
   2 s stats line. Don't also require the whole buffer to be free: an underrun landing
   mid-pump then leaves bytes in a dead transfer, and the speaker is silent until reboot with
-  nothing logged (the GUTEN that once didn't play).
+  nothing logged.
 - **Firmware** (`firmware/src/speaker.rs`, adapted from the reference driver):
   - starts only for apps with `SoundPlugin`, after the first `app.update()` (the slow schedule
     build), or the first pump underruns;
@@ -805,7 +805,7 @@ Angler's flow, physics, fish, saves, settings and sounds.
     short;
   - the gauge marks the window with a gold tip, and its fill turns gold inside it;
   - below 0.08 is a slip; past `MAX_CHARGE_SECS` (4.4 s) the charge cancels.
-- **The dots disappear on release,** and there's no trail behind the bobber.
+- **The dots disappear on release,** and the bobber flies alone.
 - **Physics:** an exact projectile, `GRAVITY` 420 px/s², `MAX_CAST_SPEED` 310 px/s.
 - **Tested:** full power reaches about x 428, every arc at any angle stays inside the glass,
   and the dotted preview equals the stepped flight.
@@ -887,8 +887,7 @@ tests check behaviour, not values, so retune freely and rerun `cargo test -p ang
   preferences.
 
 **GUTEN easter egg** (a riff on the user's logic-fish toy), in the settings menu:
-- Plays "Guten Morgen, Sonnenschein" (`assets/guten_morgen.pcm`, converted from logic-fish's
-  mp3; see `assets/README.md`) for its 15.15 s.
+- Runs for 15.15 s (`GUTEN_SECS`).
 - The rainbow-trout sprite spins once per 2.3 s (logic-fish's speed) via `Shape::SpriteFit`:
   width × |cos θ|, mirrored past 90°.
 - A tap (ignored for the first 0.6 s) or PWR stops it early. Either way it queues `Stop` and
@@ -1247,7 +1246,7 @@ Traps hit or confirmed during bring-up, with where the detail lives.
 - **Text over scenery needs a plate** (`plated`, or one `plated_lines` for lines that belong
   together; §6). A label on a path, web or skyline reads as overlapping even when nothing
   touches its letters.
-- **The top stamina level has no next one:** `Pet::next_level_m` is `None` at level 20.
+- **Level 20 is the top stamina level:** `Pet::next_level_m` is `None` there.
   Subtracting from it underflowed; the random-play test found it on the park's done screen.
 - **A clock in integer hundredths drifts:** a 1/60 s frame truncates to one hundredth, and a
   show ran at 60% speed. Keep game time in `f32` seconds.

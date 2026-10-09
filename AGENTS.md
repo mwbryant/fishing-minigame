@@ -39,7 +39,8 @@ pong) is a separate binary. A desktop simulator shares the renderer and the moti
 ## Rules that bite
 
 - **no_std:** every crate under `crates/` stays `#![no_std]`. Use `bevy::math::ops` for trig and
-  sqrt (`f32::sin` is std-only). No bevy_render, bevy_asset, bevy_log or threads.
+  sqrt (`f32::sin` is std-only). Bevy is `default_no_std` (app, ECS, states, time, math,
+  transform), all on one thread.
 - **Firmware:** `firmware/` and `tools/*` are outside the workspace. Build with
   `cd firmware && . ~/export-esp.sh && cargo build --release` (always release). Binaries:
   `--bin pals` (Fishing Minigame: the town and every place) and one per game

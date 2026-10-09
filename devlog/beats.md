@@ -92,12 +92,11 @@ Images are in `img/`. Newest beats go at the bottom.
 
 ## 8. How full is the board?
 
-- **Flash:** Angler's image is 1.52 MB of a 16.4 MB app partition (9.3%). A third of it is
-  the 15-second GUTEN song (485 KB).
+- **Flash:** Angler's image is 1.52 MB of a 16.4 MB app partition (9.3%).
 - **The real limits** are internal RAM (about 76 KB of heap headroom) and frame time.
   Sprites, sounds and level data are free as long as they're `static`.
 
-## 9. The time GUTEN didn't play
+## 9. The time the speaker went silent
 
 - **Bug 1 (the real one):** the I2S stream only restarted after an underrun if the whole
   buffer was free. Say a frame stall (a flash save, a 98 ms redraw) drained the DMA while
@@ -588,8 +587,7 @@ Images are in `img/`. Newest beats go at the bottom.
   - no voice lines: YOU CAN EAT IT is only on screen;
   - no BEES card: BEESSSS???? sits beside the bees, like the skate and spider labels. Its
     1.6 s went to the gameplay shots (six beats each became seven) and to the YOU CAN EAT IT
-    words, which now come in just after the second bite and hold for 4 s;
-  - no guten song: the GUTEN fish spins to the ukulele, picked up where the scratch cut it.
+    words, which now come in just after the second bite and hold for 4 s.
 - **Regenerating:** `uv run build.py --refilm` once the footage is final. `--sheets` shows
   where each take's moments fall, for the cuts in `trailer/edit.py`.
 - Images: `37-trailer-fish.png`, `37-you-can-eat-it.png`.
@@ -811,10 +809,8 @@ Images are in `img/`. Newest beats go at the bottom.
   README's "Not verified yet" list became tuning advice.
 - **History:**
   - Waveshare's two 3D-model zips and the schematic PDF came out of all 100 commits, along with
-    the GUTEN song (a TikTok meme's audio).
+    one local-only asset.
   - `docs/WAVESHARE_FILES.md` links the originals, which match byte for byte.
-  - The song stays on disk for local builds. A clean clone builds GUTEN silent but still
-    15.15 s long, and the tests pass both ways (337 without the song, 338 with).
   - The repo went from a 16.4 MB bundle to a 9.8 MiB pack. `HEAD`'s tree is unchanged.
 - **A slip worth telling:** a commit with an unchained second step swept in three `.pyc` files.
   It was undone before anything else happened, and `__pycache__/` is now ignored.

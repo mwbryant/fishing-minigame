@@ -39,7 +39,7 @@ The module, its wiring, and how to read NMEA and send commands over I2C.
     5=VTG), for example `$PAIR062,0,3*3D`.
   - `$PAIR513*3D` saves settings to flash. `$PAIR004*3E` is a hot restart and `$PAIR006*3C` a
     cold restart.
-  - `$PAIR650,<s>` enters backup mode. Never pass 0: there's no FORCE_ON to wake it.
+  - `$PAIR650,<s>` enters backup mode for `<s>` seconds. Always pass a nonzero time.
 - **Reading NMEA over I2C** (Waveshare's `09_LC76G_I2C.ino`, bus at 100 kHz):
   1. Write `08 00 51 AA 04 00 00 00` to `0x50`, then read 4 bytes from `0x54`: the number of
      bytes waiting (u32 LE).

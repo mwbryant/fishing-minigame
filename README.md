@@ -40,8 +40,8 @@ Hold BOOT for 3 seconds and it says GOOD NIGHT and sleeps. Everything you've don
 
 - **You play it by turning it.** An IMU filter turns the board into a steering wheel, and every
   menu is a dial you turn and confirm with a press.
-- **Voice commands without speech recognition.** Each word you teach becomes a voice print from
-  seven band-pass filters. The fish gets used to your voice as you use it.
+- **Voice commands from voice prints.** Each word you teach becomes a print from seven band-pass
+  filters, and the fish gets used to your voice as you use it.
 - **A real game engine on a microcontroller.** Every place is a `no_std`
   [Bevy](https://bevyengine.org) 0.19 app that fits in about 284 KB of the ESP32-S3's internal
   SRAM. On the board it runs at 60 fps, with about 6 to 9 ms of work per frame.
@@ -50,7 +50,7 @@ Hold BOOT for 3 seconds and it says GOOD NIGHT and sleeps. Everything you've don
 - **A simulator with the exact same pixels.** The same apps run on a laptop through the same
   renderer. The screenshots, the tests and the trailer are all the board's real pixels.
 - **The case is code.** It's a parametric fly reel in Python (build123d), fit-tested against
-  Waveshare's 3D model of the board. It prints without supports, art side down.
+  Waveshare's 3D model of the board. It prints support-free, art side down.
 - **The trailer was filmed by the game.** Scripted takes play on game time and save every frame
   and sound. Python cuts them to the beat, and a Blender man eats the printed case.
 
@@ -100,8 +100,8 @@ cargo run --release -p orbit_desktop -- footage <dir>   # the trailer's takes, e
 - **C:** straighten the device.
 
 The arrow keys feed a virtual IMU through the same motion filter the board uses. The laptop's
-microphone stands in for the board's mics (macOS asks for access once). There's no GPS, so turn
-on MOCK WALK at the signpost by the house to walk. Desktop saves go to
+microphone stands in for the board's mics (macOS asks for access once), and walks use MOCK WALK
+from the signpost by the house. Desktop saves go to
 `~/.logic-orbit/<mode>.flash`. The window title shows fps, KB pushed per frame, and how long
 that traffic would take on the real link.
 
@@ -184,10 +184,10 @@ python3 docs/architecture/build.py # the architecture slides below, as 1080p PNG
 - **The board:** a Waveshare **ESP32-S3-Touch-AMOLED-1.75-G**. It has the 466×466 round AMOLED,
   touch, an IMU, two mics, a speaker amp, a PMIC and the LC76G GPS
   ([Waveshare's hardware reference](https://github.com/waveshareteam/ESP32-S3-Touch-AMOLED-1.75)).
-  - The plain **-1.75** is supported too, without GPS: walks then use MOCK WALK, and the case can be
-    built thinner (`GPS_ANTENNA = None` in `case/params.py`).
-  - Not the **1.75C**: it uses GPIO1 and GPIO2 for the LCD and touch resets, where this firmware
-    expects GPIO39 and GPIO40.
+  - The plain **-1.75** works too: walks use MOCK WALK, and the case can be built thinner
+    (`GPS_ANTENNA = None` in `case/params.py`).
+  - The firmware expects the 1.75's LCD and touch resets on GPIO39 and GPIO40. The **1.75C** puts
+    them on GPIO1 and GPIO2.
 - **The speaker:** the 8 Ω speaker that comes with the board, plus a little double-sided foam
   tape.
 - **Screws:** 3× **M2×6**, pan or socket head (M2×5 also works). Never use anything longer than
@@ -210,7 +210,7 @@ Run `cd case && uv run build.py` and open a plate from `case/out/`. Use `reel_ca
 USB case (53.9 mm across, 24.6 mm tall) or `reel_case_battery.3mf` (31.4 mm tall). Each plate
 has three button caps, one of them a spare.
 
-- **Settings:** 0.16 mm layers, 3 walls, 15 % infill, no supports, no brim. Everything is already
+- **Settings:** 0.16 mm layers, 3 walls, 15 % infill, supports and brim off. Everything is already
   lying the way it prints: the case on its back, and the caps on the face you press.
 - **A two-tone line:** add a filament change at the two heights `build.py` prints (2.0 and
   22.4 mm for the USB case).
@@ -278,11 +278,11 @@ real sessions are in `logs/`.
 
 ![orbit_core meets the hardware](docs/architecture/orbit-core.png)
 
-Games never touch a driver. Each frame the platform writes the inputs into Bevy resources,
+Games only see Bevy resources. Each frame the platform writes the inputs into them,
 calls `app.update()`, then drains the outputs.
 
-- **Opt-in plugins:** an app that leaves a plugin out never powers that part. The speaker only
-  starts for an app with sound, and the mics only for an app that listens.
+- **Opt-in plugins:** the platform powers what an app's plugins ask for: the speaker for an app
+  with sound, and the mics for an app that listens.
 - **The bus:** on the board, seven chips share one 400 kHz I2C bus, and the display has its own
   40 MHz quad SPI link.
 
@@ -358,8 +358,7 @@ Bevy's own bookkeeping (schedules, per-resource tables) dominates the heap.
 ### Making your own game on this
 
 - **Bevy here** is `default-features = false, features = ["default_no_std"]`: app, ECS, states,
-  time, math and transform. There's no `bevy_render`, `bevy_asset` or `bevy_log`, and no
-  threads.
+  time, math and transform, all on one thread.
 - **Drawing:** push `orbit_gfx::Shape`s into the `Frame` resource. Add new shape kinds in
   `orbit_gfx/src/shape.rs`, and keep `bounds()` tight so moving things stay cheap.
 - **`no_std`:** keep the game crate `#![no_std]`, and use `bevy::math::ops` for trig, because
@@ -387,6 +386,4 @@ The display, touch, mic and GPS protocols can only be proven on the real board.
 ## License
 
 Licensed under either of [Apache License 2.0](LICENSE-APACHE) or [MIT](LICENSE-MIT), at your
-option. Waveshare's board files (the schematic and 3D models) aren't included;
-[docs/WAVESHARE_FILES.md](docs/WAVESHARE_FILES.md) links them. The GUTEN song isn't included
-either. The trailer's music and font are downloaded when it builds and keep their own licenses.
+option.

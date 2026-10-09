@@ -24,7 +24,7 @@ const HAT_SEATS: [(f32, i32); 8] = [
 /// The middle of a hat sprite's face, which spans columns 4-8.
 const HAT_MIDDLE: f32 = 6.5;
 
-/// The fish sprite's size at `scale`, hat not included.
+/// The fish sprite's size at `scale`, body only.
 pub fn size(pet: &Pet, scale: u32) -> Size {
     sprite(pet).size() * scale
 }

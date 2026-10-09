@@ -514,7 +514,7 @@ fn guten_plays_the_song_and_spins_the_trout() {
 }
 
 #[test]
-fn guten_lasts_as_long_as_the_song_then_returns_to_settings() {
+fn guten_lasts_its_full_length_then_returns_to_settings() {
     let mut app = headless_app();
     open_settings(&mut app);
     tap(&mut app, ui::GUTEN.center());
@@ -525,9 +525,9 @@ fn guten_lasts_as_long_as_the_song_then_returns_to_settings() {
     assert_eq!(sounds(&app).last(), Some(&SoundCommand::Stop));
 }
 
-#[cfg(guten_song)]
+#[cfg(guten_pcm)]
 #[test]
-fn guten_secs_is_the_songs_length() {
+fn guten_secs_matches_the_clip() {
     assert!((GUTEN_MORGEN.duration_secs() - GUTEN_SECS).abs() < 0.01);
 }
 

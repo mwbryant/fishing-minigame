@@ -1,20 +1,18 @@
-//! Angler's sounds: the GUTEN song, and effects synthesized by assets/sfx.py.
+//! Angler's sounds: the GUTEN clip and the effects synthesized by assets/sfx.py.
 //! The mixer has one voice, so each clip replaces whatever was playing. Every
 //! effect but ESCAPE is under 0.75 s.
 
 use orbit_core::Clip;
 
-/// "Guten Morgen, Sonnenschein" from the spinning-fish meme, played by the GUTEN
-/// easter egg. Its PCM is gitignored (see assets/README.md), so a clean clone
-/// builds it silent.
+/// The GUTEN clip, built in from assets/guten_morgen.pcm when that file is present.
 pub static GUTEN_MORGEN: Clip = Clip { pcm: GUTEN_PCM };
 
-#[cfg(guten_song)]
+#[cfg(guten_pcm)]
 const GUTEN_PCM: &[u8] = include_bytes!("../assets/guten_morgen.pcm");
-#[cfg(not(guten_song))]
+#[cfg(not(guten_pcm))]
 const GUTEN_PCM: &[u8] = &[];
 
-/// How long GUTEN lasts: the song's length, so it ends on cue even when silent.
+/// How long GUTEN lasts.
 pub const GUTEN_SECS: f32 = 15.15;
 
 /// Seconds per turn of the spinning fish, as in logic-fish.

@@ -6,5 +6,5 @@ __pycache__/
 # Downloaded from Waveshare: see docs/WAVESHARE_FILES.md
 docs/*.zip
 docs/*.pdf
-# The GUTEN song, for local builds only: see crates/angler_game/assets/README.md
+# Local-only assets
 crates/angler_game/assets/guten_morgen.pcm

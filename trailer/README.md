@@ -61,14 +61,13 @@ moved button), fix the take in `footage.rs`.
 
 - **The ending:** Blender loads `case/out/reel_case.stl`, shows a game frame on the glass and cuts
   the bites out with booleans. The man's mouth follows a curve that `build.py` works out: wide
-  open for each bite, then chewing, with a crunch each time it shuts. YOU CAN EAT IT is only on
-  screen; there are no voice lines.
+  open for each bite, then chewing, with a crunch each time it shuts. YOU CAN EAT IT is on screen
+  only.
 - **Sounds:** the game's own sounds play under the music. A cut lets a sound finish (up to a
   second) instead of chopping it. The record scratch is the ukulele track dragged back and
   forth, and the dive's whoosh and the bites' crunches are synthesized.
 - **Muted takes:** a shot's `mute` drops a take's sounds. The results after COMPETE are muted so
-  the judges' ding plays alone. The GUTEN fish spins to the ukulele, because its own song is the
-  "Guten Morgen, Sonnenschein" meme audio, which isn't ours.
+  the judges' ding plays alone, and the GUTEN fish spins to the ukulele.
 - **Music** (`SCORE` in `edit.py`): the bumblebee fades across the cut to the man. The ukulele
   creeps back in under the chewing, from where the scratch stopped it, and comes up to full for
   the fish.
