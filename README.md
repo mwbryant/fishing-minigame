@@ -1,66 +1,318 @@
-# Orbit board games: Fishing Minigame
+# Fishing Minigame
 
-`no_std` **Bevy 0.19** games for the Waveshare **ESP32-S3-Touch-AMOLED-1.75**
-(466x466 round AMOLED, CO5300 over QSPI, CST9217 touch, QMI8658 IMU, two buttons).
-Turning the device like a steering wheel is the main control everywhere; a press of the
-upper button confirms.
+![Fishing Minigame in its fly-reel case](devlog/img/37-trailer-fish.png)
 
-**Fishing Minigame** is what the board boots into: a Nintendogs-style game about the fish you
-catch.
+**A pocket fishing game on a round, watch-sized AMOLED screen, inside a 3D-printed case that
+looks like a fly-fishing reel.** Turn it like a steering wheel to cast, lean it to fight the
+fish, and keep your best three. Name them, teach them tricks with your voice, walk them with
+real GPS, buy them hats and enter them in contests. It's Nintendogs for fish, and it fits in one hand.
 
-- **The town:** six little round clearings joined by paths. Tap where to go (or hold a
-  finger down and you follow it), tap the end of a path to go down it, and press the upper
-  button at a door.
-  The signpost by your house has the settings: sound, MOCK WALK, and a reset.
-- **The pond** (Angler, the fishing game):
-  - **Aim and cast:** turn like a steering wheel. A dotted line shows where a full-power
-    cast lands; hold the upper button and release at the top of the meter to land exactly
-    on it.
-  - **Fight:** lean forward and back to keep the fish inside the catch zone, as in Stardew
-    Valley.
-  - **Keep:** KEEP a catch (or RELEASE it) and name it by turning on a ring of letters. You
-    can keep three; a full tank asks who goes back. The fish log and difficulty are saved.
-  - **GUTEN:** in Angler's settings, a riff on logic-fish where a rainbow trout spins to
-    "Guten Morgen, Sonnenschein".
-- **Home:** your fish swim in the tank wearing their hats. Each has a card (species, size,
-  stamina, appeal) and five tricks of varying rarity, from SPLASH to RAINBOW LEAP.
-  - **Teach a trick:** watch it, then say a word twice into the board's mics, or draw a
-    stroke on the glass twice (tap, hold, swipe, circle). The two takes of a word have to
-    sound alike, and the fish gets used to your voice as you use it.
-  - **Practise:** give the command; pet the fish right after it gets one right and it
-    learns twice as fast.
-- **The park:** take a fish for a walk to build its stamina. The -G board's GPS counts the
-  metres you really walk (not standing still, not in a car); MOCK WALK strolls on its own,
-  at x1 up to x25 (tap it in the settings to go faster, or - and + during the walk).
-- **The contest hall:** a 30-second show in four tiers (more stamina unlocks the higher
-  ones).
-  - Give your commands live: rarer, better-known tricks score more, changing it up adds a
-    combo, and a trick the judges call for counts double.
-  - Each try tires the fish. Its looks (rarity, size, hat) add appeal, and the top three
-    win gold.
-- **The hat shop:** a ring of 12 hats (beanie, cowboy hat, clown hat, a crown...); the
-  mirror shows your fish wearing the one you point at.
-- **The den:** Spider Roulette as a gamble.
-  - Bet gold, then a press spins a pointer round twelve eggs, one of which hides a spider.
-  - Each safe egg raises what the bet is worth, and CASH OUT banks it. If the spider
-    pounces, the bet is gone.
-- **The arcade cabinet:** Skate, a night-street side-scroller.
-  - Turn left to ollie and level out to land; grind the benches.
-  - Every 150 m the street drops into a halfpipe for a 7 s freestyle of spins.
-- **A humming tree:** Bees???. The Moon is a hollow jar of honey orbiting the Earth; turn to
-  keep it from spilling while bees (in your lead fish's hat) fly refills up.
-- **Everywhere:** hold BOOT 3 s and the board says GOOD NIGHT and deep-sleeps; press BOOT to
-  wake. After 30 s untouched the panel dims. Everything persists in one flash record, a
-  section per app.
-- **Orbit**, circular pong (touch), is its own firmware binary.
+Fishing Minigame was made with an AI-first workflow. Claude Code wrote most of the code, the
+case model and the trailer pipeline. The developer decided what to build, played every change,
+and tested it on the board.
 
-The same Bevy apps run in a desktop simulator and on the board, and both draw
-through the same software renderer, so the simulator shows the exact pixels the
-panel will get.
+### What you do
 
-![The town](screenshots/town_home.png) ![The tank](screenshots/home_tank.png) ![Pet it](screenshots/home_praise.png)
-![A contest](screenshots/contest_trick.png) ![The hat shop](screenshots/shop_bought.png) ![Naming a catch](screenshots/angler_naming.png)
-![The den](screenshots/spider_worth.png) ![Skate halfpipe](screenshots/skate_halfpipe_360.png) ![Bees orbit](screenshots/bees_orbit.png)
+- **Walk the town.** Six round clearings joined by paths, with a door at every place. Tap where
+  to go, or hold a finger down and you follow it.
+- **Fish at the pond.** Turn to aim, hold the upper button and let go at the top of the meter to
+  land the cast, then lean forward and back to keep the fish in the catch zone. KEEP a catch
+  (or RELEASE it) and name it by turning on a ring of letters.
+- **Raise them at home.** Your fish swim in the tank wearing their hats. Each has a card
+  (species, size, stamina, appeal) and five tricks, from SPLASH to RAINBOW LEAP. Teach a trick
+  by saying a word twice, or by drawing a stroke on the glass twice. Pet the fish right after
+  it gets one right, and it learns twice as fast.
+- **Walk them in the park.** Walks build stamina. The GPS counts the metres you really walk (not
+  standing still, not in a car), and MOCK WALK strolls on its own at up to ×25.
+- **Show off at the contest hall.** A 30-second live show. Give your commands as it runs: the
+  judges call for tricks, rarer tricks score more, and the top three win gold.
+- **Spend it.** The hat shop's ring of 12 hats runs from a beanie to a crown, and the mirror
+  shows your fish wearing the one you point at.
+- **Play the side games.**
+  - Spider Roulette in the den: bet gold on twelve eggs, one of which hides a spider.
+  - Skate on the arcade cabinet: a night street, benches to grind, and a halfpipe every 150 m.
+  - Bees??? at the humming tree: the Moon is a jar of honey, and you turn to keep it from
+    spilling.
+
+Hold BOOT for 3 seconds and it says GOOD NIGHT and sleeps. Everything you've done is saved.
+
+### What makes it cool
+
+- **You play it by turning it.** An IMU filter turns the board into a steering wheel, and every
+  menu is a dial you turn and confirm with a press.
+- **Voice commands without speech recognition.** Each word you teach becomes a voice print from
+  seven band-pass filters. The fish gets used to your voice as you use it.
+- **A real game engine on a microcontroller.** Every place is a `no_std`
+  [Bevy](https://bevyengine.org) 0.19 app that fits in about 284 KB of the ESP32-S3's internal
+  SRAM. On the board it runs at 60 fps, with about 6 to 9 ms of work per frame.
+- **Only what moved is redrawn.** A normal frame sends about 25 KB to the panel instead of the
+  434 KB of a full screen.
+- **A simulator with the exact same pixels.** The same apps run on a laptop through the same
+  renderer. The screenshots, the tests and the trailer are all the board's real pixels.
+- **The case is code.** It's a parametric fly reel in Python (build123d), fit-tested against
+  Waveshare's 3D model of the board. It prints without supports, art side down.
+- **The trailer was filmed by the game.** Scripted takes play on game time and save every frame
+  and sound. Python cuts them to the beat, and a Blender man eats the printed case.
+
+<p align="center">
+  <img src="screenshots/town_home.png" alt="The town" width="260">
+  <img src="screenshots/home_tank.png" alt="The tank" width="260">
+  <img src="screenshots/home_praise.png" alt="Pet it" width="260">
+  <img src="screenshots/contest_trick.png" alt="A contest" width="260">
+  <img src="screenshots/shop_bought.png" alt="The hat shop" width="260">
+  <img src="screenshots/angler_naming.png" alt="Naming a catch" width="260">
+  <img src="screenshots/spider_worth.png" alt="The den" width="260">
+  <img src="screenshots/skate_halfpipe_360.png" alt="Skate halfpipe" width="260">
+  <img src="screenshots/bees_orbit.png" alt="Bees orbit" width="260">
+</p>
+
+## Build and run it
+
+Everything runs from this repo. It was developed on an Apple Silicon Mac.
+
+### What to install
+
+| For | You need |
+|---|---|
+| The simulator, tests and slides | Rust (stable, edition 2024) via `rustup` |
+| The board's firmware | `cargo install espup espflash`, then `espup install --targets esp32s3` |
+| The heap check | `rustup target add wasm32-unknown-unknown` and Node |
+| The QEMU check | the firmware toolchain (the script downloads Espressif's QEMU itself) |
+| The case | [uv](https://docs.astral.sh/uv/) |
+| The trailer | uv, ffmpeg and Blender |
+| The slides | Python 3 and Google Chrome |
+
+### The desktop simulator
+
+```sh
+cargo run -p orbit_desktop                              # Fishing Minigame (town -> a place -> OUT)
+cargo run -p orbit_desktop -- home                      # or one app: town home park contest shop
+                                                        #   angler spider skate bees orbit
+cargo run -p orbit_desktop -- contest snapshot screenshots  # an app's screens as PNGs, headless
+cargo run --release -p orbit_desktop -- footage <dir>   # the trailer's takes, every frame + WAV
+```
+
+- **Mouse:** finger.
+- **Space:** the upper button, which confirms.
+- **Z:** the zero button (BOOT).
+- **Arrow keys:** ←/→ turn the virtual device like a wheel; it stays turned. Hold ↑/↓ to lean
+  it; it springs back level when you let go.
+- **C:** straighten the device.
+
+The arrow keys feed a virtual IMU through the same motion filter the board uses. The laptop's
+microphone stands in for the board's mics (macOS asks for access once). There's no GPS, so turn
+on MOCK WALK at the signpost by the house to walk. Desktop saves go to
+`~/.logic-orbit/<mode>.flash`. The window title shows fps, KB pushed per frame, and how long
+that traffic would take on the real link.
+
+### Tests and checks
+
+```sh
+cargo test --workspace                          # 337 tests
+cargo clippy --workspace --all-targets && cargo fmt
+tools/heap32/run.sh                             # each app's heap against the board's SRAM budget
+tools/qemu-smoke/run.sh                         # every game's firmware, booted in emulation
+```
+
+- **`cargo test`:** checks every frame of every game test for crowded text: text touching
+  other text, half on scenery, under a shape or off the glass. It also plays each app at random
+  with the most crowded data (full tanks of 8-letter names, the tallest hat, a huge purse,
+  every trick) looking for more.
+- **`heap32`:** measures each app's heap on a 32-bit target. Run it after adding Bevy plugins,
+  systems or resources.
+- **`qemu-smoke`:** boots each game's firmware runtime in Espressif's QEMU, plays it with
+  scripted input and round-trips its save through emulated flash. It prints
+  `SMOKE PASS`/`SMOKE FAIL`. The Fishing Minigame run walks through every door and back out
+  twice, and fails if the heap creeps between apps.
+
+### Flash the board
+
+Plug the board in with a USB-C data cable, then from the repo root:
+
+```sh
+./flash.sh            # Fishing Minigame: build, flash, then show the board's serial log
+./flash.sh skate      # one game on its own (angler, spider, skate, bees, orbit)
+./flash.sh monitor    # reopen the serial log without flashing
+```
+
+- **In the log:** Ctrl+C quits and Ctrl+R restarts the board. Every session's log is saved in
+  `logs/`.
+- **Saves:** reflashing keeps the board's saves (your fish, gold, hats and scores).
+- **A harmless warning:** the build prints "LOAD segment with RWX permissions".
+- **If flashing fails:** the script lists fixes. The usual causes are a charge-only cable, or a
+  board that won't enter download mode by itself. To force download mode, unplug the board,
+  hold BOOT (the lower button), plug it back in, release BOOT, and run `./flash.sh` again. Then
+  unplug and replug the board so it boots the game.
+
+To build by hand:
+
+```sh
+cd firmware
+. ~/export-esp.sh                # every new shell: puts the Xtensa linker on PATH
+cargo run --release --bin pals   # build, flash over USB-C, open the serial monitor
+cargo run --release --bin orbit  # or any one game: angler spider skate bees orbit
+cargo clippy --release && cargo fmt
+```
+
+`firmware/` is its own crate with its own `rust-toolchain.toml` (`esp`), outside the host
+workspace. It pulls the game crates in by path. Always build it in release mode, because PSRAM
+needs it and unoptimized Bevy is far too slow.
+
+### The case, the trailer and the slides
+
+```sh
+cd case && uv run build.py         # ~20 s: print plates (3MF), STL and STEP files in case/out/
+cd case && uv run check.py         # ~5 min: fit-test both cases against the board's 3D model
+cd case && uv run render.py        # the PNG previews in case/previews/
+cd trailer && uv run build.py      # ~2 min: trailer/out/fishing_minigame_trailer.mp4
+python3 docs/architecture/build.py # the architecture slides below, as 1080p PNGs
+```
+
+[case/README.md](case/README.md) and [trailer/README.md](trailer/README.md) cover the details.
+
+## Build your own
+
+<p align="center">
+  <img src="case/previews/front.png" alt="The case, front" width="400">
+  <img src="case/previews/back.png" alt="The case, back" width="400">
+</p>
+
+### Parts
+
+- **The board:** a Waveshare **ESP32-S3-Touch-AMOLED-1.75-G**. It has the 466×466 round AMOLED,
+  touch, an IMU, two mics, a speaker amp, a PMIC and the LC76G GPS
+  ([Waveshare's hardware reference](https://github.com/waveshareteam/ESP32-S3-Touch-AMOLED-1.75)).
+  - The plain **-1.75** is supported too, without GPS: walks then use MOCK WALK, and the case can be
+    built thinner (`GPS_ANTENNA = None` in `case/params.py`).
+  - Not the **1.75C**: it uses GPIO1 and GPIO2 for the LCD and touch resets, where this firmware
+    expects GPIO39 and GPIO40.
+- **The speaker:** the 8 Ω speaker that comes with the board, plus a little double-sided foam
+  tape.
+- **Screws:** 3× **M2×6**, pan or socket head (M2×5 also works). Never use anything longer than
+  6 mm, because an 8 mm screw reaches the display.
+- **A USB-C data cable.** A charge-only cable can't flash it.
+- **Filament:** PLA is fine, and PETG gives tougher button caps. A second colour is optional,
+  for the line or the back art.
+- **Optional, a battery** for the thicker battery case:
+  - a single-cell 3.7 V LiPo with a protection circuit, 300 mAh or more, such as a 602030
+    (300–400 mAh, about 20.5 × 32 × 6.7 mm);
+  - its plug must be **MX1.25 2-pin** (JST-GH looks similar but won't fit);
+  - **check the polarity against the + and − marks by the BAT socket before plugging it in**,
+    because sellers wire these leads both ways.
+
+  Or skip the battery and use any USB-C power bank.
+
+### Print the case
+
+Run `cd case && uv run build.py` and open a plate from `case/out/`. Use `reel_case.3mf` for the
+USB case (53.9 mm across, 24.6 mm tall) or `reel_case_battery.3mf` (31.4 mm tall). Each plate
+has three button caps, one of them a spare.
+
+- **Settings:** 0.16 mm layers, 3 walls, 15 % infill, no supports, no brim. Everything is already
+  lying the way it prints: the case on its back, and the caps on the face you press.
+- **A two-tone line:** add a filament change at the two heights `build.py` prints (2.0 and
+  22.4 mm for the USB case).
+- **A two-colour back:** with an AMS, open the `_two_colour.3mf` plate instead.
+- **Make it yours:** the back reads HAPPY BIRTHDAY / ETHAN, because the first one was a present.
+  Change `TEXT_TOP` and `TEXT_BOTTOM` in `case/params.py`. The build stops if a word doesn't fit
+  between the screws.
+
+`fit_test_ring.stl` is the top 10 mm of the case: a short print to check the glass, USB-C and
+buttons before the full one.
+
+### Put it together
+
+1. Push each button cap out through its slot from inside the case until its flange stops it.
+   Masking tape over the outside keeps the caps in while you work.
+2. Lay the speaker face down between the two rails, with its wire towards the lone post at
+   12 o'clock, and plug it into the board's SPK socket.
+3. On a -G board, lay the GPS antenna on the speaker, ceramic side down. Plug its lead into the
+   U.FL socket nearer the USB-C port (the one by the side buttons is for Wi-Fi).
+4. Battery case: stick the cell on top with foam tape and plug it into BAT.
+5. Line USB-C up with the big opening and lower the board straight in, glass up.
+6. Turn it over and drive the three screws in until snug. Peel off the tape: each cap should
+   click its switch.
+
+[case/README.md](case/README.md) has the full guide, including what to adjust if your parts
+measure differently.
+
+### Flash it and check it
+
+Run `./flash.sh` and watch the serial log:
+
+1. **`display ready`, then the title on the panel.** If the panel stays black, the init list in
+   `firmware/src/co5300.rs` is the place to look.
+2. **The image is shifted or wrapped horizontally:** adjust `COLUMN_OFFSET` (6) in `co5300.rs`.
+3. **`bevy app built entirely in internal SRAM`.** If it warns that Bevy spilled into PSRAM, see
+   Memory below.
+4. **Taps land in the wrong place:** flip `TOUCH_MIRROR_X` or `TOUCH_MIRROR_Y` in
+   `firmware/src/lib.rs`. If the log says `CST9217 touch init failed`, check the touch reset pin.
+5. **Every 2 s** the log prints the frame count, the average and worst frame time, the bytes per
+   frame, and heap use.
+
+Most fixes are one-line constants or a mapping function in `firmware/src/lib.rs`.
+[docs/ESP32_PLATFORM.md](docs/ESP32_PLATFORM.md) section 9 lists what each game adds to check.
+
+### What's been checked on the board
+
+- **Works:** Angler and the town have run on the board at 60 fps. One session built and
+  dropped 24 apps going through the town's doors and back, all in internal SRAM, and saves
+  survive reflashing (the sessions are in `logs/`).
+- **Starts, not yet confirmed:** the mics start listening and the GPS module answers. A voice
+  command and a GPS fix haven't been confirmed on the board yet, so use MOCK WALK for walks
+  until then.
+- **Partly tested:** the board has gone to sleep, but a wake hasn't been logged yet, and
+  battery charging hasn't been tried.
+
+## How it's built
+
+### The stack
+
+![How it's built](docs/architecture/overview.png)
+
+- **One Bevy app per place.** Every place is its own `no_std` Bevy 0.19 app, and each door swaps
+  whole apps, so only one is ever in memory.
+- **The layers:** under the games sit the shared rules (`pals`), shared drawing (`orbit_ui`) and
+  the platform plumbing (`orbit_core`).
+- **The libraries underneath:** four plain `no_std` libraries do the work. The board and the
+  simulator each feed them from their own hardware.
+
+### orbit_core meets the hardware
+
+![orbit_core meets the hardware](docs/architecture/orbit-core.png)
+
+Games never touch a driver. Each frame the platform writes the inputs into Bevy resources,
+calls `app.update()`, then drains the outputs.
+
+- **Opt-in plugins:** an app that leaves a plugin out never powers that part. The speaker only
+  starts for an app with sound, and the mics only for an app that listens.
+- **The bus:** on the board, seven chips share one 400 kHz I2C bus, and the display has its own
+  40 MHz quad SPI link.
+
+### How a frame gets to the glass
+
+![How a frame gets to the glass](docs/architecture/frame-pipeline.png)
+
+1. The game's systems push shapes into the `Frame`.
+2. The `Presenter` diffs them against the last frame. Only the bounds of shapes that changed
+   are redrawn, aligned to even coordinates as the CO5300 requires.
+3. Each dirty rect is drawn in 8-row bands into a small internal-SRAM buffer.
+4. The firmware DMAs each band over quad SPI while the next band draws.
+
+A normal gameplay frame sends about 25 KB, about 1.3 ms of the 40 MHz link. A full-screen
+redraw is 434 KB (about 22 ms) and only happens when the screen changes. The test
+`panel_ram_always_matches_a_full_render_of_the_latest_frame` pins that the dirty-rect path
+never leaves stale pixels.
+
+### How the trailer was made
+
+![How the trailer was made](docs/architecture/trailer.png)
+
+### How the case was made
+
+![How the case was made](docs/architecture/case.png)
+
+### The crates
 
 ```
 crates/orbit_gfx     no_std rasterizer (embedded-graphics + pixel-art sprites), dirty rects, bands
@@ -77,177 +329,63 @@ crates/angler_game   Angler (the pond)
 crates/spider_game   Spider Roulette (the den)
 crates/skate_game    Skate (the arcade cabinet)
 crates/bees_game     Bees??? (the humming tree)
-crates/orbit_game    Orbit
+crates/orbit_game    Orbit, circular pong (touch), its own firmware binary
 desktop/             minifb simulator (std) for Fishing Minigame or any one app + headless PNGs
 firmware/            ESP32-S3: board support lib, the pals binary, and one binary per game
+tools/               heap32 (heap on a 32-bit target) and qemu-smoke (the firmware in QEMU)
 case/                3D-printable fly-reel case (Python/build123d), see case/README.md
 trailer/             the 46 s FISHING MINIGAME trailer, built from filmed takes, see trailer/README.md
-docs/architecture/   slides of all this for posts and devlogs (the stack, orbit_core and the hardware,
-                     a frame's trip to the glass, the trailer, the case): python3 docs/architecture/build.py
+docs/architecture/   the slides above: python3 docs/architecture/build.py
 ```
 
-## How a frame gets to the glass
-
-1. The platform writes the finger position into the `Touch` resource and calls `app.update()`.
-2. Game systems produce `Frame { shapes }`: rim ring, labels, paddle arc, ball disc.
-3. The `Presenter` diffs the shapes against the previous frame. Only the bounds of
-   shapes that changed are redrawn, aligned to even coordinates as the CO5300 requires.
-4. Each dirty rect is rendered in 8-row bands into a small internal-SRAM buffer.
-   The firmware DMAs each band over quad SPI while the next band renders.
-
-A normal gameplay frame sends about 25 KB, about 1.3 ms of the 40 MHz QSPI link.
-A full-screen redraw is 434 KB (about 22 ms) and only happens on screen changes.
-`panel_ram_always_matches_a_full_render_of_the_latest_frame` pins that the
-dirty-rect path never leaves stale pixels.
-
-## Desktop
-
-```sh
-cargo run -p orbit_desktop                              # Fishing Minigame (town -> a place -> OUT)
-cargo run -p orbit_desktop -- home                      # or one app: town home park contest shop
-                                                        #   angler spider skate bees orbit
-cargo run -p orbit_desktop -- contest snapshot screenshots  # an app's screens as PNGs, headless
-cargo run --release -p orbit_desktop -- footage <dir>   # the trailer's takes, every frame + WAV
-cargo test --workspace
-cargo clippy --workspace --all-targets && cargo fmt
-```
-
-Controls:
-- **Mouse:** finger.
-- **Space:** the upper button, which confirms.
-- **Z:** the zero button (BOOT).
-- **Arrow keys:** ←/→ turn the virtual device like a wheel; it stays turned. Hold ↑/↓ to
-  lean it; it springs back level when you let go.
-- **C:** straighten the device.
-
-The arrow keys feed a virtual IMU through the same motion filter the board uses.
-The laptop's microphone stands in for the board's mics (macOS asks for access once). There's
-no GPS, so turn on MOCK WALK at the signpost by the house to walk.
-Desktop saves go to `~/.logic-orbit/<mode>.flash`.
-
-The window title shows fps, KB pushed per frame, and the estimated time that
-traffic would take on the real link.
-
-## Firmware
-
-### Flashing the board
-
-Plug the board into the Mac with a USB-C data cable, then from the repo root:
-
-```sh
-./flash.sh            # Fishing Minigame: build, flash, then show the board's serial log
-./flash.sh skate      # one game on its own (angler, spider, skate, bees, orbit)
-./flash.sh monitor    # reopen the serial log without flashing
-```
-
-In the log, Ctrl+C quits and Ctrl+R restarts the board. Every session's log is saved in
-`logs/`. Reflashing keeps the board's saves (your fish, gold, hats, scores). The build
-prints a harmless "LOAD segment with RWX permissions" warning.
-
-If flashing fails, the script lists fixes. The usual causes are a charge-only cable, or a
-board that won't enter download mode by itself. To force download mode: unplug the board,
-hold BOOT (the lower button), plug it back in, release BOOT, and run `./flash.sh` again.
-Then unplug and replug the board so it boots the game.
-
-### Building by hand
-
-One-time setup (already done on this machine): `cargo install espup espflash`
-then `espup install --targets esp32s3`.
-
-```sh
-cd firmware
-. ~/export-esp.sh                # every new shell: puts the Xtensa linker on PATH
-cargo run --release --bin pals   # build, flash over USB-C, open the serial monitor
-cargo run --release --bin orbit  # or any one game: angler spider skate bees orbit
-cargo clippy --release && cargo fmt
-```
-
-`firmware/` is its own crate with its own `rust-toolchain.toml` (`esp`), outside the
-host workspace. It pulls the game crates in by path. Always build it in release
-mode; PSRAM needs it, and unoptimized Bevy is far too slow.
-
-### Bring-up checklist (first flash)
-
-The board itself hasn't been run yet; everything below is from Waveshare's
-sources plus an emulator run. Run `./flash.sh` and watch the serial log:
-
-1. **`display ready`, then the GONE FISHIN title on the panel.** If the panel stays
-   black, the init list in `firmware/src/co5300.rs` is the place to look. It is
-   Waveshare's ESP-IDF BSP sequence for this board. Their Arduino demo uses a
-   shorter one (`11`, wait 120 ms, `FE 00`, `C4 80`, `3A 55`, `53 20`, `63 FF`,
-   `29`, `51 D0`) that is worth trying.
-2. **Image shifted or wrapped horizontally:** adjust `COLUMN_OFFSET` (6) in `co5300.rs`.
-3. **`bevy app built entirely in internal SRAM`.** If it instead warns that Bevy
-   spilled into PSRAM, see Memory below.
-4. **Tap LOG on the title and the fish log opens.** If SETTINGS opens instead, flip
-   `TOUCH_MIRROR_X` in `firmware/src/lib.rs`; if nothing happens, flip
-   `TOUCH_MIRROR_Y`. If the log says `CST9217 touch init failed`, check
-   the touch reset pin (below). In Orbit, the paddle should jump to your finger.
-5. Every 2 s the log prints frame count, average and worst frame time, bytes
-   per frame, and heap use.
-
-Angler adds checks for the IMU direction, the upper button's hold, the lean direction, and
-saves; Fishing Minigame adds the mics, the GPS, and that the speaker still plays now that the
-mics share its clocks. See section 9 of `docs/ESP32_PLATFORM.md`. The mic and GPS
-drivers were written from research and are unverified on the board. Most fixes are
-one-line constants or a mapping function in `firmware/src/lib.rs`.
-
-**1.75 vs 1.75C:** this targets the plain 1.75 (LCD reset GPIO39, touch reset
-GPIO40). The 1.75C variant uses GPIO1 and GPIO2 for those two resets.
+The game was called Fish Pals at first, and the code keeps that name (`pals`, `--bin pals`, the
+`PALS` save key) so saves survive.
 
 ### Memory
 
-Bevy's own bookkeeping (schedules, per-resource tables) dominates. Measured
-with a counting allocator on a 32-bit target, peak heap is 265 KB for Orbit and 191 to 208 KB
-for every Fishing Minigame app (Angler's pond is the biggest). The newer apps are leaner
-because they use one phase resource instead of Bevy states. Fishing Minigame drops each app
-before building the next, so only one is ever in memory. A Bevy resource costs about 64
-times its size in heap, so big state is boxed.
-The firmware gives Bevy about 284 KB of internal SRAM (`INTERNAL_HEAP_BYTES` plus
-the 72 KB reclaimed region) and keeps about 74 KB of stack. PSRAM is
-registered last, only as a safety net. On the ESP32-S3, atomic
-read-modify-write does not work on PSRAM, and Bevy keeps `Arc` counts and
-spinlocks on the heap. So keep Bevy's working set internal. Put big plain
-buffers (sprites, framebuffers) in PSRAM explicitly with `esp_alloc::ExternalMemory`.
+Bevy's own bookkeeping (schedules, per-resource tables) dominates the heap.
 
-### Checking a change without the board
+- **Measured peaks:** with a counting allocator on a 32-bit target, peak heap is 265 KB for
+  Orbit and 191 to 208 KB for every Fishing Minigame app (Angler's pond is the biggest). The
+  newer apps are leaner because they use one phase resource instead of Bevy states.
+- **Resources are expensive:** a Bevy resource costs about 64 times its size in heap, so big
+  state is boxed.
+- **The budget:** the firmware gives Bevy about 284 KB of internal SRAM (`INTERNAL_HEAP_BYTES`
+  plus the 72 KB reclaimed region) and keeps about 74 KB of stack. PSRAM is registered last,
+  only as a safety net.
+- **Why not PSRAM:** on the ESP32-S3, atomic read-modify-write doesn't work on PSRAM, and Bevy
+  keeps `Arc` counts and spinlocks on the heap. So Bevy's working set stays internal, and big
+  plain buffers (sprites, framebuffers) go in PSRAM explicitly with
+  `esp_alloc::ExternalMemory`.
 
-- `cargo test --workspace` checks every frame of every game test for crowded text:
-  text touching other text, half on scenery, under a shape or off the glass. It also
-  plays each app at random with full tanks of 8-letter names, the tallest hat, a huge
-  purse and every trick, looking for more.
-- `tools/heap32/run.sh` measures the game's heap on a 32-bit target and checks it
-  against the firmware's internal-SRAM budget. Run it after adding Bevy plugins,
-  systems or resources.
-- `tools/qemu-smoke/run.sh` boots each game's firmware runtime in Espressif's QEMU
-  with scripted input and prints `SMOKE PASS`/`SMOKE FAIL`. Each game is played by a
-  scripted player and its save round-trips through emulated flash; the Fishing Minigame run walks
-  through every door and back out twice, and fails if the heap creeps between apps.
+### Making your own game on this
 
-The full platform handbook is `docs/ESP32_PLATFORM.md`.
-
-### Emulator smoke test notes
-
-Espressif's QEMU (`esp-develop-9.2.2-20260417`, `-machine esp32s3`) was used to boot this
-firmware's memory layout, with a stub panel and scripted touch, through
-3,000+ frames: title, play, a scored hit, game over, retry. Peak heap stayed
-internal (0 B in PSRAM). Three emulator-only workarounds were needed:
-
-- esp-hal's wait on `bbpll_cal_done` has to be patched out, because QEMU never sets it.
-- The FPU has to be enabled by hand (espressif/qemu#154: QEMU boots with `CPENABLE = 0`).
-- Logging has to go over UART rather than USB-JTAG.
-
-The display and touch protocols can only be proven on the real board.
-
-## Making your own game on this
-
-- Bevy here is `default-features = false, features = ["default_no_std"]`:
-  app, ECS, states, time, math, and transform. There is no `bevy_render`,
-  `bevy_asset`, or `bevy_log`, and no threads.
-- Draw by pushing `orbit_gfx::Shape`s into the `Frame` resource. Add new
-  shape kinds in `orbit_gfx/src/shape.rs`, and make `bounds()` tight so moving
-  things stay cheap.
-- Keep `orbit_game` `#![no_std]`. Use `bevy::math::ops` for trig, because
+- **Bevy here** is `default-features = false, features = ["default_no_std"]`: app, ECS, states,
+  time, math and transform. There's no `bevy_render`, `bevy_asset` or `bevy_log`, and no
+  threads.
+- **Drawing:** push `orbit_gfx::Shape`s into the `Frame` resource. Add new shape kinds in
+  `orbit_gfx/src/shape.rs`, and keep `bounds()` tight so moving things stay cheap.
+- **`no_std`:** keep the game crate `#![no_std]`, and use `bevy::math::ops` for trig, because
   `f32::sin` is std-only.
-- Watch the heap. Every plugin, schedule, and resource costs a few KB on-device;
-  the boot log tells you where you stand.
+- **The heap:** every plugin, schedule and resource costs a few KB on the device. The boot log
+  tells you where you stand.
+
+### In the emulator
+
+Espressif's QEMU (`esp-develop-9.2.2-20260417`, `-machine esp32s3`) boots this firmware's memory
+layout with a stub panel and scripted touch. It needs three emulator-only workarounds:
+
+- esp-hal's wait on `bbpll_cal_done` is patched out, because QEMU never sets it;
+- the FPU is enabled by hand (espressif/qemu#154: QEMU boots with `CPENABLE = 0`);
+- logging goes over UART rather than USB-JTAG.
+
+The display, touch, mic and GPS protocols can only be proven on the real board.
+
+### Further reading
+
+- [docs/ESP32_PLATFORM.md](docs/ESP32_PLATFORM.md): the platform handbook. It covers pins and
+  protocols, the toolchain, the `no_std` Bevy rules, the render and memory budgets, and what's
+  still unverified.
+- [devlog/beats.md](devlog/beats.md): the story of building it, beat by beat.
+
+The Rust crates are licensed MIT OR Apache-2.0, as declared in `Cargo.toml`.

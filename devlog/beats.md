@@ -765,3 +765,23 @@ Images are in `img/`. Newest beats go at the bottom.
   so the title went from 64 to 52 px. The longest header, orbit_core's, still clears its
   chips by about 27 px.
 - Images: `41-architecture.png` (before), `43-architecture.png` (after).
+
+## 44. The README becomes a pitch (2026-10-09)
+
+- **The ask:** make the top-level README a marketing pitch, then building and running every
+  part, then sourcing and printing your own, then the architecture with the new slides. Say
+  it was made AI-first, but in paragraph 2, not as a selling point.
+- **The order now:**
+  - what it is and what makes it cool, with the trailer still on top and a 3-up grid of
+    screenshots;
+  - build and run it: the simulator, the tests, heap32, qemu-smoke, flashing, the case, the
+    trailer and the slides;
+  - build your own: parts, printing, assembly, first flash;
+  - how it's built: the five slides, then the crates, memory and the emulator notes.
+- **What the logs said:** the README and the platform handbook both said the town had never
+  run on the board. The logs say otherwise: one session from 2026-10-07 built and dropped 24
+  apps going through the town's doors, at 60 fps with 6 to 9 ms of work a frame, the mics
+  listening and the GPS answering. Both docs now say what's confirmed and what isn't yet: a
+  voice command, a GPS fix, waking from sleep, and battery charging.
+- **Cut for honesty:** a line saying the board "costs less than a game cartridge", since
+  nothing in the repo backs up a price.

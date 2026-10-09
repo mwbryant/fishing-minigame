@@ -11,10 +11,12 @@ Facts are marked
 **[unverified]** (from vendor sources or inference; not yet seen on hardware).
 
 Status as of 2026-10-07: the board (the -G variant, with the LC76G GNSS) has **arrived**.
-Fishing Minigame is built and tested on the host and in QEMU, but not yet run on the board. Its
-mic (ES7210) and GPS (LC76G) drivers are new, written from research
-(`docs/reference/gnss_and_mics.md`), and unverified on hardware. The first Angler session
-(`logs/angler-20261006-153858.log`) shows octal PSRAM (8 MB) up, `display ready`,
+Fishing Minigame has run on the board too (`logs/pals-20261007-*.log`): one session built and
+dropped 24 apps going through the town's doors, all in internal SRAM. Its mic (ES7210) and GPS
+(LC76G) drivers, written from research (`docs/reference/gnss_and_mics.md`), start up there:
+the mics report listening and the LC76G answers, though one session logged LC76G read
+failures. A voice command and a GPS fix are not yet confirmed on the board. The first Angler
+session (`logs/angler-20261006-153858.log`) shows octal PSRAM (8 MB) up, `display ready`,
 Bevy built entirely in internal SRAM (about 72 KB of internal heap free during play),
 the ES8311 answering `0x83 0x11`, and several minutes of casts and fights played at
 60 fps. Its frame stats exposed the arc render cost (section 6), since fixed. Saves
@@ -953,7 +955,7 @@ Not done yet, roughly by value:
 - AXP2101 soft power-off (REG 10 bit 0) as a deeper "off": PWR would power it back on, BOOT
   could not.
 
-### 10.6 Fishing Minigame: the town and its places (built; run in QEMU, not yet on the board)
+### 10.6 Fishing Minigame: the town and its places (built; runs on the board)
 
 A Nintendogs-style loop over the earlier games. Catch fish at the pond and keep up to three,
 named by turning. Walk them for stamina, teach them tricks with the mics and the glass, and
