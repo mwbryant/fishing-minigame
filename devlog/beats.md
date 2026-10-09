@@ -738,3 +738,15 @@ Images are in `img/`. Newest beats go at the bottom.
 - **Hook:** "The game never talks to a single chip. Here's the one layer that does."
 - Images: `41-architecture.png`, `41-orbit-core.png`, `41-trailer-pipeline.png`,
   `41-case-pipeline.png`.
+
+## 42. The hardware slide reads left to right (2026-10-09)
+
+- **The ask:** "remove the simulator and reverse the direction flow on the hardware
+  diagram."
+- **Before:** the game sat on the left and the chips on the right, so inputs ran right to
+  left, against reading order. A simulator column took the last quarter of the width.
+- **After:** board, then orbit_core, then the game. A touch, a tilt or a word now runs left
+  to right into the game, and the frame, sounds and saves run back left to their chips.
+  The width the simulator gave up went to bigger type. The desktop stand-ins are still on
+  the overview slide.
+- Images: `41-orbit-core.png` (before), `42-orbit-core.png` (after).

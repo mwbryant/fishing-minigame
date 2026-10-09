@@ -596,20 +596,20 @@ def pipeline():
     return b
 
 
-# Each line between a game and the hardware, through orbit_core: (what a game calls, the
-# resource, what it holds, its plugin, the board's chip, how the board feeds it, the simulator).
+# Each line between the hardware and a game, through orbit_core: (the board's chip, how the
+# board feeds or drains it, the resource, what it holds, its plugin, what a game calls).
 INPUTS = [
-    ("touch.position()<br>touch.just_pressed()", "Touch", "the finger, in screen px", "CorePlugin", "CST9217 touch · I2C 0x5A", "rotated 180°, lifted after 2 empty reads", "mouse button and pointer"),
-    ("buttons.action.pressed()<br>buttons.zero.held()", "Buttons", "two switches, by role", "ControlsPlugin", "PWR key · TCA9554 at 0x20", "BOOT on GPIO0", "Space and Z"),
-    ("tilt.steer_deg<br>tilt.lean_deg", "ImuFeed → Tilt", "samples in, degrees out (Mahony)", "ControlsPlugin", "QMI8658 IMU · I2C 0x6B", "accel and gyro, read every frame", "arrow keys tip a virtual IMU"),
-    ("power.battery<br>power.saying_good_night()", "Power", "battery, idle, hold to sleep", "ControlsPlugin", "AXP2101 gauge · I2C 0x34", "read every 5 s; idle dims the panel", "on USB power, no gauge"),
-    ("mic.take() → VoicePrint<br>mic.level()", "Mic", "16 kHz samples in, words out", "MicPlugin", "ES7210 mics · I2C 0x40", "data on the speaker's I2S clocks", "the laptop mic"),
-    ("gps.take() → Fix<br>fix.meters_to(&amp;last)", "Gps", "NMEA text in, fixes out", "GpsPlugin", "LC76G GPS · I2C 0x50, 0x54", "asked for new text every second", "no GPS: MOCK WALK"),
+    ("CST9217 touch · I2C 0x5A", "rotated 180°, lifted after 2 empty reads", "Touch", "the finger, in screen px", "CorePlugin", "touch.position()<br>touch.just_pressed()"),
+    ("PWR key · TCA9554 at 0x20", "BOOT on GPIO0", "Buttons", "two switches, by role", "ControlsPlugin", "buttons.action.pressed()<br>buttons.zero.held()"),
+    ("QMI8658 IMU · I2C 0x6B", "accel and gyro, read every frame", "ImuFeed → Tilt", "samples in, degrees out (Mahony)", "ControlsPlugin", "tilt.steer_deg<br>tilt.lean_deg"),
+    ("AXP2101 gauge · I2C 0x34", "read every 5 s; idle dims the panel", "Power", "battery, idle, hold to sleep", "ControlsPlugin", "power.battery<br>power.saying_good_night()"),
+    ("ES7210 mics · I2C 0x40", "data on the speaker's I2S clocks", "Mic", "16 kHz samples in, words out", "MicPlugin", "mic.take() → VoicePrint<br>mic.level()"),
+    ("LC76G GPS · I2C 0x50, 0x54", "asked for new text every second", "Gps", "NMEA text in, fixes out", "GpsPlugin", "gps.take() → Fix<br>fix.meters_to(&amp;last)"),
 ]
 OUTPUTS = [
-    ("frame.shapes.push(shape)", "Frame", "the display list, back to front", "CorePlugin", "CO5300 AMOLED · QSPI 40 MHz", "Presenter sends dirty rects, 2 DMA buffers", "RAM panel in a window"),
-    ("sound.play(&amp;WIN)", "SoundQueue", "play and stop; PREF mutes it", "SoundPlugin", "ES8311 speaker · I2C 0x18, I2S", "one-voice Mixer, amp on GPIO46", "the laptop speaker"),
-    ("blob.save_section(KEY, encode(pals))", "SaveBlob", "one record, a section per app", "CorePlugin", "flash at 0x9000", "two sectors take turns, CRC32", "~/.logic-orbit/*.flash"),
+    ("CO5300 AMOLED · QSPI 40 MHz", "Presenter sends dirty rects, 2 DMA buffers", "Frame", "the display list, back to front", "CorePlugin", "frame.shapes.push(shape)"),
+    ("ES8311 speaker · I2C 0x18, I2S", "one-voice Mixer, amp on GPIO46", "SoundQueue", "play and stop; PREF mutes it", "SoundPlugin", "sound.play(&amp;WIN)"),
+    ("flash at 0x9000", "two sectors take turns, CRC32", "SaveBlob", "one record, a section per app", "CorePlugin", "blob.save_section(KEY, encode(pals))"),
 ]
 
 # One pass of the firmware's frame loop: (step, width).
@@ -634,51 +634,48 @@ def core():
         ["5 plugins, 4 opt-in", "7 chips on one I2C bus", "60 fps, 20 when idle"],
     )
 
-    b.band(464, 168, 452, 708, CYAN, fill=0.05, edge=0.3)
-    b.text(64, 184, tag("YOUR GAME", YELLOW) + "&nbsp; calls", size=15, color=MUTED, line=20)
-    b.text(488, 184, tag("ORBIT_CORE", CYAN) + "&nbsp; Bevy resources", size=15, color=MUTED, line=20)
-    b.text(956, 184, tag("ON THE BOARD", ORANGE) + "&nbsp; firmware/", size=15, color=MUTED, line=20)
-    b.text(1480, 184, tag("IN THE SIMULATOR", BLUE) + "&nbsp; desktop/", size=15, color=MUTED, line=20)
+    b.band(720, 168, 512, 708, CYAN, fill=0.05, edge=0.3)
+    b.text(64, 184, tag("ON THE BOARD", ORANGE) + "&nbsp; firmware/", size=15, color=MUTED, line=20)
+    b.text(744, 184, tag("ORBIT_CORE", CYAN) + "&nbsp; Bevy resources", size=15, color=MUTED, line=20)
+    b.text(1288, 184, tag("YOUR GAME", YELLOW) + "&nbsp; calls", size=15, color=MUTED, line=20)
     b.text(64, 214, "INPUTS: the platform writes these, then calls app.update()", size=14, color=MUTED, line=18, font_style="italic")
     b.text(64, 644, "OUTPUTS: after app.update(), the platform drains these", size=14, color=MUTED, line=18, font_style="italic")
 
     rows = [(240 + i * 66, row, True) for i, row in enumerate(INPUTS)]
     rows += [(672 + i * 66, row, False) for i, row in enumerate(OUTPUTS)]
-    for top, (call, resource, holds, plugin, chip, detail, sim), incoming in rows:
+    for top, (chip, detail, resource, holds, plugin, call), incoming in rows:
         y = top + 28
-        b.card(64, top, 360, 56, span(call), YELLOW, fill=0.06, edge=0.4, font_family=MONO, font_size="14px", line_height="19px")
         b.card(
-            480,
+            64,
             top,
-            420,
+            600,
             56,
-            span(mono(resource, CYAN, 17) + "<br>" + holds, line_height="20px")
-            + span(plugin, font_family=MONO, font_size="12px", color=MUTED),
-            CYAN,
-            fill=0.12,
-            justify_content="space-between",
-            font_size="14px",
-            color=SOFT,
-        )
-        b.card(
-            956,
-            top,
-            500,
-            56,
-            span(mono(chip, ORANGE, 15) + "<br>" + span(detail, font_size="13px", color=MUTED), line_height="19px"),
+            span(mono(chip, ORANGE, 17) + "<br>" + span(detail, font_size="14px", color=MUTED), line_height="21px"),
             ORANGE,
             fill=0.08,
             edge=0.45,
-            font_size="15px",
+            font_size="17px",
         )
-        b.text(1456, top + 19, "or", size=13, color=MUTED, line=18, width="24px", text_align="center")
-        b.card(1480, top, 376, 56, span(sim), BLUE, fill=0.08, edge=0.45, font_size="15px", color=SOFT)
+        b.card(
+            736,
+            top,
+            480,
+            56,
+            span(mono(resource, CYAN, 19) + "<br>" + holds, line_height="21px")
+            + span(plugin, font_family=MONO, font_size="13px", color=MUTED),
+            CYAN,
+            fill=0.12,
+            justify_content="space-between",
+            font_size="15px",
+            color=SOFT,
+        )
+        b.card(1288, top, 568, 56, span(call), YELLOW, fill=0.06, edge=0.4, font_family=MONO, font_size="16px", line_height="21px")
         if incoming:
-            b.arrow(956, y, 901, y, ORANGE)
-            b.arrow(480, y, 425, y, WHITE, alpha=0.5)
+            b.arrow(664, y, 735, y, ORANGE)
+            b.arrow(1216, y, 1287, y, WHITE, alpha=0.5)
         else:
-            b.arrow(424, y, 479, y, WHITE, alpha=0.5)
-            b.arrow(900, y, 955, y, ORANGE)
+            b.arrow(1288, y, 1217, y, WHITE, alpha=0.5)
+            b.arrow(736, y, 665, y, ORANGE)
 
     b.band(64, 900, 1792, 116)
     b.text(88, 914, tag("EVERY FRAME ON THE BOARD", ORANGE) + "&nbsp; firmware/src/lib.rs", size=15, color=MUTED, line=20)
