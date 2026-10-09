@@ -1,4 +1,4 @@
-//! Spider Roulette (twelve eggs, one spider) on the Waveshare ESP32-S3-Touch-AMOLED-1.75, on its own.
+//! Spider Roulette on its own, without the town: twelve eggs, one spider.
 
 #![no_std]
 #![no_main]

@@ -1,3 +1,5 @@
+//! The eight species, how each fights, and rolling what bites.
+
 use bevy::math::ops;
 use orbit_core::Rng;
 use orbit_gfx::Sprite;
@@ -9,6 +11,7 @@ use crate::sprites;
 pub struct Temper {
     /// Spring pull toward its target, per second squared per pixel.
     pub agility: f32,
+    /// Px per second.
     pub max_speed: f32,
     /// Seconds between picking new targets.
     pub retarget_secs: (f32, f32),
@@ -22,6 +25,7 @@ pub struct Species {
     pub name: &'static str,
     /// 0 = common panfish .. 3 = trophy.
     pub tier: u8,
+    /// Shortest and longest.
     pub length_cm: (f32, f32),
     /// Weight in grams = `girth` * length_cm^3 (the fisheries length-weight rule).
     pub girth: f32,

@@ -1,8 +1,7 @@
 """Board facts, measured from Waveshare's STEP model (docs/ESP32-S3-Touch-AMOLED-1.75-3D.zip).
 
-All values are in the case frame described in params.py. `check.py` loads the STEP itself
-and tests the printed parts against it, so these numbers only have to be right enough to
-design with.
+Values are in mm, in the case frame described in params.py. check.py tests the parts against
+the STEP itself, so these only have to be close enough to design with.
 """
 
 import zipfile
@@ -29,7 +28,7 @@ STANDOFFS = ((13.75, -14.70), (-13.75, -14.70), (0.0, 20.50))
 DEEPEST_Z = -12.70  # 8-pin female header along the 6 o'clock edge
 SOCKETS_Z = -11.70  # BAT and SPK MX1.25 sockets along the 12 o'clock edge
 # Under the board nothing hangs below UNDER_BOARD_Z except these, as (x0, y0, x1, y1, lowest z).
-# The standoffs are left out: the case's posts are dealt with on their own.
+# The standoffs aren't listed; the posts deal with them.
 UNDER_BOARD_Z = -8.20
 LOW_PARTS = (
     (-10.43, -19.88, 10.42, -17.48, -12.70),  # 8-pin header
@@ -44,12 +43,13 @@ PLUG_ENTRIES = (
     (-9.06, 15.92, -4.56, 18.72),
 )  # sockets' open ends: x0, y0, x1, y1
 
-# GPS (-G board): the LC76G sits on the front of the PCB, under the display, so the case never
-# sees it. Its antenna plugs into the U.FL socket beside it (the other U.FL is for Wi-Fi). With
-# a plug in, keep a margin round the socket clear down to GPS_PLUG_Z for the plug and its cable.
+# GPS (-G board): the LC76G is on the front of the PCB, under the display, out of the case's way.
+# Its antenna plugs into the U.FL socket beside it (the other U.FL is Wi-Fi). The plug and its
+# cable need a margin round the socket kept clear down to GPS_PLUG_Z.
 GPS_SOCKET = (-15.07, -9.10, -12.07, -6.00)
 GPS_PLUG_Z = PCB_BACK_Z - 2.7
 
+# USB-C socket: angle (deg), radius of its face, centre height, and width x height.
 USB_ANGLE = 180.0
 USB_FACE_R = 23.79
 USB_Z = -8.57
@@ -67,7 +67,7 @@ SD_OFFSET = 0.25  # card centre, along the rim
 
 
 def load() -> Compound:
-    """The full board, in the case frame. The STEP is unpacked from docs/ on first use."""
+    """The whole board in the case frame. The STEP is unzipped into .cache/ on first use."""
     step = CACHE / STEP_NAME
     if not step.exists():
         CACHE.mkdir(exist_ok=True)

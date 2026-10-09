@@ -1,10 +1,10 @@
 """The trailer's edit: what plays when. `build.py` does the rest.
 
-Times are seconds in the trailer. A shot's `takes` are clips filmed by `orbit_desktop footage`
-(60 frames a second): `(take, from)` plays the take from `from` seconds in, and
-`(take, from, length)` plays only that long before the next one. When the game changes,
-`uv run build.py --refilm` films them again; check the cuts still land with
-`uv run build.py --sheets`, which writes a contact sheet of every take.
+Times are seconds into the trailer. A shot's `takes` are clips filmed by `orbit_desktop footage`
+at 60 frames a second: `(take, from)` plays the take from `from` seconds in, and
+`(take, from, length)` plays only that long before the next one. After the game changes,
+`uv run build.py --refilm` films them again and `uv run build.py --sheets` writes a contact sheet
+of every take, to check the cuts still land.
 """
 
 FPS = 30
@@ -17,6 +17,7 @@ LOOP_BEATS = 7
 
 
 def on_beat(n):
+    """Trailer time of the ukulele's beat n."""
     return 0.135 + n * BEAT
 
 
@@ -25,8 +26,7 @@ def loop_shot(n):
     return on_beat(8 + n * LOOP_BEATS)
 
 
-# After the loop each shot follows the last, (start, end), so changing one's length moves the
-# rest.
+# After the loop each shot's (start, end) follows the last, so lengthening one moves the rest.
 SCRATCH = (loop_shot(5), loop_shot(5) + 0.7)
 BEES = (SCRATCH[1], SCRATCH[1] + 4.0)
 SKATE = (BEES[1], BEES[1] + 4.5)
@@ -36,6 +36,7 @@ FISH_HOLD = (EAT[1], EAT[1] + 5.0)
 LENGTH = FISH_HOLD[1]
 
 
+# The two tracks: where to fetch each, its credit, and its level.
 MUSIC = {
     "cozy": {
         "title": "Happy Whistling Ukulele",
@@ -52,6 +53,8 @@ MUSIC = {
     },
 }
 
+# Each shot's `kind` names the Trailer method in build.py that draws it; the other keys are
+# that kind's settings.
 SHOTS = [
     {
         "kind": "opening",
@@ -158,7 +161,7 @@ SHOTS = [
     },
 ]
 
-# How loud the game's own sounds sit under the music.
+# dB for the game's own sounds under the music.
 GAME_SOUNDS_DB = -5.0
 
 # Which music plays where. `offset` is seconds into the track (left out: where its sound

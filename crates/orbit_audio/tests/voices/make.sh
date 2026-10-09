@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# Regenerates the spoken-word fixtures for the voice matcher tests (macOS):
-# two speakers say each trick word at a normal and a fast rate, as 16 kHz
-# mono s16le PCM, the board's mic format.
+# Regenerates the spoken-word fixtures for the voice matcher tests (macOS only:
+# `say` and `afconvert`). Two voices say each trick word at a normal and a fast
+# rate (170 and 240 wpm), saved as 16 kHz mono s16le PCM, the board's mic format.
 set -euo pipefail
 cd "$(dirname "$0")"
 tmp=$(mktemp -d)
@@ -11,7 +11,7 @@ for voice in Daniel Fred; do
       name="$(echo "$voice" | tr 'A-Z' 'a-z')-$word-$rate"
       say -v "$voice" -r "$rate" -o "$tmp/$name.aiff" "$word"
       afconvert -f WAVE -d LEI16@16000 -c 1 "$tmp/$name.aiff" "$tmp/$name.wav"
-      # Strip the WAV header: the data chunk is the last chunk afconvert writes.
+      # Keep only the WAV's data chunk, walking past any others.
       python3 - "$tmp/$name.wav" "$name.pcm" <<'PY'
 import struct, sys
 data = open(sys.argv[1], 'rb').read()

@@ -1,8 +1,7 @@
-//! The park: take a fish for a walk to build its stamina. The -G board's
-//! satellite receiver counts the metres you really walk (not standing
-//! still, and not riding in a car); with MOCK WALK on in the settings, a
-//! pretend walker strolls at walking pace instead. Each walk saves as it
-//! goes.
+//! The park: walk a fish to build its stamina. The -G board's GPS receiver
+//! counts the metres you really walk (not standing still or riding in a car).
+//! With MOCK WALK on in the settings, a pretend walker strolls instead. A walk
+//! saves as it goes.
 
 use alloc::{boxed::Box, format, vec::Vec};
 
@@ -36,7 +35,7 @@ const NAME_RING: f32 = 160.0;
 pub mod ui {
     pub use orbit_ui::Button;
 
-    /// On a mock walk: fast-forward it, or slow it back down.
+    /// On a mock walk: slow it down, or fast-forward it.
     pub const SLOWER: Button = Button::new(52, 306, 56, 44, "-");
     pub const FASTER: Button = Button::new(358, 306, 56, 44, "+");
 }
@@ -49,8 +48,9 @@ pub enum WalkPhase {
         pet: usize,
         trail: Trail,
         mock: Option<MockWalk>,
-        /// Metres walked but not yet whole, and since the last save.
+        /// Metres walked but not yet credited to the fish (under one).
         fraction_m: f32,
+        /// Whole metres credited since the last save.
         unsaved_m: f32,
         secs: f32,
         levelled_at: Option<f32>,

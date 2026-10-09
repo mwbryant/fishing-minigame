@@ -1,4 +1,4 @@
-//! Angler (fishing) on the Waveshare ESP32-S3-Touch-AMOLED-1.75.
+//! Angler (fishing) on its own, without the town.
 
 #![no_std]
 #![no_main]

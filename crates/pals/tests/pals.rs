@@ -382,8 +382,8 @@ fn a_save_from_before_the_new_voice_prints_keeps_its_fish_and_strokes_but_not_th
     );
     pet.tricks[0].learned = 40;
     pals.keep(pet).unwrap();
-    // Version 1 stored 145-byte prints: header (11), the pet (19), then the
-    // first trick's id, learned, gesture and has-word bytes.
+    // A version 1 save's first print (145 bytes) follows the header (11), the
+    // pet (19), and the first trick's id, learned, gesture and has-word bytes.
     let mut old = save::encode(&pals);
     old[0] = 1;
     let print_at = 11 + 19 + 4;

@@ -1,10 +1,11 @@
-//! The contest hall, where the gold comes from. Pick a fish and a tier
-//! (higher tiers need more stamina), then put on a 30 s show: give your
-//! taught commands, by word or stroke, and the fish performs. Each trick
-//! scores by rarity and how well it's known, more for changing it up, and
-//! double when it's the one a judge just called for; each try costs
-//! stamina, and a spent fish ends its show. The fish's looks (rarity, size,
-//! hat) add their appeal, and three rivals' scores decide the prize.
+//! The contest hall, where the gold comes from. Pick a fish and a tier (higher
+//! tiers need a higher stamina level), then put on a 30 s show: give taught
+//! commands by word or stroke, and the fish performs.
+//!
+//! A trick scores by rarity and how well it's known, more for changing it up,
+//! and double when a judge just called for it. Each try costs stamina, and a
+//! spent fish ends its show. The fish's looks (rarity, size, hat) add appeal,
+//! and three rivals' scores decide the prize.
 
 use alloc::{boxed::Box, format, string::String, vec::Vec};
 
@@ -30,18 +31,20 @@ const BAR_BACK: Rgb565 = rgb(40, 40, 52);
 pub const SHOW_SECS: f32 = 30.0;
 /// "GO!" shows this long at the start.
 const GO_SECS: f32 = 1.5;
-/// Judges call for a trick every few seconds, and it's worth double for a
-/// while.
+/// Seconds from one judge's call ending to the next (random in this range),
+/// and how long a call stands.
 const REQUEST_GAP_SECS: (f32, f32) = (4.0, 7.0);
 const REQUEST_SECS: f32 = 4.0;
-/// Each different trick in a row adds this, up to `MAX_COMBO`.
+/// Each change of trick in a row adds this percent to a trick's score, up to
+/// `MAX_COMBO` changes.
 const COMBO_PCT: u32 = 10;
 const MAX_COMBO: u32 = 5;
+/// The mic hears the speaker: words this soon after a sound are ignored.
 const ECHO_SECS: f32 = 1.0;
 /// Where the fish performs, low enough that its highest leap stays under the
 /// judge's banner and its deepest dive over the line of news under the water.
 const STAGE: Vec2 = Vec2::new(233.0, 262.0);
-/// Tricks here move this much of what they do in the house, to fit the stage.
+/// Tricks move this much of their full size here, to fit the stage.
 const STAGE_MOTION: f32 = 0.7;
 /// The banner a judge's request (or the start) goes up on, wide enough for
 /// the longest trick's name.
@@ -53,7 +56,7 @@ pub struct Tier {
     pub min_level: u32,
     /// Gold for first, second and third.
     pub prizes: [u32; 3],
-    /// What the rivals score, low to high.
+    /// The range the rivals' scores fall in.
     pub rivals: (u32, u32),
     /// The judges weigh looks this many times over.
     pub appeal_times: u32,

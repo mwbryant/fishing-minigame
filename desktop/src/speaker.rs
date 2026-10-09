@@ -1,3 +1,6 @@
+//! The desktop's stand-in for the board's speaker: the same `orbit_audio`
+//! mixer, played through the default output device at the board's rate.
+
 use orbit_audio::{Mixer, SAMPLE_RATE, SoundCommand};
 use rtrb::{Producer, RingBuffer};
 use tinyaudio::prelude::*;
@@ -5,8 +8,6 @@ use tinyaudio::prelude::*;
 /// About 1/15 s of audio kept queued ahead of the sound card.
 const TARGET_FILL: usize = SAMPLE_RATE as usize / 15;
 
-/// The desktop's stand-in for the board's speaker: the same `orbit_audio`
-/// mixer, played through the default output device at the board's rate.
 pub struct Speaker {
     mixer: Mixer,
     output: Option<(OutputDevice, Producer<i16>)>,

@@ -1,3 +1,6 @@
+//! Orbit's title, play and game-over screens as Bevy states, and the taps
+//! that move between them.
+
 use bevy::prelude::*;
 
 use crate::Touch;
@@ -10,7 +13,8 @@ pub enum Screen {
     GameOver,
 }
 
-/// A tap right after losing is usually the finger still chasing the ball.
+/// Game over ignores taps this long, since a tap right after losing is
+/// usually the finger still chasing the ball.
 pub const RETRY_DELAY_SECS: f32 = 0.8;
 
 #[derive(Resource, Default)]

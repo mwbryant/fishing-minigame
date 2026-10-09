@@ -3,7 +3,8 @@
 From the floor up: the speaker (face down behind the grille), the GPS antenna (ceramic side
 down, so it looks out of the back), and in the battery case the cell. Each one goes as high as
 the parts hanging under the board allow (board.LOW_PARTS), then the floor goes under the lowest
-and everything rests on it, one on top of the other. Plain geometry, no CAD kernel, so it's fast.
+and the items rest on it, one on top of the other. Plain 2D geometry with no CAD kernel, so it's
+fast.
 """
 
 import math
@@ -19,6 +20,8 @@ BORE_R = board.GLASS_R + p.GLASS_GAP
 
 @dataclass(frozen=True)
 class Item:
+    """One thing under the board, placed: centre (x, y), turned `angle` deg, bottom face at z."""
+
     name: str
     size: tuple[float, float, float]  # width x length x thickness
     x: float
@@ -38,6 +41,7 @@ def wide_post_top() -> float:
 
 
 def footprint(w: float, length: float, x: float, y: float, angle: float) -> Poly:
+    """Corners of a `w` x `length` rectangle centred on (x, y), turned `angle` deg."""
     a = math.radians(angle)
     ca, sa = math.cos(a), math.sin(a)
     corners = ((-1, -1), (1, -1), (1, 1), (-1, 1))
@@ -64,7 +68,7 @@ def box(x0: float, y0: float, x1: float, y1: float) -> Poly:
 
 
 def ceiling(outline: Poly, plugs: bool) -> float:
-    """The lowest board part over `outline`."""
+    """The lowest thing over `outline`: board parts, the GPS plug and, with `plugs`, BAT/SPK."""
     zones = list(board.LOW_PARTS)
     if p.GPS_ANTENNA:
         x0, y0, x1, y1 = board.GPS_SOCKET
@@ -83,7 +87,7 @@ def ceiling(outline: Poly, plugs: bool) -> float:
 
 
 def clear_of_posts(w: float, length: float, x: float, y: float, angle: float) -> bool:
-    """Clear of the (wide) screw posts and inside the bore."""
+    """Whether the rectangle keeps 0.3 mm clear of the bore and of the wide screw posts."""
     if any(math.hypot(cx, cy) > BORE_R - 0.3 for cx, cy in footprint(w, length, x, y, angle)):
         return False
     a = math.radians(angle)
@@ -101,7 +105,8 @@ def clear_of_posts(w: float, length: float, x: float, y: float, angle: float) ->
 def place_antenna(limit: float, plugs: bool) -> tuple[float, float, float, float]:
     """(x, y, angle, top) of the highest spot for the GPS antenna below `limit`.
 
-    Ties go to the spot nearest the middle, over the speaker.
+    Tries every 2 deg and every 0.5 mm within 6 mm of the bay's centre. Ties go to the spot
+    nearest the middle, over the speaker.
     """
     w, length, _ = p.GPS_ANTENNA
     best = None

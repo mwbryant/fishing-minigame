@@ -64,10 +64,10 @@ pub fn tap(app: &mut App, at: Vec2) {
     update(app);
 }
 
-/// Says `word` (mono samples at `orbit_audio::SAMPLE_RATE`) into the mic
-/// of a quiet room, a frame's worth of samples per update, then waits long
-/// enough for the listener to hear that it ended. It streams, as a mic
-/// driver does, so heap measurements see only what the game allocates.
+/// Says `word` (mono samples at `orbit_audio::SAMPLE_RATE`) into the mic of a
+/// quiet room, a frame's worth per update, then waits for the listener to hear
+/// it end. It streams like a mic driver, so heap measurements see only what
+/// the game allocates.
 pub fn speak(app: &mut App, word: &[i16]) {
     let per_update = (orbit_audio::SAMPLE_RATE as f64 / TICK_HZ) as usize;
     let quiet = [0i16; 512];
@@ -94,11 +94,11 @@ pub fn set_tilt(app: &mut App, steer_deg: f32, lean_deg: f32) {
     tilt.lean_deg = lean_deg;
 }
 
-/// Plays like someone who doesn't know the game, for `secs` of game time, on
-/// a battery reading at its widest (100%, charging): turns and leans the
-/// device anywhere, presses, holds, taps all over the glass and sometimes
-/// holds BOOT toward sleep (never long enough to sleep).
-/// With the `crowding` feature every frame on the way is checked.
+/// Plays like someone who doesn't know the game for `secs` of game time. It
+/// turns and leans anywhere, presses, holds, taps all over the glass, and
+/// sometimes holds the zero button toward sleep (never long enough to sleep).
+/// The battery reads at its widest (100%, charging). With the `crowding`
+/// feature every frame is checked.
 pub fn monkey(app: &mut App, secs: f32, seed: u32) {
     if let Some(mut power) = app.world_mut().get_resource_mut::<crate::Power>() {
         power.battery = Some(crate::Battery {

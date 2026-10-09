@@ -1,8 +1,9 @@
-//! The bytes Angler hands the platform to persist, little-endian:
-//! `FLOG | version | species count | total | (caught, length, weight)* |
-//! difficulty`. Version 1 ended after the records; version 3 also carried
-//! gold and hats, which live with the kept fish now (`pals`), so
-//! [`legacy_purse`] hands them over once.
+//! Angler's save section, little-endian: `FLOG | version | species count |
+//! total | (caught, length, weight)* | difficulty`.
+//!
+//! Version 1 ends after the records. Version 3 also carried gold and hats,
+//! which belong to `pals`; [`legacy_purse`] reads them so the town can hand
+//! them over once.
 
 use alloc::vec::Vec;
 
@@ -14,8 +15,8 @@ use crate::{
 
 use orbit_core::SaveBlob;
 
-/// Angler's section of the board's save record. It is also the magic its
-/// bytes start with, so records from before sections load as this section.
+/// Angler's section key. It's also the magic the bytes start with, so
+/// records from before save sections load as this section.
 pub const KEY: [u8; 4] = *MAGIC;
 const MAGIC: &[u8; 4] = b"FLOG";
 const VERSION: u8 = 4;
@@ -47,7 +48,8 @@ pub fn decode_stored(record: &[u8]) -> Option<(FishLog, Settings)> {
         .and_then(decode)
 }
 
-/// Saves from builds with more or fewer species load what overlaps.
+/// Angler's state from its section. Saves from builds with more or fewer
+/// species load what overlaps.
 pub fn decode(bytes: &[u8]) -> Option<(FishLog, Settings)> {
     let (header, rest) = bytes.split_at_checked(HEADER_BYTES)?;
     let version = header[4];
@@ -79,8 +81,8 @@ pub fn decode(bytes: &[u8]) -> Option<(FishLog, Settings)> {
     Some((log, settings))
 }
 
-/// The gold and owned-hat bitmask a version 3 save (from when Angler ran
-/// the hat shop) carried.
+/// The gold and owned-hat bitmask in a version 3 save, written when Angler
+/// ran the hat shop.
 pub fn legacy_purse(bytes: &[u8]) -> Option<(u32, u32)> {
     if bytes.get(..4)? != MAGIC || *bytes.get(4)? != SHOP_VERSION {
         return None;

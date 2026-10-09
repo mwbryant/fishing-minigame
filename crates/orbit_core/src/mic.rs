@@ -10,9 +10,8 @@ use orbit_audio::voice::{Listener, VoicePrint};
 /// What the mic hears. Only apps that add [`MicPlugin`] have one, and
 /// platforms power the mics and push samples only while it exists.
 ///
-/// The listener is boxed: Bevy keeps resources in storage that reserves
-/// room for many of each, so a resource's heap cost is a multiple of its
-/// size, and the listener is 3 KB.
+/// The 3 KB listener is boxed. Bevy reserves room for about 64 of each
+/// resource, so held inline it cost 204 KB of heap.
 #[derive(Resource, Default, Debug)]
 pub struct Mic {
     listener: Box<Listener>,
@@ -39,7 +38,7 @@ impl Mic {
     }
 }
 
-/// Listens on the board's mics. Opt-in like `ControlsPlugin`; it adds no
+/// Listens on the board's mics. Opt-in like `ControlsPlugin`. It adds no
 /// systems, since the listener runs as samples are pushed.
 pub struct MicPlugin;
 

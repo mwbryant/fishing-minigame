@@ -1,4 +1,5 @@
-//! Deterministic headless app: one 60 Hz fixed step per `app.update()`.
+//! Test helpers around a deterministic headless Angler that runs one 60 Hz
+//! fixed step per `app.update()`.
 
 use alloc::vec::Vec;
 use core::time::Duration;

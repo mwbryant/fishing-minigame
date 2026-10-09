@@ -1,8 +1,8 @@
-//! Your house: the tank your fish swim in, each one's card, renaming, and
-//! the trick school. Teaching shows the trick, then you give it a word (said
-//! twice into the mics) or a stroke on the glass (drawn twice). Practice
-//! gives the command; the fish tries, and petting it right after a success
-//! doubles what it learns, as in Nintendogs.
+//! Your house: the tank your fish swim in, each one's card, renaming, and the
+//! trick school. Teaching shows the trick, then takes a word (said twice into
+//! the mics) and/or a stroke on the glass (drawn twice). In practice you give
+//! the command and the fish tries; petting it right after a success doubles
+//! what it learns, as in Nintendogs.
 
 mod draw;
 pub mod ui;
@@ -27,15 +27,15 @@ pub const WATCH_SECS: f32 = 2.0 * TRICK_SECS;
 pub const PRAISE_SECS: f32 = 2.5;
 /// The mic hears the speaker: words this soon after a sound are ignored.
 const ECHO_SECS: f32 = 1.0;
-/// Where trained fish perform, and how close a tap has to be to pet one.
+/// Where fish learn and perform tricks.
 pub const STAGE: Vec2 = Vec2::new(233.0, 230.0);
 /// A tap this close to a swimming fish picks it.
 const FISH_REACH: f32 = 48.0;
 /// Tricks move this much of their full size here, so the highest leap stays
 /// under the lesson's text and the deepest dive over the mic's.
 const STAGE_MOTION: f32 = 0.65;
+/// A tap this close to the stage pets the fish.
 const PET_REACH: f32 = 60.0;
-/// The tank's water, where fish swim.
 /// Where tank fish swim: clear of the names round the rim, however long.
 const SWIM_LOW: Vec2 = Vec2::new(150.0, 170.0);
 const SWIM_HIGH: Vec2 = Vec2::new(316.0, 290.0);
@@ -45,7 +45,7 @@ pub const CARD_CHOICES: usize = 3;
 /// The tricks list: the five, then BACK.
 pub const TRICK_CHOICES: usize = TRICKS_PER_PET + 1;
 
-/// What a word or stroke being taught has got to.
+/// How far a word or stroke being taught has got: heard once, or twice alike.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Heard<T> {
     Nothing,
@@ -125,6 +125,7 @@ pub struct Home {
     pub phase: Box<HomePhase>,
     /// Seconds since the phase (or its step) changed.
     secs: f32,
+    /// Seconds since the house opened.
     clock: f32,
     swimmers: Vec<Swimmer>,
     strokes: Strokes,
@@ -133,7 +134,7 @@ pub struct Home {
     pressing_button: bool,
     /// What just happened, shown until the next thing does.
     toast: Option<String>,
-    /// The mic is ignored until then (the speaker just played).
+    /// The mic is ignored until this `clock` time (the speaker just played).
     deaf_until: f32,
     rigged: Option<bool>,
 }
@@ -287,8 +288,6 @@ fn play(
     let mut save = false;
     let mut next: Option<HomePhase> = None;
     let mut stroke = None;
-    // Only the screens waiting for a command read strokes, and a press that
-    // began on a button (or anywhere else, like petting) never becomes one.
     let wants_strokes = matches!(
         *home.phase,
         HomePhase::Teach {

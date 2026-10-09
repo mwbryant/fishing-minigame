@@ -4,7 +4,7 @@ use bevy::prelude::*;
 use orbit_audio::{Clip, ClipRef, SoundCommand};
 
 /// Commands kept when nothing drains the queue (a harness without a
-/// speaker); the one-voice mixer only acts on the newest anyway.
+/// speaker). The one-voice mixer only acts on the newest anyway.
 const MAX_PENDING: usize = 16;
 
 /// What the game wants the speaker to do, in order. The platform drains it

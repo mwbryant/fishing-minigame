@@ -1,10 +1,10 @@
 # FISHING MINIGAME trailer
 
-A 46 second trailer cut from the game itself:
+This folder builds a 46-second trailer cut from the game's own frames and sounds:
 
 1. **FISHING MINIGAME**, with the player at their house, and the camera dives into them.
-2. **FISH, TRAIN, WALK, COMPETE, HATS:** one beat each, tilted, zooming in and out, cut on
-   the ukulele's beat.
+2. **FISH, TRAIN, WALK, COMPETE, HATS:** one shot each, tilted, zooming in and out, cut on the
+   ukulele's beat.
 3. A record scratch, then the bees with **BEESSSS????** beside them as "Flight of the
    Bumblebee" crashes in.
 4. **SKATEBOARDS??** (a grind, then the halfpipe) and **SPIDERS?!** (the spider leaps at
@@ -20,38 +20,37 @@ uv run build.py --preview    # half size, 15 fps
 uv run build.py --still 36.5 # one frame, as out/still-36.50.png
 ```
 
-You need `cargo`, `uv`, `ffmpeg` and Blender. `build.py` finds Blender in
-`/Applications`, in Steam, on `PATH`, or at `$BLENDER`.
+You need `cargo`, `uv`, `ffmpeg` and Blender. `build.py` looks for Blender at `$BLENDER`, on
+`PATH`, in `/Applications`, then in Steam.
 
-## When the footage is final
+## When the game changes
 
 ```sh
 uv run build.py --refilm     # film every take again from the current game
-uv run build.py --sheets     # cache/sheets/<take>.png: 24 frames of each take, timestamped
+uv run build.py --sheets     # cache/sheets/<take>.png: 24 timestamped frames of each take
 ```
 
-Then check that each cut in `edit.py` still lands where it should. A shot's takes are
-`(take, from)` or `(take, from, length)`, in seconds into the take. For example, FISH plays
-`fish_cast` from 0.3 s for 1.3 s, then `fish_catch` from 2.6 s to the end of the beat.
-Each shot after the gameplay loop starts where the one before ends, so lengthening one (the
-tuples at the top of `edit.py`) moves everything after it, and the trailer grows to fit.
+Then check that each cut in `edit.py` still lands. A shot's takes are `(take, from)` or
+`(take, from, length)`, in seconds into the take: FISH plays `fish_cast` from 0.3 s for 1.3 s,
+then `fish_catch` from 2.6 s to the end of the beat. After the gameplay loop each shot starts
+where the one before ends, so lengthening one (the tuples at the top of `edit.py`) moves
+everything after it, and the trailer grows to fit.
 
-The takes are scripted in `desktop/src/footage.rs` with the same test helpers as the
-snapshots. To film them yourself, with an optional list of take names:
+The takes are scripted in `desktop/src/footage.rs` with the snapshots' test helpers. To film them
+yourself, optionally naming takes:
 
 ```sh
 cargo run --release -p orbit_desktop -- footage <dir> [take...]
 ```
 
-Each take is a folder of PNGs (one per 60 Hz update of game time) plus `audio.wav`, which is
-what the board's speaker would have played. The trailer mixes those sounds in under the
-music. If a game changes so a script no longer reaches its moment (a renamed `rig_*`, a
+Each take is a folder of PNGs, one per 60 Hz update of game time, plus `audio.wav`, which is what
+the board's speaker would have played. The opening also writes `focus.txt`, where the player
+stands, for the dive. If a game change stops a script reaching its moment (a renamed `rig_*`, a
 moved button), fix the take in `footage.rs`.
 
 ## How it's built
 
-`build.py` runs these steps. Each one caches in `cache/`; delete a folder there to redo
-that step.
+`build.py` runs these steps. Each caches in `cache/`; delete a folder there to redo that step.
 
 | Step | Cached in | Redone when |
 |---|---|---|
@@ -60,23 +59,19 @@ that step.
 | The ending, rendered in Blender (`eat.py`) | `cache/eat/<hash>/` | `eat.py`, the edit's bites, the screen frame or the case STL changes |
 | Frames and the mix, encoded with ffmpeg | `out/` | every run |
 
-- **The ending:**
-  - Blender loads `case/out/reel_case.stl`, shows a game frame on the glass and cuts the
-    bites out with booleans.
-  - The man's mouth follows a curve that `build.py` works out: wide open for each bite,
-    then chewing. A crunch plays each time it shuts.
-- **Sound effects:**
-  - the record scratch is the ukulele track dragged back and forth;
-  - the dive's whoosh and the bites' crunches are synthesized;
-  - everything else is the game's own sounds. A cut lets a sound finish (up to a second)
-    instead of chopping it. A shot's `mute` drops a take's sounds: the results after
-    COMPETE, so the judges' ding plays alone, and the GUTEN fish.
-- **Music:** the bumblebee fades across the cut to the man. The ukulele creeps back in under
-  the chewing, from where the scratch stopped it, and comes up to full for the fish
-  (`SCORE` in `edit.py`).
-- **No voice lines and no guten song:** YOU CAN EAT IT is only on screen. The GUTEN fish
-  spins to the ukulele, because its own song is the "Guten Morgen, Sonnenschein" meme
-  audio, which isn't ours (`"mute": ["guten"]` in `edit.py`).
+- **The ending:** Blender loads `case/out/reel_case.stl`, shows a game frame on the glass and cuts
+  the bites out with booleans. The man's mouth follows a curve that `build.py` works out: wide
+  open for each bite, then chewing, with a crunch each time it shuts. YOU CAN EAT IT is only on
+  screen; there are no voice lines.
+- **Sounds:** the game's own sounds play under the music. A cut lets a sound finish (up to a
+  second) instead of chopping it. The record scratch is the ukulele track dragged back and
+  forth, and the dive's whoosh and the bites' crunches are synthesized.
+- **Muted takes:** a shot's `mute` drops a take's sounds. The results after COMPETE are muted so
+  the judges' ding plays alone. The GUTEN fish spins to the ukulele, because its own song is the
+  "Guten Morgen, Sonnenschein" meme audio, which isn't ours.
+- **Music** (`SCORE` in `edit.py`): the bumblebee fades across the cut to the man. The ukulele
+  creeps back in under the chewing, from where the scratch stopped it, and comes up to full for
+  the fish.
 
 ## Credits
 

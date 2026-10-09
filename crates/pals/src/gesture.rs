@@ -7,7 +7,7 @@ use bevy::math::{Vec2, ops};
 const STILL_PX: f32 = 15.0;
 /// A swipe goes at least this far from where it started.
 const SWIPE_PX: f32 = 60.0;
-/// A circle turns at least this far (radians) and is at least this long.
+/// A circle turns at least this far (radians) and is at least this long (px).
 const CIRCLE_TURN: f32 = 1.5 * core::f32::consts::PI;
 const CIRCLE_PX: f32 = 150.0;
 /// A still finger down this long is a hold.
@@ -76,8 +76,8 @@ struct Stroke {
 }
 
 impl Strokes {
-    /// The finger this update (`None` when lifted); a gesture when one ends
-    /// or, for a hold, once it has been held long enough.
+    /// Feeds the finger's position (`None` when lifted). Returns a gesture when
+    /// a stroke ends, or as soon as a hold is long enough.
     pub fn update(&mut self, finger: Option<Vec2>, dt: f32) -> Option<Gesture> {
         match (finger, self.stroke.as_mut()) {
             (Some(at), None) => {

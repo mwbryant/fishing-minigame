@@ -22,7 +22,8 @@ def silence(secs):
 def tone(secs, freq, harmonics=(1.0,), attack=0.003, decay=None, vibrato=(0.0, 0.0)):
     """A note whose pitch is `freq` (Hz, or a function of time) built from
     `harmonics` (amplitude of the 1st, 2nd, ... partial), with an exponential
-    `decay` time constant or a flat sustain when None."""
+    `decay` time constant or a flat sustain when None. `vibrato` is (rate in
+    Hz, depth as a fraction of the pitch)."""
     out, phase = [], 0.0
     rate, depth = vibrato
     for i in range(int(secs * RATE)):
@@ -68,15 +69,19 @@ def mix(*parts):
 
 
 def glide(start, end, secs):
+    """A pitch that slides exponentially from `start` to `end` Hz over `secs`."""
     return lambda t: start * (end / start) ** min(1.0, t / secs)
 
 
 def shape(samples, envelope):
+    """Scales `samples` by `envelope(x)`, with x running 0 to 1 over the clip."""
     n = len(samples)
     return [x * envelope(i / n) for i, x in enumerate(samples)]
 
 
 def write(name, samples, peak):
+    """Fades out the last 2 ms, normalizes to `peak` (a fraction of full scale)
+    and writes sfx/<name>.pcm."""
     fade = int(0.002 * RATE)
     for i in range(min(fade, len(samples))):
         samples[-1 - i] *= i / fade

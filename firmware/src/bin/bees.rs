@@ -1,4 +1,4 @@
-//! Bees??? (keep the Moon's honey jar from spilling) on the Waveshare ESP32-S3-Touch-AMOLED-1.75, on its own.
+//! Bees??? on its own, without the town: keep the Moon's honey jar from spilling.
 
 #![no_std]
 #![no_main]

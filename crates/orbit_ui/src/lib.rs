@@ -20,6 +20,7 @@ pub use dial::{
 };
 pub use keys::{KEY_RING, KEYS, Key, KeyRing, key_center, key_ring, key_turn};
 
+/// An 8-bit-per-channel color, truncated to RGB565.
 pub const fn rgb(r: u8, g: u8, b: u8) -> Rgb565 {
     Rgb565::new(r >> 3, g >> 2, b >> 3)
 }
@@ -118,7 +119,7 @@ pub fn labelled_button(shapes: &mut Vec<Shape>, button: &Button, text: &str, fra
     shapes.push(label_at(area.center(), text, 1, TEXT));
 }
 
-/// A tap or press that did something (copied from Angler's sound set).
+/// A tap or press that did something (from Angler's sound set).
 pub static CLICK: Clip = Clip {
     pcm: include_bytes!("../assets/click.pcm"),
 };
@@ -296,6 +297,7 @@ pub static BOLT: Sprite = Sprite {
     palette: &[(b'Y', rgb(255, 220, 60))],
 };
 
+/// At or under [`LOW_BATTERY_PERCENT`] with nothing charging it.
 pub fn running_low(battery: &Battery) -> bool {
     !battery.charging
         && !battery.external_power
@@ -350,7 +352,7 @@ fn battery_on(shapes: &mut Vec<Shape>, battery: &Battery, backing: Option<Rgb565
 }
 
 /// A message across the screen at height `y` on its own dark banner, over
-/// whatever is there; any text the banner would half cover gives way.
+/// whatever is there. Any text the banner would half cover gives way.
 pub fn notice(shapes: &mut Vec<Shape>, y: i32, text: &str, color: Rgb565) {
     let message = label(y, text, 2, color);
     let Some(ink) = orbit_gfx::ink(&message) else {
@@ -373,9 +375,9 @@ pub fn notice(shapes: &mut Vec<Shape>, y: i32, text: &str, color: Rgb565) {
 const NOTICE_WIDTH: u32 = 256;
 const NOTICE_HEIGHT: u32 = 44;
 
-/// Draw last: while the zero button is held toward sleep, a hint (any text
-/// it would half cover gives way) and the rim filling; once the goodbye
-/// starts, it replaces the whole frame.
+/// Draw last. While the zero button is held toward sleep it adds a hint (text
+/// it would half cover gives way) and a filling rim. Once the goodbye starts,
+/// it replaces the whole frame.
 pub fn power_overlay(shapes: &mut Vec<Shape>, power: &Power) {
     if power.saying_good_night() {
         shapes.clear();

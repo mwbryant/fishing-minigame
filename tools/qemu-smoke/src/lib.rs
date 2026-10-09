@@ -21,11 +21,12 @@ use orbit_gfx::{Panel, Presenter, Rectangle, Rgb565, SCREEN_SIZE};
 
 /// Keep in sync with firmware/src/lib.rs.
 const BAND_BYTES: usize = SCREEN_SIZE as usize * 2 * 8;
-/// The firmware's 212 KB plus the ~20 KB of statics this build lacks (DMA
+/// The firmware's 212 KB plus 26 KB for the statics this build lacks (DMA
 /// buffers, drivers), so both stacks come out the same size. `run.sh` prints
-/// the two `.stack` sizes; adjust this when they drift apart.
+/// the two `.stack` sizes; keep them within about 1 KB by adjusting this.
 const INTERNAL_HEAP_BYTES: usize = 238 * 1024;
 
+/// The running app and the presenter and panel it draws to.
 pub struct Smoke {
     pub app: App,
     presenter: Presenter<alloc::vec::Vec<u8>>,
@@ -33,6 +34,7 @@ pub struct Smoke {
     peak_psram: usize,
 }
 
+/// Counts the bytes sent instead of drawing them.
 struct NullPanel(usize);
 
 impl Panel for NullPanel {

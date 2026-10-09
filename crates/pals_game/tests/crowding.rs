@@ -1,7 +1,7 @@
-//! Every Fishing Minigame screen at its most crowded: a full tank of fish with the
+//! Every Fishing Minigame screen at its most crowded: a full tank with the
 //! longest names and the tallest hat, every level and purse at its biggest,
-//! played at random and put through every trick. The test harness checks each
-//! frame for text that anything gets in the way of (`orbit_gfx::crowding`).
+//! played at random and put through every trick. The harness checks each frame
+//! for crowded text (`orbit_gfx::crowding`).
 
 use angler_game::SPECIES;
 use bevy::prelude::*;

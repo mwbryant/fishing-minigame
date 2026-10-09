@@ -1,7 +1,7 @@
 //! The Stardew-style fight: keep the fish inside a catch zone on a vertical
-//! bar. Leaning the device forward pushes the zone up, leaning back pushes it
-//! down; the zone has inertia. Progress fills while the fish is inside and
-//! drains while it's out.
+//! bar. Leaning forward pushes the zone up and leaning back pushes it down,
+//! against its inertia. Progress fills while the fish is inside and drains
+//! while it's out.
 
 use bevy::math::ops;
 use orbit_core::Rng;
@@ -11,8 +11,8 @@ use crate::{
     species::{Species, Temper},
 };
 
-/// Track geometry. Positions on the track are centers, measured down from
-/// the top of the track.
+/// Screen y of the track's top. Positions on the track are centers, in px
+/// down from here.
 pub const TRACK_TOP: f32 = 70.0;
 pub const TRACK_HEIGHT: f32 = 326.0;
 pub const TRACK_WIDTH: f32 = 44.0;
@@ -43,6 +43,8 @@ pub enum ReelOutcome {
     Escaped,
 }
 
+/// A fight in progress. `progress` runs 0 to 1: the fish is landed at 1 and
+/// gets away at 0.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Reel {
     pub zone_height: f32,
@@ -65,8 +67,9 @@ impl Reel {
         Self::with_tuning(species, &Difficulty::Normal.tuning(), rng)
     }
 
-    /// Like Stardew, the fish and the zone start together near the bottom.
-    /// `fish_speed_scale` time-warps the fish: it swims the same way, faster.
+    /// A fight at `tuning`. Like Stardew, the fish and the zone start together
+    /// at the bottom. `fish_speed_scale` time-warps the fish: it swims the same
+    /// way, faster.
     pub fn with_tuning(species: &Species, tuning: &Tuning, rng: &mut Rng) -> Self {
         let start = TRACK_HEIGHT - tuning.zone_height / 2.0;
         let speed = tuning.fish_speed_scale;
@@ -102,6 +105,7 @@ impl Reel {
         (self.fish_y - self.zone_y).abs() <= self.zone_height / 2.0
     }
 
+    /// Advances the fight `dt` seconds; `Some` once it's over.
     pub fn step(&mut self, lean_deg: f32, dt: f32, rng: &mut Rng) -> Option<ReelOutcome> {
         self.move_zone(lean_deg, dt);
         self.move_fish(dt, rng);

@@ -1,3 +1,6 @@
+//! Skate played through the headless app: ollies, landings, cones, benches,
+//! the halfpipe and its tricks, and the saved best score.
+
 use bevy::{app::AppExit, prelude::*};
 use orbit_core::{ClipRef, Launcher, SaveBlob, SoundCommand, SoundQueue, testing::*};
 use skate_game::{

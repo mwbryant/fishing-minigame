@@ -1,7 +1,7 @@
 //! Speaker output: ES8311 codec (I2C 0x18) -> NS4150B class-D amp (enable on
-//! GPIO46, active high) -> MX1.25 speaker connector, fed by I2S0 TX through a
-//! streaming DMA buffer that the game loop tops up once per frame from the
-//! shared `orbit_audio` mixer. Adapted from docs/reference/es8311_audio.rs.
+//! GPIO46, active high) -> MX1.25 speaker connector. I2S0 TX feeds the codec
+//! from a streaming DMA buffer that the frame loop tops up from the shared
+//! `orbit_audio` mixer. Adapted from docs/reference/es8311_audio.rs.
 
 use alloc::{boxed::Box, vec};
 
@@ -104,7 +104,8 @@ impl<I2C: I2c> Es8311<I2C> {
         Ok((self.read(0xFD)?, self.read(0xFE)?))
     }
 
-    /// Start I2S (and therefore MCLK) before calling this.
+    /// Writes the init sequence, enables the amp and unmutes at 0 dB. I2S (and
+    /// so MCLK) must already be running.
     pub fn init(&mut self, sample_rate: u32, amp: &mut Output<'_>) -> Result<(), I2C::Error> {
         for (reg, value) in init_sequence(sample_rate) {
             self.write(reg, value)?;
@@ -152,12 +153,11 @@ fn fill_frames(bytes: &mut [u8], source: &mut Mixer) -> usize {
     whole
 }
 
-/// Non-blocking streaming output. `pump` copies as many frames as the DMA has
-/// already consumed, so the queued audio (= latency) stays at about the
-/// buffer length. If a frame stalls long enough to drain the buffer, the DMA
-/// stops for good (esp-hal: "the transfer must then be resumed or
-/// restarted"), so `pump` restarts it; a start the driver refuses is kept and
-/// retried on the next pump rather than dropped.
+/// Non-blocking streaming output. `pump` refills what the DMA has played, so
+/// the queued audio, and the latency, stays at about one buffer (~128 ms). A
+/// frame slow enough to drain the buffer stops the DMA for good (esp-hal: "the
+/// transfer must then be resumed or restarted"), so `pump` restarts it. A
+/// start the driver refuses is kept and retried on the next pump.
 pub struct AudioOut {
     stream: Option<Stream>,
     pub underruns: u32,
@@ -205,6 +205,7 @@ impl AudioOut {
         });
     }
 
+    /// Tops the stream up, or restarts it if it ran dry; call once per frame.
     pub fn pump(&mut self, source: &mut Mixer) {
         match self.stream.take() {
             Some(Stream::Playing(transfer)) if transfer.is_done() => {

@@ -1,11 +1,13 @@
-//! The -G board's Quectel LC76G satellite receiver, over the shared I2C bus
-//! (Waveshare's `09_LC76G_I2C` demo and Quectel's I2C note): ask `0x50` how
-//! many NMEA bytes are waiting, then ask for them and read them from `0x54`.
-//! Each step wants about 10 ms after the last, so reading is a small state
-//! machine advanced once a frame instead of a blocking 20 ms. The module's
-//! reset is TCA9554 P7, released on startup. Boards without the module don't
-//! answer `0x50`. Unverified on the board; see
-//! `docs/reference/gnss_and_mics.md`.
+//! The -G board's Quectel LC76G satellite receiver on the shared I2C bus.
+//!
+//! A read asks `0x50` how many NMEA bytes are waiting and reads the count from
+//! `0x54`, then asks `0x50` for that many and reads them from `0x54`. Each step
+//! wants about 10 ms after the last, so `poll` runs one step per frame instead
+//! of blocking for 20 ms. The module's reset is TCA9554 P7, released on
+//! startup; boards without the module don't answer `0x50`. From Waveshare's
+//! `09_LC76G_I2C` demo and Quectel's I2C note (`docs/reference/gnss_and_mics.md`).
+//! On the board it answers, but one session logged read failures and no fix
+//! is confirmed yet.
 
 use embedded_hal::i2c::I2c;
 use esp_hal::time::Instant;
@@ -37,8 +39,8 @@ pub struct Lc76g<I2C> {
 }
 
 impl<I2C: I2c> Lc76g<I2C> {
-    /// Releases the module's reset (P7 driven high) and checks it answers;
-    /// `None` on a board without one.
+    /// Releases the module's reset (P7 driven high) and asks for the first
+    /// length; `None` on a board without the module.
     pub fn new(mut i2c: I2C) -> Option<Self> {
         let mut value = [0u8];
         i2c.write_read(TCA9554_ADDRESS, &[TCA_OUTPUT], &mut value)
@@ -57,8 +59,8 @@ impl<I2C: I2c> Lc76g<I2C> {
         })
     }
 
-    /// One step of a read when it's due: the NMEA text, into `out`, once its
-    /// last step has run; 0 bytes otherwise.
+    /// Runs the next read step if it's due. Returns how many NMEA bytes it put
+    /// in `out`: 0 until a read's last step.
     pub fn poll(&mut self, out: &mut [u8]) -> Result<usize, I2C::Error> {
         let waited = self.since.elapsed().as_millis();
         let due = match self.step {

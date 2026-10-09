@@ -73,7 +73,7 @@ fn spoken(word: &str) -> Vec<i16> {
         .collect()
 }
 
-/// Turns to the pointed choice and presses PWR.
+/// Turns `steer` degrees, presses PWR, and turns back level.
 fn choose(app: &mut App, steer: f32) {
     set_tilt(app, steer, 0.0);
     update(app);
@@ -251,7 +251,8 @@ fn a_stroke_drawn_twice_teaches_a_trick_and_one_already_used_is_refused() {
     );
 }
 
-/// GILLY knows SPIN by a swipe up, at `learned`.
+/// The house, practicing SPIN with GILLY, who knows it by a swipe up at
+/// `learned`.
 fn practicing(learned: u8) -> App {
     let mut gilly = pet("GILLY", None);
     gilly.teach(

@@ -1,4 +1,5 @@
-// Runs the wasm measurement and checks it against the firmware's internal heap.
+// Runs one app's wasm measurement and checks its peak plus a render band
+// against the firmware's internal heap, read from firmware/src/lib.rs.
 import { readFileSync } from 'node:fs';
 
 const here = new URL('.', import.meta.url).pathname;

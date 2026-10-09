@@ -1,3 +1,6 @@
+//! Angler played through the headless app: aiming and casting, the fight,
+//! keeping and naming fish, the log, settings, GUTEN, sounds, power and saves.
+
 use angler_game::{
     Catch, Difficulty, FishLog, GUTEN_MORGEN, Phase, Session, Settings, audio,
     cast::{self, CHARGE_SECS, Flight, scene::WATER_Y},

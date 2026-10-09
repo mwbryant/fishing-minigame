@@ -1,10 +1,12 @@
 //! Skate: an endless street side-scroller where rotation is the board. Turn
-//! the device counterclockwise (nose up) to pop an ollie; in the air the
-//! board follows the turn, and it has to come down within `LAND_DEG` of level
-//! or you bail. Clear cones, clear or grind benches; the street speeds up.
+//! the device counterclockwise (nose up) to pop an ollie. In the air the board
+//! follows the turn, and it has to come down within `LAND_DEG` of level or you
+//! bail. Clear cones, clear or grind benches, and the street speeds up.
+//!
 //! Every `HALFPIPE_EVERY_M` metres the street drops into a halfpipe for a
 //! freestyle section: air off each wall and turn the device to spin tricks.
-//! The best score persists in the board's save record.
+//! The score is metres travelled plus 10 per clean landing, 25 a second of
+//! grinding, and the `TRICKS` points. The best persists in the `SKAT` section.
 
 #![no_std]
 
@@ -28,38 +30,48 @@ use orbit_core::{
 use orbit_gfx::Rgb565;
 use orbit_ui::CLICK;
 
-/// A counterclockwise turn this far pops an ollie...
+/// A counterclockwise turn this far pops an ollie.
 pub const POP_DEG: f32 = 15.0;
-/// ...and the device has to come back past this before the next one.
+/// The turn has to ease back under this before the next ollie can pop.
 pub const REARM_DEG: f32 = 7.0;
 /// Coming down with the board further from level than this bails.
 pub const LAND_DEG: f32 = 25.0;
-/// Where the board's middle rides, and the street's top edge, in screen px.
+/// Screen x of the board's middle.
 pub const SKATER_X: f32 = 130.0;
+/// Screen y of the street's top edge.
 pub const GROUND_Y: f32 = 316.0;
 /// Half the board, for collisions.
 pub const BOARD_HALF: f32 = 22.0;
+/// Upward speed of an ollie, px/s.
 pub const POP_SPEED: f32 = 560.0;
+/// Px/s^2, on the street and in the halfpipe.
 pub const GRAVITY: f32 = 1500.0;
+/// Street speed at the start, px/s.
 pub const START_SPEED: f32 = 220.0;
+/// Street speed gained per second, px/s.
 pub const SPEED_GAIN: f32 = 6.0;
+/// Top street speed, px/s.
 pub const MAX_SPEED: f32 = 420.0;
 const CLEAN_BONUS: f32 = 10.0;
 const GRIND_PER_SEC: f32 = 25.0;
 const GRIND_TICK_SECS: f32 = 0.12;
 /// Obstacles appear here, past the right edge of the glass.
 const SPAWN_X: f32 = 480.0;
+/// Px of street before the first obstacle, at the start and after a halfpipe.
 const FIRST_SPAWN: f32 = 260.0;
 /// Results ignore presses this long, so a panicked press can't skip them.
 pub const RESULT_GUARD_SECS: f32 = 0.8;
 const TOAST_SECS: f32 = 0.8;
+/// Screen px per metre of street, for the score and the halfpipe spacing.
 pub const PX_PER_METER: f32 = 30.0;
-/// Every this many metres of street, the skater drops into a halfpipe...
+/// Metres of street between halfpipes.
 pub const HALFPIPE_EVERY_M: f32 = 150.0;
-/// ...for this long, then rides back out onto the street.
+/// Freestyle lasts at least this long, then the skater rolls out at the
+/// bottom of the pipe.
 pub const HALFPIPE_SECS: f32 = 7.0;
-/// The halfpipe is the bottom half of a circle this big, centered here.
+/// Center of the circle whose bottom half is the halfpipe.
 pub const PIPE_CENTER: Vec2 = Vec2::new(233.0, 230.0);
+/// Radius of the halfpipe, px.
 pub const PIPE_RADIUS: f32 = 175.0;
 /// Speed leaving the coping, the same every time, so every wall gives the
 /// same air (about 0.7 s).
@@ -77,7 +89,7 @@ pub const TRICKS: [(&str, u32); 5] = [
     ("540!", 60),
     ("720!", 90),
 ];
-/// No street obstacles spawn this close before the drop into the halfpipe.
+/// No street obstacles spawn within this many px of the drop into the halfpipe.
 const SPAWN_STOP_BEFORE_PIPE: f32 = 600.0;
 pub const BACKGROUND: Rgb565 = orbit_ui::rgb(12, 14, 34);
 
@@ -122,9 +134,11 @@ impl Obstacle {
 /// A freestyle section in the halfpipe.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Halfpipe {
+    /// Seconds since dropping in.
     pub secs: f32,
     /// Where on the pipe: radians from the bottom, positive toward the right wall.
     pub angle: f32,
+    /// Radians per second.
     pub angular_speed: f32,
     pub air: Option<Air>,
 }
@@ -132,12 +146,14 @@ pub struct Halfpipe {
 /// Off the coping: straight up and back down the same wall.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Air {
+    /// Px above the coping.
     pub height: f32,
+    /// Upward speed, px/s.
     pub climb: f32,
     /// +1 off the right wall, -1 off the left.
     pub side: f32,
-    /// How far the skater has spun, degrees clockwise, from the device's turn
-    /// since takeoff.
+    /// Degrees spun clockwise: the device's turn since takeoff times
+    /// `SPIN_GAIN`.
     pub spin_deg: f32,
     steer_at_takeoff: f32,
 }
@@ -150,23 +166,30 @@ pub enum Trick {
     Slam,
 }
 
+/// The ride in play, and the best score.
 #[derive(Resource, Debug)]
 pub struct Ride {
     pub phase: Phase,
     pub phase_secs: f32,
+    /// Street speed, px/s.
     pub speed: f32,
     /// Street travelled this ride, in px.
     pub distance: f32,
     pub score: u32,
     pub best: u32,
     pub new_best: bool,
-    /// The board's height above the street, and its upward speed.
+    /// The board's height above the street, px.
     pub height: f32,
+    /// The board's upward speed, px/s.
     pub climb: f32,
-    /// What the device's turn makes of the board, degrees clockwise.
+    /// The board's angle, degrees clockwise: the device's turn, clamped to
+    /// +-80.
     pub board_deg: f32,
+    /// Obstacles spawned this ride; each one's id is its count.
     pub spawned: u32,
+    /// A message (CLEAN!, GRIND!, DROP IN!) and its seconds left.
     pub toast: Option<(&'static str, f32)>,
+    /// The last halfpipe landing and its seconds left on screen.
     pub trick: Option<(Trick, f32)>,
     pub halfpipe: Option<Halfpipe>,
     obstacles: Vec<Obstacle>,

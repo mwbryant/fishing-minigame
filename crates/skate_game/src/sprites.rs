@@ -1,4 +1,4 @@
-//! Text pixel art (`.` is transparent). The skater faces right.
+//! Skate's pixel art as text (`.` is transparent). The skater faces right.
 
 use orbit_gfx::Sprite;
 use orbit_ui::rgb;

@@ -2,9 +2,10 @@
 
 The case is one cup shaped like a fly reel: the glass is the spool face, the rim is line wound
 between two flanges, and the back plate carries a drag-knob ring, a whale and raised text
-around the screw heads. The board drops in glass-up and three M2 screws through the back pull its own SMT
-standoffs down onto posts, so nothing clips or glues. Two printed button caps carry PWR and BOOT
-through the rim. The battery variant is the same cup with the floor lowered by one cell.
+around the screw heads. The board drops in glass-up and three M2 screws through the back pull
+its own SMT standoffs down onto posts, so nothing clips or glues. Two printed button caps carry
+PWR and BOOT through the rim. The battery variant is the same cup with the floor lowered to fit
+the cell.
 """
 
 import math
@@ -40,6 +41,7 @@ import board
 import params as p
 import stack
 
+# Radii out from the centre: the glass bore, the line's trough and crest, then the flanges.
 BORE_R = board.GLASS_R + p.GLASS_GAP
 TROUGH_R = BORE_R + p.WALL
 CREST_R = TROUGH_R + p.LINE_DEPTH
@@ -62,6 +64,7 @@ def item_boxes(battery: bool) -> list[tuple[str, Part]]:
 
 
 def back_z(battery: bool) -> float:
+    """Outside face of the back plate, which prints on the bed."""
     return floor_z(battery) - p.FLOOR
 
 
@@ -81,6 +84,7 @@ def through_rim(angle: float, z: float, profile: Sketch, offset: float = 0.0) ->
 
 
 def spool(battery: bool) -> Part:
+    """The revolved body: back flange, wound line, front flange and rim, hollow to the floor."""
     zb, zf = back_z(battery), floor_z(battery)
     step = OUTER_R - TROUGH_R
     band_lo = zb + p.BACK_FLANGE + step
@@ -122,6 +126,7 @@ def spool(battery: bool) -> Part:
 
 
 def screw_posts(battery: bool) -> Part:
+    """The three posts under the board's standoffs, wider low down around the counterbores."""
     zf, wide_top = floor_z(battery), stack.wide_post_top()
     posts = Part()
     for x, y in board.STANDOFFS:
@@ -132,6 +137,7 @@ def screw_posts(battery: bool) -> Part:
 
 
 def screw_holes(battery: bool) -> Part:
+    """Clearance holes for the three board screws, counterbored from the back."""
     zb, zs = back_z(battery), stack.shelf_z()
     holes = Part()
     for x, y in board.STANDOFFS:
@@ -170,6 +176,7 @@ def speaker_grille(battery: bool) -> Part:
 
 
 def port_cutouts() -> Part:
+    """The USB-C opening, both button holes with seats for their flanges, and the SD slot."""
     w, h = p.USB_OPENING
     cuts = through_rim(board.USB_ANGLE, board.USB_Z, RectangleRounded(w, h, p.USB_OPENING_ROUND))
     w, h = p.BUTTON_SIZE
@@ -237,6 +244,7 @@ def whale(n: float) -> Sketch:
 
 
 def ring(r: float, w: float) -> Sketch:
+    """A ring `w` wide, centred on radius `r`."""
     return Circle(r + w / 2) - Circle(r - w / 2)
 
 
@@ -330,9 +338,9 @@ def case(battery: bool = False) -> Part:
 
 
 # --- Buttons ---------------------------------------------------------------------------------
-# Along its axis a button runs from the switch actuator (inside) to past the rim: a nub, a flange,
-# a 45 degree cone and the cap. The cone stops against the hole's edge on a flat seat cut into
-# the bore, which also centres the cap. Its rounded-slot shape keys it so it can't turn.
+# From the switch actuator out past the rim, a button is a nub, a flange, a 45 degree cone and the
+# cap. The cone stops against the hole's edge on a flat seat cut into the bore, which also centres
+# the cap. The rounded-slot shape keys it so it can't turn.
 
 
 def button_stations() -> dict[str, float]:

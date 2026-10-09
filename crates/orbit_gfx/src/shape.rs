@@ -28,12 +28,15 @@ pub enum Shape {
         radius: u32,
         color: Rgb565,
     },
+    /// A circle outline `width` px thick, centered on `radius`.
     Ring {
         center: Point,
         radius: u32,
         width: u32,
         color: Rgb565,
     },
+    /// Part of a ring, `sweep_deg` long from `start_deg`. Negative sweeps run
+    /// counterclockwise.
     Arc {
         center: Point,
         radius: u32,
@@ -59,6 +62,7 @@ pub enum Shape {
         width: u32,
         color: Rgb565,
     },
+    /// Pixel art, each sprite pixel drawn `scale` px square.
     Sprite {
         sprite: SpriteRef,
         top_left: Point,
@@ -74,7 +78,8 @@ pub enum Shape {
 }
 
 impl Shape {
-    /// Conservative screen-space box containing every pixel the shape draws.
+    /// Screen-space box containing every pixel the shape draws. Keep it tight:
+    /// it decides what gets redrawn and which bands draw the shape.
     pub fn bounds(&self) -> Rectangle {
         match self {
             Shape::Disc { center, radius, .. } => square_around(*center, *radius + 1),

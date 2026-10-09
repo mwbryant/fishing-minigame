@@ -1,6 +1,6 @@
 //! Typing by turning: the alphabet rings the glass, the device's turn points
-//! at a key (the way the dials do), and PWR types it. SPACE, DEL and OK sit
-//! just counterclockwise of A, a small turn left from level.
+//! at a key (the way the dials do), and the action button types it. SP (space),
+//! DEL and OK sit just counterclockwise of A, a small turn left from level.
 
 use alloc::{format, vec::Vec};
 
@@ -70,7 +70,7 @@ pub struct KeyRing {
 }
 
 impl KeyRing {
-    /// Follows the device's turn; returns the key now pointed at.
+    /// Follows the device's turn and returns the key now pointed at.
     pub fn point(&mut self, steer_deg: f32) -> Key {
         let angle = dial_angle(steer_deg);
         let center = self.pointed as f32 * STEP_DEG;

@@ -1,3 +1,6 @@
+//! The simulator's panel: a RAM model of the CO5300's frame memory, shown as
+//! a round watch face in the window or saved as a PNG.
+
 use std::{fs::File, io::BufWriter, path::Path};
 
 use orbit_gfx::{Panel, Rectangle, SCREEN_SIZE};
@@ -23,6 +26,7 @@ impl RamPanel {
         u16::from_be_bytes([self.ram[i], self.ram[i + 1]])
     }
 
+    /// The window's pixels: the panel inside the glass, bezel outside it.
     pub fn to_argb(&self, out: &mut [u32]) {
         for (i, px) in out.iter_mut().enumerate() {
             let (x, y) = (i % SIZE, i / SIZE);

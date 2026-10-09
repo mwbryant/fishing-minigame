@@ -85,8 +85,8 @@ pub(crate) fn draw_sprite(
     Ok(())
 }
 
-/// Draws the sprite stretched (nearest neighbour) to fill `area`; squashing
-/// the width by `|cos|` and flipping past 90 degrees makes it spin in 3D.
+/// Draws the sprite stretched (nearest neighbour) to fill `area`. Squashing the
+/// width by `|cos|` and flipping past 90 degrees fakes a 3D spin.
 pub(crate) fn draw_sprite_fit(
     canvas: &mut Canvas,
     sprite: &Sprite,

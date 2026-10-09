@@ -1,12 +1,11 @@
-//! Angler: an Angry Birds-style cast and a Stardew Valley-style fight for the
-//! round ESP32-S3 AMOLED board, as a `no_std` Bevy plugin.
+//! Angler: an Angry Birds-style cast and a Stardew Valley-style fight, as a
+//! `no_std` Bevy plugin. In Fishing Minigame it's the pond, where a catch can
+//! be kept, named by turning, and put in the tank (`pals`).
 //!
 //! Turn the device like a steering wheel to aim, hold the action button to
-//! charge the cast (release to throw), then lean the device forward and back
-//! to keep the fish inside the catch zone. In Fishing Minigame this is the pond: a
-//! catch can be kept, named by turning, and put in the tank (`pals`). The
-//! log and settings persist through `orbit_core::SaveBlob`. The zero button
-//! re-levels the IMU at any time.
+//! charge and release to cast, then lean forward and back to keep the fish in
+//! the catch zone. The zero button re-levels the IMU at any time. The fish log
+//! and settings persist in the `FLOG` save section.
 
 #![no_std]
 

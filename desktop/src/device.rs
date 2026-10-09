@@ -1,11 +1,15 @@
+//! The simulator's stand-ins for the board's IMU (a virtual device turned
+//! from the keyboard) and its save flash (one file per game).
+
 use std::{fs, path::PathBuf};
 
 use bevy::math::{Quat, Vec3};
 use orbit_core::ImuSample;
 use orbit_save::{RamFlash, SlotStore};
 
-/// How far holding ↑/↓ tips the device, and how fast it tips there and back.
+/// How far holding ↑/↓ tips the device.
 pub const LEAN_HELD_DEG: f32 = 15.0;
+/// How fast it tips there and back.
 pub const LEAN_DEG_PER_SEC: f32 = 120.0;
 
 /// A pretend board held in the player's hands. Keys turn it; it reports what
@@ -31,11 +35,11 @@ impl VirtualDevice {
         *self = Self::upright();
     }
 
-    /// `steer` turns the device clockwise (as the player sees it) in degrees
-    /// per second, and it stays turned. `lean` (-1..1) is how hard ↑/↓ are
-    /// held: the device tips its top edge away (or back) toward
-    /// `lean * LEAN_HELD_DEG` and springs back level when released, like a
-    /// wrist would.
+    /// Moves the device on by `dt` seconds and returns what its IMU reads.
+    /// `steer` turns it clockwise (as the player sees it) in degrees per
+    /// second, and it stays turned. `lean` (-1..1) is how hard ↑/↓ are held:
+    /// the top edge tips away (or back) toward `lean * LEAN_HELD_DEG` and
+    /// springs back level on release, like a wrist.
     pub fn sample(&mut self, steer: f32, lean: f32, dt: f32) -> ImuSample {
         let max_step = LEAN_DEG_PER_SEC * dt;
         let lean_step = (lean * LEAN_HELD_DEG - self.lean_deg).clamp(-max_step, max_step);

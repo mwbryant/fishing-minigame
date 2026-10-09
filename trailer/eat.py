@@ -2,9 +2,9 @@
 
     blender -b --factory-startup -P eat.py -- config.json
 
-`build.py` writes the config: where the frames go, the case STL, the game frame shown on the
-screen, the frames the bites land on, and the mouth's openness for every frame (the bites and
-the chewing).
+`build.py` writes the config: where the frames go, the case STL, the game frame for the screen,
+the frames the bites land on, and the mouth's openness on every frame. With `stills` it renders
+only those frames.
 """
 
 import json
@@ -21,6 +21,7 @@ FRAMES = CONFIG["frames"]
 BITES = CONFIG["bites"]
 MOUTH = CONFIG["mouth"]
 
+# Colours, as sRGB hex.
 SKIN = "#e9b48c"
 SHIRT = "#d8452f"
 HAT = "#6f7d3c"
@@ -42,6 +43,7 @@ BITE_SPOTS = [0.0, 50.0]
 
 
 def hex_color(text, alpha=1.0):
+    """sRGB hex to the linear RGBA Blender wants."""
     text = text.lstrip("#")
     srgb = [int(text[i : i + 2], 16) / 255 for i in (0, 2, 4)]
     linear = [c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4 for c in srgb]
@@ -49,6 +51,7 @@ def hex_color(text, alpha=1.0):
 
 
 def material(name, color, roughness=0.55, emission=0.0):
+    """A Principled BSDF material, glowing in its own colour if `emission` is set."""
     mat = bpy.data.materials.new(name)
     mat.use_nodes = True
     bsdf = mat.node_tree.nodes["Principled BSDF"]
@@ -61,12 +64,14 @@ def material(name, color, roughness=0.55, emission=0.0):
 
 
 def give(obj, mat):
+    """Make `mat` the object's only material."""
     obj.data.materials.clear()
     obj.data.materials.append(mat)
     return obj
 
 
 def sphere(name, at, radius, scale=(1, 1, 1), mat=None, parent=None, segments=10, rings=7):
+    """A UV sphere. Like `cylinder` and `cube`, it keeps its world position under a `parent`."""
     bpy.ops.mesh.primitive_uv_sphere_add(
         segments=segments, ring_count=rings, radius=radius, location=at
     )
@@ -128,12 +133,14 @@ def attached(name, parent):
 
 
 def key(obj, frame, **props):
+    """Set each property and keyframe it at `frame`."""
     for prop, value in props.items():
         setattr(obj, prop, value)
         obj.keyframe_insert(prop, frame=frame)
 
 
 def scene_setup():
+    """An empty EEVEE scene with the config's size, fps and output, against a yellow wall."""
     bpy.ops.wm.read_factory_settings(use_empty=True)
     scene = bpy.context.scene
     scene.render.engine = "BLENDER_EEVEE"
@@ -153,6 +160,7 @@ def scene_setup():
 
 
 def lights():
+    """Key, fill and rim area lights aimed at the head, and the backdrop."""
     for name, at, energy, size in [
         ("key", (-1.2, -1.6, 2.4), 110, 1.2),
         ("fill", (1.4, -1.2, 1.6), 35, 1.5),
@@ -172,6 +180,10 @@ def lights():
 
 
 def man():
+    """The man: a head with ears, eyes, brows, mouth and a bucket hat, on a shirted body.
+
+    Returns what animate_face moves: the head, eyes, brows and the mouth's parts.
+    """
     skin = material("skin", SKIN)
     head = empty("head", (0, 0, 1.6))
     sphere("skull", (0, 0, 1.6), 0.11, (1, 0.95, 1.15), skin, head)
@@ -229,6 +241,7 @@ def man():
 
 
 def case_object(mat_case, mat_inside, screen_mat, button):
+    """The case STL joined with the glass, a solid filling so bites show plastic, and two caps."""
     bpy.ops.wm.stl_import(filepath=CONFIG["stl"])
     shell = bpy.context.selected_objects[0]
     shell.name = "case"
@@ -281,6 +294,10 @@ def bite_cutters(spot_deg, name):
 
 
 def bitten(whole, cutters, name):
+    """A copy of `whole` with the cutters taken out.
+
+    The MANIFOLD solver cuts both bites in 0.2 s, where EXACT took 30.
+    """
     copy = whole.copy()
     copy.data = whole.data.copy()
     copy.name = name
@@ -300,6 +317,7 @@ def bitten(whole, cutters, name):
 
 
 def screen_material():
+    """The glass: black and glossy, glowing with the game frame mapped across its 48.96 mm."""
     mat = bpy.data.materials.new("screen")
     mat.use_nodes = True
     nodes, links = mat.node_tree.nodes, mat.node_tree.links
@@ -333,6 +351,7 @@ def show_between(obj, first, last):
 
 
 def hand_rig(versions):
+    """A hand and forearm holding every version of the case. Returns the grip and its roll."""
     skin = bpy.data.materials["skin"]
     shirt = bpy.data.materials["shirt"]
     grip = empty("grip")
@@ -365,6 +384,7 @@ def grip_for_bite(roll_deg):
 
 
 def animate_hand(grip, roll):
+    """From rest up to the mouth for each bite, rolling the case, then holding it up to show."""
     rest = Vector((0.05, -0.25, 1.33))
     show = Vector((0.17, -0.21, 1.47))
     first, second = BITES
@@ -393,6 +413,7 @@ def animate_hand(grip, roll):
 
 
 def animate_face(head, eyes, brows, mouth):
+    """The mouth follows MOUTH; the eyes and brows react to each bite; the head nods and chews."""
     hole, top, bottom, tongue = mouth
     for frame, openness in enumerate(MOUTH):
         gap = 0.002 + openness * 0.034
@@ -441,6 +462,7 @@ def animate_face(head, eyes, brows, mouth):
 
 
 def crumbs(at_frames, mats):
+    """26 crumbs of case flying out of the mouth at each bite, under gravity."""
     rng = random.Random(7)
     for b, frame in enumerate(at_frames):
         for i in range(26):
@@ -465,6 +487,7 @@ def crumbs(at_frames, mats):
 
 
 def camera():
+    """A slow push in on the face, shaking for 10 frames after each bite."""
     data = bpy.data.cameras.new("camera")
     data.lens = 50
     cam = bpy.data.objects.new("camera", data)

@@ -1,5 +1,6 @@
-//! Satellite position from NMEA 0183 text, the way the -G board's LC76G
-//! sends it: platforms push the bytes, games take each new fix.
+//! Satellite position from the NMEA 0183 text the -G board's LC76G sends.
+//! Platforms push the bytes and games take each new fix. Only GGA (satellites,
+//! HDOP) and RMC (position, speed) sentences are read.
 
 use alloc::boxed::Box;
 
@@ -7,7 +8,7 @@ use bevy::{math::ops, prelude::*};
 
 /// Mean Earth radius, for distances between nearby fixes.
 const EARTH_RADIUS_M: f32 = 6_371_000.0;
-/// The longest sentence NMEA allows, with room for a little slack.
+/// NMEA's 82-character sentence limit, plus slack.
 const MAX_SENTENCE: usize = 96;
 
 /// Where the receiver was, how sure it is, and how fast it was moving.
@@ -40,7 +41,7 @@ impl Fix {
 pub struct Gps {
     sentence: Box<[u8; MAX_SENTENCE]>,
     length: usize,
-    /// From the last GGA, which RMC's fixes are completed with.
+    /// HDOP and satellites from the last GGA, to complete RMC's fixes.
     quality: Option<(f32, u8)>,
     latest: Option<Fix>,
     fresh: bool,
@@ -191,7 +192,7 @@ impl<'a> FromIterator<&'a str> for Fields<'a> {
     }
 }
 
-/// Satellite position for walks. Opt-in like `ControlsPlugin`; it adds no
+/// Satellite position for walks. Opt-in like `ControlsPlugin`. It adds no
 /// systems, since sentences are parsed as platforms push them.
 pub struct GpsPlugin;
 

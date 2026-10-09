@@ -1,4 +1,4 @@
-//! Orbit (circular pong) on the Waveshare ESP32-S3-Touch-AMOLED-1.75.
+//! Orbit (circular pong), a separate game from Fishing Minigame.
 
 #![no_std]
 #![no_main]

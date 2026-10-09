@@ -1,11 +1,11 @@
 //! CO5300 AMOLED controller over QSPI (Waveshare ESP32-S3-Touch-AMOLED-1.75).
 //!
-//! Register writes are opcode `0x02` + `0x00RR00` with parameters on one line;
-//! pixels are opcode `0x32` + `0x003C00` (memory-write-continue) with data on
+//! Register writes are opcode `0x02` + address `0x00RR00`, parameters on one
+//! line. Pixels are opcode `0x32` + `0x003C00` (memory-write-continue), data on
 //! all four lines, after a RAMWR register write opens the window. Two DMA
-//! buffers ping-pong so the next chunk is copied while the last one transmits,
-//! and a write returns while its final chunk is still on the wire, letting the
-//! caller render the next band in parallel.
+//! buffers ping-pong so the next chunk is copied while the last transmits, and
+//! a write returns with its final chunk still on the wire, so the caller
+//! renders the next band meanwhile.
 
 use embedded_hal::delay::DelayNs;
 use esp_hal::{

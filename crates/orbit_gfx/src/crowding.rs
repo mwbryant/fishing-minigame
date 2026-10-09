@@ -1,6 +1,7 @@
-//! Finds text that something else gets in the way of: another label, a shape
-//! drawn over or under it, or the edge of the round glass. Measured on the
-//! pixels each shape actually draws, inside the box the label's letters ink.
+//! Finds text that something else gets in the way of: another label within
+//! 2 px, a shape drawn over or half under it, or the edge of the round glass.
+//! Clashes are measured on the pixels each shape actually draws, inside the box
+//! the label's letters ink. A label fully hidden by a later shape is skipped.
 
 use alloc::{vec, vec::Vec};
 use core::convert::Infallible;
@@ -31,6 +32,7 @@ pub enum Clash {
     OffGlass,
 }
 
+/// One label and what's in its way.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Crowding {
     /// The label's index in the frame.
@@ -38,8 +40,8 @@ pub struct Crowding {
     pub clash: Clash,
 }
 
-/// The box a label's letters actually ink, which is smaller than its font
-/// cells; `None` for anything else, or a label with nothing to show.
+/// The box a label's letters actually ink, smaller than its font cells. `None`
+/// for other shapes and blank labels.
 pub fn ink(shape: &Shape) -> Option<Rectangle> {
     let Shape::Label {
         center,
@@ -108,7 +110,7 @@ pub fn crowding(shapes: &[Shape]) -> Vec<Crowding> {
             !matches!(shape, Shape::Label { .. })
                 && !area.intersection(&shape.bounds()).is_zero_sized()
         };
-        // Underneath, only what's above the last shape that hides all of it shows.
+        // Below the label, a shape covering all of its ink hides everything under it.
         for other in (0..label).rev().filter(touching) {
             let shape = &shapes[other];
             match covered_pixels(shape, area) {

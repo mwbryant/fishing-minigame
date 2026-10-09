@@ -1,3 +1,7 @@
+//! Angler's sounds: the GUTEN song, and effects synthesized by assets/sfx.py.
+//! The mixer has one voice, so each clip replaces whatever was playing. Every
+//! effect but ESCAPE is under 0.75 s.
+
 use orbit_core::Clip;
 
 /// "Guten Morgen, Sonnenschein" from the spinning-fish meme (see
@@ -6,11 +10,8 @@ pub static GUTEN_MORGEN: Clip = Clip {
     pcm: include_bytes!("../assets/guten_morgen.pcm"),
 };
 
-/// One full turn of the spinning fish, as in logic-fish.
+/// Seconds per turn of the spinning fish, as in logic-fish.
 pub const GUTEN_SPIN_SECS: f32 = 2.3;
-
-// Sound effects, synthesized by assets/sfx.py. The mixer has one voice, so
-// each replaces whatever was playing; all but ESCAPE are under 0.75 s.
 
 /// Releasing a cast.
 pub static CAST: Clip = Clip {
@@ -28,6 +29,7 @@ pub static PLOP: Clip = Clip {
 pub static THUD: Clip = Clip {
     pcm: include_bytes!("../assets/sfx/thud.pcm"),
 };
+/// A fish taking the bait.
 pub static BITE: Clip = Clip {
     pcm: include_bytes!("../assets/sfx/bite.pcm"),
 };
@@ -35,13 +37,15 @@ pub static BITE: Clip = Clip {
 pub static REEL: Clip = Clip {
     pcm: include_bytes!("../assets/sfx/reel.pcm"),
 };
+/// Landing a fish.
 pub static CATCH: Clip = Clip {
     pcm: include_bytes!("../assets/sfx/catch.pcm"),
 };
+/// A fish getting away (1.1 s).
 pub static ESCAPE: Clip = Clip {
     pcm: include_bytes!("../assets/sfx/escape.pcm"),
 };
-/// Buying a hat.
+/// Buying a hat in the town's shop.
 pub static COIN: Clip = Clip {
     pcm: include_bytes!("../assets/sfx/coin.pcm"),
 };

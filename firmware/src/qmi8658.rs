@@ -49,6 +49,8 @@ impl<I2C: I2c> Qmi8658<I2C> {
         Self { i2c }
     }
 
+    /// Soft-resets the chip, checks WHO_AM_I, then runs both sensors at
+    /// 896.8 Hz (+-4 g, +-512 dps, ~33 Hz low-pass).
     pub fn init(&mut self, delay: &mut impl DelayNs) -> Result<(), Error<I2C::Error>> {
         self.write(RESET, RESET_COMMAND)?;
         self.wait_for_reset(delay)?;
@@ -68,7 +70,7 @@ impl<I2C: I2c> Qmi8658<I2C> {
         self.write(CTRL7, 0)
     }
 
-    /// One burst read of AX_L..GZ_H (12 bytes, little-endian i16 pairs).
+    /// Accel in g and gyro in dps, from one 12-byte burst read of AX_L..GZ_H.
     pub fn read(&mut self) -> Result<([f32; 3], [f32; 3]), Error<I2C::Error>> {
         let mut raw = [0u8; 12];
         self.i2c

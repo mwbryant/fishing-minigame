@@ -1,9 +1,10 @@
 //! Bees???: the Moon is a hollow jar of honey orbiting the Earth. Something
-//! keeps tipping it; turn the device to tip it back before the honey pours
+//! keeps tipping it, and you turn the device to tip it back before honey pours
 //! out of its mouth. The fuller the jar, the less tilt it takes to spill.
-//! Bees, wearing whatever hat the lead fish in the tank wears, circle the jar and fly
-//! refills up from Earth. The game ends when the jar runs dry; the best
-//! number of orbits persists.
+//!
+//! Bees circle the jar and fly refills up from Earth, wearing whatever hat
+//! the tank's lead fish wears. The game ends when the jar runs dry. The best
+//! number of orbits persists in the `BEES` section.
 
 #![no_std]
 
@@ -25,31 +26,39 @@ use orbit_core::{
 use orbit_gfx::{Rgb565, SCREEN_CENTER};
 use orbit_ui::CLICK;
 
-/// The jar's orbit around the Earth at the center of the glass.
+/// Radius of the jar's orbit around the Earth at the center of the glass, px.
 pub const ORBIT_RADIUS: f32 = 150.0;
 pub const EARTH_RADIUS: f32 = 50.0;
 /// The jar tips back this many degrees per degree the device turns.
 pub const CONTROL_GAIN: f32 = 2.0;
-/// Orbit speed in degrees per second: starting, gained per second, at most.
+/// Orbit speed at the start, degrees per second.
 pub const START_SPIN: f32 = 45.0;
+/// Orbit speed gained per second, degrees per second.
 pub const SPIN_GAIN: f32 = 0.5;
+/// Top orbit speed, degrees per second.
 pub const MAX_SPIN: f32 = 100.0;
-/// Honey lost per second at the worst of a spill (1.0 = a full jar).
+/// Honey lost per second with the tilt 30 or more degrees past the spill
+/// limit (1.0 is a full jar). Smaller spills lose less, down to a fifth.
 pub const SPILL_PER_SEC: f32 = 0.30;
-/// Every this many seconds a bee brings this much honey up from Earth.
+/// Seconds between refills from Earth.
 pub const DELIVERY_SECS: f32 = 3.5;
+/// Honey per refill (1.0 is a full jar).
 pub const DELIVERY: f32 = 0.05;
-/// The last part of a delivery is the bee's flight up, drawn.
+/// The bee's drawn flight up from Earth fills the last this-many seconds
+/// before each refill.
 pub const FLIGHT_SECS: f32 = 1.2;
+/// Seconds between drops while spilling.
 const DRIP_SECS: f32 = 0.2;
+/// How quickly the wobble eases toward its target, per second.
 const DRIFT_EASE: f32 = 1.2;
+/// Most drops of spilled honey on screen at once.
 const MAX_DROPS: usize = 12;
 /// Results ignore presses this long.
 pub const RESULT_GUARD_SECS: f32 = 0.8;
 pub const BACKGROUND: Rgb565 = orbit_ui::BLACK;
 
 /// How far the jar can tip before honey reaches its mouth: 40 degrees full,
-/// 100 nearly empty.
+/// 100 empty.
 pub fn spill_limit_deg(honey: f32) -> f32 {
     100.0 - 60.0 * honey.clamp(0.0, 1.0)
 }
@@ -63,6 +72,7 @@ pub fn wobble_reach_deg(secs: f32) -> f32 {
 pub enum Phase {
     Title,
     Orbiting,
+    /// The jar ran dry: the results screen.
     Empty,
 }
 
@@ -73,16 +83,19 @@ pub struct Drop {
     velocity: Vec2,
 }
 
+/// The game in play, and the best run.
 #[derive(Resource, Debug)]
 pub struct Orbit {
     pub phase: Phase,
     pub phase_secs: f32,
     /// Where the jar is, degrees clockwise from 12 o'clock, ever increasing.
     pub angle_deg: f32,
+    /// Orbit speed, degrees per second.
     pub spin: f32,
-    /// What the wobble does to the jar, and the jar's tilt after the turn of
-    /// the device, both in degrees off pointing straight out.
+    /// The wobble's tilt on the jar, degrees off pointing straight out.
     pub drift_deg: f32,
+    /// The jar's tilt once the device's turn counters the wobble, degrees off
+    /// pointing straight out.
     pub tilt_deg: f32,
     /// 1.0 is a full jar.
     pub honey: f32,
@@ -91,6 +104,7 @@ pub struct Orbit {
     pub new_best: bool,
     pub clock: f32,
     pub drops: Vec<Drop>,
+    /// Seconds until the next refill.
     pub delivery_in: f32,
     drift_target: f32,
     retarget_in: f32,

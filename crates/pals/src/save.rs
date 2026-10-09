@@ -1,11 +1,15 @@
-//! The `PALS` section of the board's save record, little-endian:
-//! `version | gold u32 | owned hats u32 | flags | pet count | pet*`. Flags:
-//! bit 0 mock walks, bits 1-3 their pace (an index into `MOCK_PACES`).
-//! A pet is `species | tier | length u16 | size | name length | name 8 |
-//! hat (0xFF none) | walked u32 | trick*5`, and a trick is
-//! `id | learned | gesture (0 none) | has word | word print?`. Version 1's
-//! word prints were an older 145-byte kind that can't be compared with
-//! today's, so they're skipped and those tricks need their words again.
+//! The `PALS` section of the board's save record: the tank, purse, hats and
+//! mock-walk setting.
+//!
+//! Little-endian: `version | gold u32 | owned hats u32 | flags | pet count |
+//! pet*`. Flags: bit 0 mock walks, bits 1-3 their pace (an index into
+//! `MOCK_PACES`). A pet is `species | tier | length u16 | size | name length |
+//! name 8 | hat (0xFF none) | walked u32 | trick*5`, and a trick is
+//! `id | learned | gesture (0 none) | has word | word print?`.
+//!
+//! Version 1 word prints are an older 145-byte kind that can't be compared with
+//! the current one, so decoding skips them and those tricks need their words
+//! taught again.
 
 use alloc::vec::Vec;
 
@@ -58,6 +62,7 @@ pub fn encode(pals: &Pals) -> Vec<u8> {
     out
 }
 
+/// `None` unless `bytes` is exactly one valid section.
 pub fn decode(bytes: &[u8]) -> Option<Pals> {
     let mut reader = Reader(bytes);
     let version = reader.byte()?;

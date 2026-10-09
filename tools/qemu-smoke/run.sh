@@ -25,8 +25,8 @@ if ! "$qemu" --version > /dev/null 2>&1; then
     exit 1
 fi
 
-# Copy the esp-hal the firmware resolves to and delete QEMU's missing
-# BBPLL-calibration wait.
+# QEMU never reports BBPLL calibration done, so build against a copy of the
+# firmware's esp-hal with that wait deleted (Cargo.toml patches it in).
 (cd "$firmware" && cargo fetch -q)
 hal_version="$(grep -A1 '^name = "esp-hal"$' "$firmware/Cargo.lock" | sed -n 's/^version = "\(.*\)"$/\1/p')"
 if [ ! -f "$here/.patched/esp-hal/.version-$hal_version" ]; then

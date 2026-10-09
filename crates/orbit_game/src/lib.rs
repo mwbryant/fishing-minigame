@@ -1,4 +1,6 @@
 //! Orbit: circular pong for a round touch screen, as a `no_std` Bevy plugin.
+//! The finger's angle from the center steers a paddle round the rim, and each
+//! return scores a point.
 //!
 //! Platforms (desktop simulator, ESP32 firmware) own the loop: each frame they
 //! write the finger position into [`Touch`], call `app.update()`, then

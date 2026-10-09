@@ -1,7 +1,8 @@
 //! Platform plumbing every game on the round board shares, as `no_std` Bevy
-//! resources. Platforms (desktop simulator, ESP32 firmware) write the inputs
-//! each frame before `app.update()`, then rasterize [`Frame`] and persist
-//! [`SaveBlob::take_pending`]; games read the inputs and fill the outputs.
+//! resources. Each frame the platform (desktop simulator or ESP32 firmware)
+//! writes the inputs and runs `app.update()`. Games read the inputs and fill
+//! the outputs, then the platform draws [`Frame`] and stores
+//! [`SaveBlob::take_pending`].
 
 #![no_std]
 
@@ -44,8 +45,8 @@ pub use save::SaveBlob;
 pub use sound::SoundQueue;
 pub use touch::Touch;
 
-/// Present when a menu launched the game: games offer a HOME button that
-/// ends the app with `AppExit`, and the platform returns to the menu.
+/// Present when a menu launched the game. Games then offer an OUT button that
+/// sends `AppExit`, and the platform returns to the menu.
 #[derive(Resource, Default, Debug)]
 pub struct Launcher;
 
@@ -85,10 +86,9 @@ fn apply_preferences(blob: Res<SaveBlob>, mut sound: ResMut<SoundQueue>) {
     sound.set_muted(preferences::muted(&blob));
 }
 
-/// The physical buttons, IMU tilt (with the zero button re-levelling it) and
-/// [`Power`] (battery, idle, sleep). Opt-in: every resource and system costs
-/// device heap, so games that only use touch leave it out, and platforms
-/// feed these only when present.
+/// The physical buttons, IMU tilt (re-levelled by the zero button) and
+/// [`Power`] (battery, idle, sleep). Opt-in, because every resource and system
+/// costs device heap. Platforms feed these only when present.
 pub struct ControlsPlugin;
 
 impl Plugin for ControlsPlugin {

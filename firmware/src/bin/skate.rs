@@ -1,4 +1,4 @@
-//! Skate (a street side-scroller where rotation is the board) on the Waveshare ESP32-S3-Touch-AMOLED-1.75, on its own.
+//! Skate on its own, without the town: a street side-scroller ridden by turning the device.
 
 #![no_std]
 #![no_main]

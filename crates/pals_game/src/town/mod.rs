@@ -1,9 +1,8 @@
-//! The town, where the board starts: walk around six clearings by touch.
-//! Tap where to go, or hold a finger down and walk toward it as it moves;
-//! tap the end of a path to go down it. Stand at a door and press PWR (or
-//! GO IN) to go in; the town app ends and the platform builds that place's
-//! app. The signpost by the house opens the settings: sound, mock walks and
-//! resetting, picked by turning as every menu is.
+//! The town, where the board starts: six clearings you walk around by touch.
+//! Tap where to go, or hold a finger down and follow it; tap the end of a path
+//! to go down it. PWR (or GO IN) at a door ends the town app, and the platform
+//! builds that place's app. The signpost by the house opens settings instead:
+//! sound, mock walks and reset, picked by turning like every menu.
 
 mod draw;
 pub mod map;
@@ -23,21 +22,22 @@ use crate::{Arrival, Place};
 use map::{CENTER, LAKE, Way, door, props};
 
 pub const BACKGROUND: orbit_gfx::Rgb565 = draw::GRASS;
-/// Walking pace.
+/// Walking speed, px/s.
 pub const WALK_SPEED: f32 = 150.0;
-/// A touch this far out, inside a path's gap, means "go down the path".
+/// A touch this far from the center, in a path's gap, means go down the path.
 const PATH_TOUCH_RADIUS: f32 = 170.0;
-/// The clearing's edge, how far down a path you go before the next one, and
-/// where you come out in it.
+/// Distances from the center (px): the clearing's edge, how far down a path
+/// you go before the next clearing, and where you come out in it.
 const WALK_RADIUS: f32 = 200.0;
 const EXIT_RADIUS: f32 = 206.0;
 const ENTRY_RADIUS: f32 = 185.0;
-/// How wide a path off the edge is, as an angle.
+/// Half a path's width off the edge, in degrees.
 const PATH_HALF_DEG: f32 = 14.0;
 /// Your size, for bumping into things, and how near a door counts.
 const BODY: f32 = 8.0;
 const DOOR_REACH: f32 = 22.0;
-/// Settings' dial, clockwise from 12 o'clock.
+/// Spots on the settings dial, clockwise from 12 o'clock: sound, mock walk,
+/// reset, back.
 pub const SETTINGS_CHOICES: usize = 4;
 /// On the reset question, turning right past this points at ERASE.
 const ERASE_TURN_DEG: f32 = 10.0;
@@ -57,7 +57,8 @@ pub struct Town {
     facing_right: bool,
     /// Where a tap (or the finger still down) says to walk.
     target: Option<Vec2>,
-    /// The finger that walked you down a path; it steers again once lifted.
+    /// The finger still down walked you down a path, so it won't steer until
+    /// lifted.
     finger_spent: bool,
     /// Seconds spent walking, for the step bob.
     stride: f32,
@@ -106,7 +107,7 @@ impl Town {
         })
     }
 
-    /// Where PWR at a door sent you, once the town has ended.
+    /// The place a door sent you to, once the town has ended.
     pub fn destination(&self) -> Option<Place> {
         self.destination
     }
@@ -147,9 +148,8 @@ impl Town {
         }
     }
 
-    /// Walks at `velocity` for `dt`, sliding along whatever's in the way and
-    /// round the rim, and down a path into the next clearing; true when it
-    /// came out in the next one.
+    /// Walks at `velocity` for `dt`, sliding along obstacles and the rim. True
+    /// when it went down a path into the next clearing.
     fn walk(&mut self, velocity: Vec2, dt: f32) -> bool {
         if velocity == Vec2::ZERO {
             return false;
@@ -204,9 +204,8 @@ impl Plugin for TownPlugin {
     }
 }
 
-/// Back at the door you came out of (or home, at boot), with the tank as
-/// saved. A save from before the town keeps the gold and hats Angler's shop
-/// held.
+/// Stands you at the door you came out of (home at boot) and loads the tank.
+/// A save from before the town gets the gold and hats Angler's old shop held.
 fn arrive(
     arrival: Option<Res<Arrival>>,
     mut town: ResMut<Town>,

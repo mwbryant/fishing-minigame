@@ -10,6 +10,7 @@ pub static DRIP: Clip = Clip {
 pub static BUZZ: Clip = Clip {
     pcm: include_bytes!("../assets/sfx/buzz.pcm"),
 };
+/// The jar running dry.
 pub static EMPTY: Clip = Clip {
     pcm: include_bytes!("../assets/sfx/empty.pcm"),
 };

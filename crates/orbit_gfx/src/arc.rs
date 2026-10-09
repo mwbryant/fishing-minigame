@@ -1,12 +1,12 @@
 //! Stroked arcs rasterized only where they meet the canvas.
 //!
-//! embedded-graphics draws an arc by testing every point of its whole circle
-//! (see the `PERF` note in its arc iterator), and the presenter draws each
-//! shape once per band: about 190k points per band for the r=212 rim gauge,
-//! which held a charging cast to 2-3 fps on the ESP32. This walks only the
-//! canvas rows inside `bounds` and, per row, the spans of the annulus, using
-//! embedded-graphics' own distance thresholds, so whole circles match it
-//! exactly and partial arcs differ at most along their two end edges.
+//! embedded-graphics tests every point of an arc's whole circle (see the `PERF`
+//! note in its arc iterator), and the presenter draws each shape once per band.
+//! For the r=212 rim gauge that was about 190k points per band, which held a
+//! charging cast to 2-3 fps on the ESP32. This walks only the canvas rows inside
+//! `bounds` and, per row, the spans of the ring. It uses embedded-graphics' own
+//! distance thresholds, so whole circles match it exactly and partial arcs
+//! differ only along their two end edges.
 
 use core::convert::Infallible;
 
@@ -17,6 +17,8 @@ use crate::Canvas;
 /// Fixed-point scale of the sector edge directions.
 const ONE: f32 = 4096.0;
 
+/// Strokes the part of the arc inside both `bounds` and the canvas. A negative
+/// sweep runs counterclockwise.
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn draw_arc(
     canvas: &mut Canvas,

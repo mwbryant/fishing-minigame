@@ -1,11 +1,11 @@
-//! Walks: metres walked from satellite fixes, counted only for real
-//! walking, and a mock walk for indoors (or a board without the -G module's
-//! receiver) that strolls at walking pace through the same counting.
+//! Walk distance from GPS fixes, counting only real walking. [`MockWalk`] fakes
+//! the fixes for indoors (or a board without the -G variant's receiver), and
+//! they go through the same counting.
 
 use bevy::math::ops;
 use orbit_core::Fix;
 
-/// Fixes less sure than this are ignored.
+/// Fixes with a worse HDOP or fewer satellites are ignored.
 const MAX_HDOP: f32 = 5.0;
 const MIN_SATELLITES: u8 = 4;
 /// Distance only counts once the fix has moved this far (or four times its
@@ -15,14 +15,14 @@ const MIN_STEP_M: f32 = 8.0;
 const STEP_PER_HDOP_M: f32 = 4.0;
 /// Faster than a jog is a bike or a car: it moves the spot but doesn't count.
 pub const MAX_WALK_MPS: f32 = 4.5;
-/// The mock walker's pace and how often it reports.
+/// The mock walker's pace (m/s) and the seconds between its fixes.
 pub const MOCK_PACE_MPS: f32 = 1.4;
 const MOCK_FIX_SECS: f32 = 1.0;
-/// How many times walking pace a mock walk can go: a fast-forward, so its
+/// How many times walking pace a mock walk can go. It's a fast-forward, so its
 /// fixes still report walking pace and count like a walk.
 pub const MOCK_PACES: [f32; 5] = [1.0, 2.0, 5.0, 10.0, 25.0];
 
-/// The walk so far.
+/// The walk so far: total metres, and the last spot that counted.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct Trail {
     anchor: Option<Fix>,
@@ -94,6 +94,7 @@ impl MockWalk {
         self.times
     }
 
+    /// Walks on for `dt` seconds; returns a fix when one is due.
     pub fn step(&mut self, dt: f32) -> Option<Fix> {
         self.secs += dt;
         self.heading += 0.15 * ops::sin(self.secs * 0.1) * dt;

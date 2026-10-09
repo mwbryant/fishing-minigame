@@ -12,9 +12,9 @@ pub struct FrameDiff {
 }
 
 impl FrameDiff {
-    /// Regions to redraw to turn the last frame into `shapes`: the whole
-    /// screen on the first call (panel RAM starts as garbage), afterwards the
-    /// merged, even-aligned bounds of every shape that appeared or vanished.
+    /// Regions to redraw to turn the last frame into `shapes`. The first call
+    /// returns the whole screen, since panel RAM starts as garbage. After that
+    /// it's the merged, even-aligned bounds of every shape that came or went.
     pub fn update(&mut self, shapes: &[Shape]) -> Vec<Rectangle> {
         let rects = match &self.prev {
             None => vec![screen_rect()],
@@ -76,8 +76,9 @@ pub fn align_even(rect: Rectangle) -> Rectangle {
     )
 }
 
-/// Splits `rect` into full-width horizontal bands of an even number of rows,
-/// each fitting in `max_bytes` of RGB565 pixels.
+/// Splits `rect` into horizontal bands as wide as it, each fitting in
+/// `max_bytes` of RGB565. Bands are an even number of rows (at least 2), except
+/// a last one cut short by an odd-height `rect`.
 pub fn bands(rect: Rectangle, max_bytes: usize) -> impl Iterator<Item = Rectangle> {
     let row_bytes = rect.size.width as usize * 2;
     let rows_per_band = ((max_bytes / row_bytes.max(1)) as u32 & !1).max(2);

@@ -1,3 +1,8 @@
+//! Heap measurements for `run.sh`, built for wasm32 because it's 32-bit like
+//! the ESP32-S3. Each `measure_<app>` builds an app headless on a fake 60 Hz
+//! clock, plays a script, and returns a pointer to `[bytes after build, bytes
+//! live at the end, peak bytes]`.
+
 use std::alloc::{GlobalAlloc, Layout, System};
 use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering::Relaxed};
 use std::time::Duration;
@@ -15,6 +20,7 @@ use orbit_game::{
 };
 use orbit_ui::{Key, key_turn};
 
+/// The global allocator: the system's, counting live and peak bytes.
 struct Counting;
 
 static CURRENT: AtomicUsize = AtomicUsize::new(0);
@@ -38,12 +44,14 @@ static ALLOCATOR: Counting = Counting;
 
 static CLOCK_US: AtomicU64 = AtomicU64::new(0);
 
+/// Bevy's clock: every read moves it on one 60 Hz frame.
 fn fake_clock() -> Duration {
     Duration::from_micros(CLOCK_US.fetch_add(16_667, Relaxed))
 }
 
 static mut REPORT: [u32; 3] = [0; 3];
 
+/// Drops the app and stores `[built, live before the drop, peak]` for the host.
 fn report(app: App, built: usize) -> *const u32 {
     let live = CURRENT.load(Relaxed);
     drop(app);
@@ -59,8 +67,7 @@ fn start_clock() {
     unsafe { Instant::set_elapsed(fake_clock) };
 }
 
-/// Orbit: builds the app, plays 20 s of scripted input, idles 10 s. Returns
-/// a pointer to `[bytes after build, bytes live at the end, peak bytes]`.
+/// Orbit: 20 s of a finger circling the glass, then 10 s idle.
 #[unsafe(no_mangle)]
 pub extern "C" fn measure_orbit() -> *const u32 {
     start_clock();
@@ -138,8 +145,8 @@ fn built(add_game: impl FnOnce(&mut App)) -> App {
     core_testing::headless(add_game, None)
 }
 
-/// A save whose tank holds three fish, each knowing SPLASH by a swipe up,
-/// with `gold` in the purse.
+/// A save with `gold` in the purse, MOCK WALK set to `mock_walk`, and three
+/// walked fish that each know their first trick by a swipe up.
 fn tank(gold: u32, mock_walk: bool) -> Vec<u8> {
     let mut pals = pals::Pals::default();
     pals.earn(gold);
@@ -262,7 +269,7 @@ pub extern "C" fn measure_town() -> *const u32 {
 }
 
 /// The house with three fish: the tank, a card, the tricks list, a new trick
-/// taught a spoken word twice, then practice by stroke and by word.
+/// taught a spoken word twice, then practice by word and by stroke.
 #[unsafe(no_mangle)]
 pub extern "C" fn measure_home() -> *const u32 {
     use pals_game::home::{Home, HomePlugin};

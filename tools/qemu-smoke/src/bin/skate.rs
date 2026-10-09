@@ -1,7 +1,7 @@
 //! Skate in QEMU: a steady rider pops (a counterclockwise turn) just before
-//! each obstacle for 30 s of game time as the street speeds up, through the
-//! halfpipe at 150 m and back out, then rolls into a cone; the best score is
-//! saved into emulated flash and read back.
+//! each obstacle for 30 s of game time as the street speeds up, rides through
+//! the halfpipe at 150 m, then rolls into a cone. The best score must reach
+//! emulated flash and read back.
 
 #![no_std]
 #![no_main]
@@ -31,6 +31,7 @@ fn main() -> ! {
         },
         skate_game::BACKGROUND,
     );
+    // Hold the 8 KB I2S stream buffer the firmware's speaker takes from the heap.
     core::mem::forget(alloc::vec![0u32; 2048]);
     let mut saves = SlotStore::new(FlashStorage::new(flash), SAVE_FLASH_OFFSET);
     click_action(&mut smoke.app);

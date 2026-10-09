@@ -1,9 +1,6 @@
-//! Fishing Minigame: the fish you keep. Catch them at the pond, name them, walk
-//! them to build stamina, teach them tricks with your voice and the glass,
-//! and enter them in contests for the gold that buys their hats.
-//!
-//! This crate is the shared state and rules (no systems): every place in
-//! the town is its own app, and they pass this through the `PALS` save
+//! Fishing Minigame's shared state and rules, with no systems: the fish you
+//! keep, their tricks and walks, and the gold and hats they win. Every place in
+//! the town is its own app, and they hand this state on through the `PALS` save
 //! section.
 
 #![no_std]
@@ -34,14 +31,16 @@ pub const MAX_PETS: usize = 3;
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct TankFull;
 
+/// The player's tank, purse, hats and mock-walk setting.
 #[derive(Resource, Clone, Debug, PartialEq, Eq)]
 pub struct Pals {
     pub pets: Vec<Pet>,
     pub gold: u32,
+    /// A bit per index into [`HATS`]; bit 0 (the free hat) is always set.
     owned_hats: u32,
-    /// Walks stroll on their own instead of following the receiver, at
-    /// `walk::MOCK_PACES[mock_pace]` times walking pace.
+    /// Walks stroll on their own instead of following the GPS receiver.
     pub mock_walk: bool,
+    /// An index into [`walk::MOCK_PACES`]: how many times walking pace a mock walk goes.
     pub mock_pace: usize,
 }
 
@@ -101,7 +100,8 @@ impl Pals {
         self.owned_hats
     }
 
-    /// Gold and hats carried over from an older save.
+    /// Sets the gold and hats an old Angler save carried, from when Angler ran
+    /// the hat shop.
     pub fn restore_purse(&mut self, gold: u32, owned_hats: u32) {
         self.gold = gold;
         self.set_owned_hats(owned_hats);
@@ -133,8 +133,7 @@ impl Pals {
         true
     }
 
-    /// The first fish in the tank, which leads walks and wears its hat for
-    /// the bees.
+    /// The first fish in the tank, whose hat the bees wear.
     pub fn lead(&self) -> Option<&Pet> {
         self.pets.first()
     }

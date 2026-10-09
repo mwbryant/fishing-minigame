@@ -1,3 +1,5 @@
+//! The difficulty setting and what each level tunes.
+
 use bevy::prelude::*;
 
 use crate::{cast, reel};
@@ -19,7 +21,7 @@ pub enum Difficulty {
 /// What a difficulty changes. Normal is the tuning the reel tests pin.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Tuning {
-    /// Height of the catch zone on the reel bar.
+    /// Height of the catch zone on the reel bar, px.
     pub zone_height: f32,
     /// Multiplies how fast the catch meter drains while the fish is out.
     pub drain_scale: f32,

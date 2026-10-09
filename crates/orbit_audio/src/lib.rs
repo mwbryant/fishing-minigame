@@ -1,6 +1,7 @@
-//! Sound for the round board: PCM clips that live in flash and a one-voice
-//! mixer that both platforms pull samples from (the ESP32's I2S DMA stream,
-//! the desktop's audio callback), so they play identical audio.
+//! Sound for the round board: PCM clips that live in flash, and a one-voice
+//! mixer both platforms pull samples from (the ESP32's I2S DMA stream, the
+//! desktop's audio callback), so they play identical audio. [`voice`] hears
+//! spoken commands.
 
 #![no_std]
 
@@ -8,7 +9,7 @@ pub mod voice;
 
 use core::fmt;
 
-/// Every clip and both platforms' outputs run at this rate; no resampling.
+/// Every clip and both platforms' outputs run at this rate, so nothing resamples.
 pub const SAMPLE_RATE: u32 = 16_000;
 
 /// Mono, 16-bit little-endian PCM at [`SAMPLE_RATE`], usually `include_bytes!`.

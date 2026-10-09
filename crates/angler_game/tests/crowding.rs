@@ -1,6 +1,6 @@
-//! Angler (the pond) played at random with an empty tank and with a full one
-//! of long names, so catches go to the naming ring or the swap; the test
-//! harness checks every frame for crowded text (`orbit_gfx::crowding`).
+//! Plays Angler at random with an empty tank and with a full one of long
+//! names, so catches reach both the naming ring and the swap. The harness
+//! checks every frame for crowded text (`orbit_gfx::crowding`).
 
 use angler_game::AnglerPlugin;
 use orbit_core::{Launcher, Rng, SaveBlob, testing::*};

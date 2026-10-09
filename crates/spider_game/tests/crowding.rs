@@ -1,6 +1,6 @@
-//! Spider Roulette played at random with no gold, a little and a fortune (so
-//! the bet dial offers every count of stakes); the test harness checks every
-//! frame for crowded text (`orbit_gfx::crowding`).
+//! Plays Spider Roulette at random with purses from empty to a fortune, so the
+//! bet dial shows every count of stakes. The harness checks every frame for
+//! crowded text (`orbit_gfx::crowding`).
 
 use orbit_core::{Launcher, SaveBlob, testing::*};
 use pals::Pals;

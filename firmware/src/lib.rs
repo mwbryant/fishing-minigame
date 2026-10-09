@@ -1,8 +1,8 @@
 //! Board support for the Waveshare ESP32-S3-Touch-AMOLED-1.75 and the frame
-//! loop every game binary shares: bring up the display, touch, IMU, buttons
-//! and flash once (`Board::new`), then for each game build its `no_std` Bevy
-//! app and run it (`Board::run`): each frame feed the inputs, update, persist
-//! saves and present the frame over QSPI, until the app exits or sleeps.
+//! loop every game binary shares. `Board::new` brings up the drivers once.
+//! `Board::run` builds a game's `no_std` Bevy app and, each frame, feeds it
+//! input, updates it, persists saves and presents over QSPI, until the app
+//! exits or sleeps.
 
 #![no_std]
 #![feature(asm_experimental_arch)]
@@ -71,14 +71,17 @@ use crate::{
 /// 40 MHz is what every Waveshare demo uses; the CO5300 write clock tops out
 /// at 50 MHz.
 const DISPLAY_SPI_MHZ: u32 = 40;
-/// Rows rendered per band. Small bands leave internal SRAM to Bevy; each
-/// band (466 * 8 * 2 = 7,456 bytes) goes out in a single DMA transfer.
+/// Rows per render band. Small bands leave internal SRAM to Bevy, and a band
+/// (466 * 8 * 2 = 7,456 bytes) goes out in one DMA transfer.
 const BAND_ROWS: usize = 8;
 const BAND_BYTES: usize = SCREEN_SIZE as usize * 2 * BAND_ROWS;
+/// Each of the display's two ping-pong DMA buffers holds a whole band.
 const DMA_BYTES: usize = 7680;
-/// Second internal heap region. Bevy needs ~216 KB steady (~270 KB peak while
-/// schedules build), measured on a 32-bit target; this plus the 72 KB
-/// reclaimed region holds even the peak and leaves ~76 KB of stack.
+/// Second internal heap region. Bevy needs ~216 KB steady and ~270 KB peak
+/// while schedules build (measured on a 32-bit target). This plus the 72 KB
+/// reclaimed region holds the peak, and the DRAM left over, about 67-70 KB, is
+/// the stack. `tools/heap32/run.mjs` parses this line, the reclaimed size and
+/// `BAND_ROWS`.
 const INTERNAL_HEAP_BYTES: usize = 212 * 1024;
 /// The touch panel reports coordinates rotated 180 degrees from the display.
 const TOUCH_MIRROR_X: bool = true;
@@ -411,7 +414,8 @@ impl Board {
         }
     }
 
-    /// Touch, battery, buttons and IMU into the app's input resources.
+    /// Feeds touch, battery, buttons, mics, GPS and IMU into the app's input
+    /// resources.
     fn feed_inputs(&mut self, world: &mut World) {
         // A failed read says nothing about the finger, so it changes nothing.
         if self.touch_ready
@@ -535,8 +539,8 @@ impl Board {
     }
 }
 
-/// Brings up the board and runs one game; an OUT from it (which only the
-/// town offers) starts it again.
+/// Brings up the board and runs one game. It gets no `Launcher`, so it offers
+/// no OUT; if it exits anyway, it starts again.
 pub fn run(add_game: impl Fn(&mut App), background: Rgb565) -> ! {
     let mut board = Board::new();
     loop {
@@ -666,7 +670,7 @@ fn imu_to_screen(v: [f32; 3]) -> Vec3 {
     Vec3::new(v[1], -v[0], v[2])
 }
 
-/// Logs frame time and panel traffic every couple of seconds over USB serial.
+/// Frame time and panel traffic, summed for the serial log every 2 s.
 struct Stats {
     since: HalInstant,
     frames: u32,

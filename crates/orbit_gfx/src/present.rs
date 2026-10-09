@@ -9,8 +9,8 @@ pub trait Panel {
     fn write(&mut self, area: Rectangle, bytes: &[u8]);
 }
 
-/// Turns successive frames into the minimal panel writes: diff against the
-/// previous frame, render each changed region band by band, send each band.
+/// Turns successive frames into minimal panel writes. Each region that changed
+/// since the last frame is rendered and sent band by band.
 pub struct Presenter<B> {
     diff: FrameDiff,
     band: B,
@@ -18,8 +18,8 @@ pub struct Presenter<B> {
 }
 
 impl<B: AsMut<[u8]>> Presenter<B> {
-    /// `band` is the scratch buffer bands are rendered into; it must hold at
-    /// least two full screen rows (466 * 2 * 2 bytes).
+    /// `band` is the scratch buffer bands render into. It must hold at least two
+    /// full screen rows (466 * 2 * 2 bytes).
     pub fn new(band: B, background: Rgb565) -> Self {
         Self {
             diff: FrameDiff::default(),
@@ -33,7 +33,7 @@ impl<B: AsMut<[u8]>> Presenter<B> {
         self.diff.invalidate();
     }
 
-    /// Sends whatever changed since the last call; returns pixel bytes sent.
+    /// Sends whatever changed since the last call and returns the pixel bytes sent.
     pub fn present(&mut self, shapes: &[Shape], panel: &mut impl Panel) -> usize {
         let buf = self.band.as_mut();
         let mut sent = 0;

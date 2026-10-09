@@ -1,3 +1,5 @@
+//! The paddle, the ball and the score.
+
 use bevy::{math::ops, prelude::*};
 
 use crate::{Rng, Screen, Touch};
@@ -11,11 +13,15 @@ pub mod arena {
     /// Radius of the paddle's centerline.
     pub const PADDLE_RADIUS: f32 = 212.0;
     pub const PADDLE_THICKNESS: f32 = 14.0;
+    /// The paddle's arc.
     pub const PADDLE_SPAN_DEG: f32 = 44.0;
     pub const BALL_RADIUS: f32 = 9.0;
+    /// Px per second.
     pub const SERVE_SPEED: f32 = 170.0;
     pub const SERVE_DELAY_SECS: f32 = 0.75;
+    /// Each return multiplies the ball's speed by this, up to `MAX_SPEED`.
     pub const SPEEDUP: f32 = 1.06;
+    /// Px per second.
     pub const MAX_SPEED: f32 = 480.0;
     /// Extra angle given to returns off the paddle tips, Breakout style.
     pub const EDGE_DEFLECT_DEG: f32 = 30.0;
@@ -39,6 +45,7 @@ pub struct Ball {
     pub serve_in: f32,
 }
 
+/// The paddle's center on the rim; it starts at 6 o'clock.
 #[derive(Resource, Debug, Clone, Copy, PartialEq)]
 pub struct Paddle {
     pub angle_deg: f32,
@@ -50,6 +57,7 @@ impl Default for Paddle {
     }
 }
 
+/// Returns this round, and the best since boot (Orbit saves nothing).
 #[derive(Resource, Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub struct Score {
     pub current: u32,

@@ -1,5 +1,5 @@
-//! Pixel art as text. `.` is transparent; every other key is in the palette.
-//! Fish face right (head on the right, tail on the left).
+//! Angler's pixel art as text: `.` is transparent and every other key is in
+//! the palette. Fish face right.
 
 use orbit_gfx::{Rgb565, Sprite};
 
@@ -170,8 +170,8 @@ pub static REEL_FISH: Sprite = Sprite {
     palette: &[OUTLINE, EYE, (b'F', rgb(150, 200, 220))],
 };
 
-/// Faces right, bareheaded: row 0 is hair. The
-/// hands are at column 11, row 6.
+/// The angler, facing right, hands at `ANGLER_HANDS`. The town uses it as the
+/// walking avatar.
 pub static ANGLER: Sprite = Sprite {
     rows: &[
         "....DDDDD.....",
@@ -202,6 +202,7 @@ pub static ANGLER: Sprite = Sprite {
     ],
 };
 
+/// The hands' pixel in `ANGLER`: column, row.
 pub const ANGLER_HANDS: (i32, i32) = (11, 6);
 
 /// The waterline sits between rows 2 and 3.

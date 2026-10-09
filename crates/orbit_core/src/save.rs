@@ -5,10 +5,11 @@ use bevy::prelude::*;
 const MAGIC: &[u8; 4] = b"ORBC";
 
 /// The one record the platform stores (flash on the device, a file on
-/// desktop), holding a section per game plus one for shared preferences, so
-/// games built into one firmware don't overwrite each other:
-/// `ORBC | count | (key | len u16 | bytes)*`, little-endian. Each section's
-/// format belongs to its game; the platform only stores what it's given.
+/// desktop). It holds a section per game plus one for shared preferences, so
+/// games built into one firmware don't overwrite each other.
+///
+/// Layout: `ORBC | count u8 | (key [u8; 4] | len u16 LE | bytes)*`. Each
+/// section's format belongs to its game.
 #[derive(Resource, Default, Debug)]
 pub struct SaveBlob {
     sections: Vec<([u8; 4], Vec<u8>)>,
@@ -16,9 +17,9 @@ pub struct SaveBlob {
 }
 
 impl SaveBlob {
-    /// What the platform found in storage at boot. A record from before
-    /// sections existed (one game's bytes) becomes the section named by its
-    /// first four bytes, its magic; a damaged record keeps what parses.
+    /// Parses what the platform found in storage at boot. A bare one-game
+    /// record (no `ORBC`) becomes the section keyed by its first four bytes,
+    /// its magic. A damaged record keeps what parses.
     pub fn from_storage(bytes: Option<Vec<u8>>) -> Self {
         let mut blob = Self::default();
         let Some(bytes) = bytes else {

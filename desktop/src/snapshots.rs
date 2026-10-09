@@ -20,6 +20,7 @@ use orbit_gfx::{Presenter, Rgb565};
 
 use crate::{BAND_BYTES, Game, panel::RamPanel};
 
+/// Draws the app's current frame through the presenter and saves it as a PNG.
 struct Camera<'a> {
     dir: &'a Path,
     panel: RamPanel,
@@ -36,6 +37,7 @@ impl Camera<'_> {
     }
 }
 
+/// Plays `game`'s script, saving a PNG of each screen in `dir`.
 pub fn run(game: Game, dir: &Path) {
     fs::create_dir_all(dir).expect("create snapshot dir");
     let mut camera = Camera {
@@ -57,8 +59,8 @@ pub fn run(game: Game, dir: &Path) {
     }
 }
 
-/// The town: each clearing from one of its doors, then the settings and the
-/// reset question.
+/// The town: the clearing at several of its doors, a walk, then the settings
+/// and the reset question.
 fn town(camera: &mut Camera) {
     use pals_game::{
         Place,
@@ -291,6 +293,7 @@ fn shop(camera: &mut Camera) {
     camera.shoot(&app, "shop_crown");
 }
 
+/// Spider Roulette: a round up to the spider's bite, then a bet cashed out.
 fn spider(camera: &mut Camera) {
     use spider_game::Table;
     let mut app = core_testing::headless(
@@ -348,6 +351,7 @@ fn spider(camera: &mut Camera) {
     camera.shoot(&app, "spider_cashed_out");
 }
 
+/// Skate: an ollie, a grind and a bail, then the halfpipe and a 360.
 fn skate(camera: &mut Camera) {
     use skate_game::{Kind, POP_DEG, Ride, SKATER_X};
     let mut app = core_testing::headless(
@@ -436,6 +440,7 @@ fn bees(camera: &mut Camera) {
     camera.shoot(&app, "bees_empty");
 }
 
+/// Orbit: the title, a rally and the game over.
 fn orbit(camera: &mut Camera) {
     let mut app = headless_app();
     camera.shoot(&app, "orbit_title");
@@ -501,6 +506,8 @@ fn land_a_fish(app: &mut App, mut camera: Option<&mut Camera>) {
     angler::tick(app, 60);
 }
 
+/// Angler: a catch from aim to tank, the log, settings, GUTEN, hold to sleep,
+/// and a catch into a full tank.
 fn angler(camera: &mut Camera) {
     use orbit_ui::{Key, key_turn};
     let mut app = angler::headless_app();

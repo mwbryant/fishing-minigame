@@ -1,3 +1,5 @@
+//! Draws every Angler screen into the frame's shape list.
+
 use alloc::{format, string::String, vec::Vec};
 
 use bevy::{math::ops, prelude::*};
@@ -41,7 +43,7 @@ const PLANK_EDGE: Rgb565 = rgb(90, 60, 35);
 const POST: Rgb565 = rgb(100, 70, 40);
 const ROD: Rgb565 = rgb(120, 80, 40);
 const LINE: Rgb565 = rgb(225, 225, 225);
-/// The full-power path drawn while aiming.
+/// The dots of the full-power path drawn while aiming.
 pub const PREVIEW_DOT: Rgb565 = rgb(240, 240, 240);
 const DEEP: Rgb565 = rgb(12, 34, 58);
 const TRACK: Rgb565 = rgb(24, 26, 36);

@@ -19,6 +19,7 @@ SIZE = (1100, 900)
 
 
 def mesh(shape, name: str) -> pv.PolyData:
+    """`shape` as a PyVista mesh, by way of an STL in .cache/."""
     board.CACHE.mkdir(exist_ok=True)
     path = board.CACHE / f"{name}.stl"
     export_stl(shape, path, tolerance=0.01, angular_tolerance=0.15)
@@ -26,6 +27,7 @@ def mesh(shape, name: str) -> pv.PolyData:
 
 
 def board_mesh() -> pv.PolyData:
+    """The board as a mesh, cached as .cache/board.stl."""
     path = board.CACHE / "board.stl"
     if not path.exists():
         board.CACHE.mkdir(exist_ok=True)
@@ -34,13 +36,14 @@ def board_mesh() -> pv.PolyData:
 
 
 def glass_mesh() -> pv.PolyData:
+    """A dark disc standing in for the cover glass."""
     return pv.Cylinder(
         center=(0, 0, -0.6), direction=(0, 0, 1), radius=board.GLASS_R, height=1.2, resolution=180
     )
 
 
 def shot(name: str, actors, camera, section: bool = False, parallel: bool = False, key=None):
-    """`key` is where the main light sits; by default it rakes in from over the camera's shoulder."""
+    """One preview PNG. `key` is the main light; by default it rakes in over the camera."""
     plot = pv.Plotter(off_screen=True, window_size=SIZE, lighting="none")
     plot.set_background("#f4f1ea")
     eye, focus, up = camera
@@ -64,6 +67,7 @@ def shot(name: str, actors, camera, section: bool = False, parallel: bool = Fals
 
 
 def stack(battery: bool) -> list:
+    """The items under the board, coloured, for the section views."""
     return [
         (mesh(box, f"{name}_{battery}"), ITEM_COLORS[name])
         for name, box in parts.item_boxes(battery)

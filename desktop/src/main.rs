@@ -1,13 +1,15 @@
-//! Desktop stand-in for the ESP32-S3-Touch-AMOLED-1.75: the same Bevy games,
-//! the same dirty-region/band presenter, pixels land in a RAM model of the
-//! CO5300, and the IMU is a virtual device driven from the keyboard.
+//! Desktop stand-in for the ESP32-S3-Touch-AMOLED-1.75: the same Bevy games
+//! and dirty-region band presenter, drawing into a RAM model of the CO5300,
+//! with a virtual IMU driven from the keyboard.
 //!
 //! ```text
 //! cargo run -p orbit_desktop -- [GAME]   play (default town: Fishing Minigame)
 //!   Holding Z (BOOT) sleeps the board like the firmware does; Z again wakes it.
-//! cargo run -p orbit_desktop -- GAME snapshot <dir>   scripted PNGs, headless
-//! cargo run -p orbit_desktop -- footage <dir> [TAKE...]   the trailer's takes,
-//!   every frame as a PNG plus the speaker's WAV (see trailer/README.md)
+//! cargo run -p orbit_desktop -- GAME snapshot [DIR]   scripted PNGs, headless
+//!   (DIR defaults to screenshots)
+//! cargo run -p orbit_desktop -- footage [DIR [TAKE...]]   the trailer's takes,
+//!   every frame as a PNG plus the speaker's WAV (DIR defaults to
+//!   trailer/cache/footage; see trailer/README.md)
 //!
 //! GAME: town home park contest shop angler spider skate bees orbit
 //! The desktop has no satellite receiver: turn on MOCK WALK in the town's
@@ -54,7 +56,7 @@ use crate::{
     speaker::Speaker,
 };
 
-/// Matches the firmware's internal-RAM band buffer.
+/// Matches the firmware's 8-row band buffer.
 pub const BAND_BYTES: usize = SIZE * 2 * 8;
 /// What the real link moves: 40 MHz QSPI clock, four data lines.
 const QSPI_BYTES_PER_SEC: f64 = 40e6 * 4.0 / 8.0;

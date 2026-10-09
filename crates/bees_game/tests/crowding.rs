@@ -1,4 +1,4 @@
-//! Bees??? played at random, the bees in the tallest hat; the test harness
+//! Plays Bees??? at random with the bees in the tallest hat. The harness
 //! checks every frame for crowded text (`orbit_gfx::crowding`).
 
 use bees_game::BeesPlugin;

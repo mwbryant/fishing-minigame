@@ -1,6 +1,6 @@
 //! Bees??? in QEMU: a steady hand turns against the jar's wobble for 20 s of
-//! game time, then tips it until the honey runs out; the best orbit count is
-//! saved into emulated flash and read back.
+//! game time, then tips it until the honey runs out. The best orbit count must
+//! reach emulated flash and read back.
 
 #![no_std]
 #![no_main]
@@ -30,6 +30,7 @@ fn main() -> ! {
         },
         bees_game::BACKGROUND,
     );
+    // Hold the 8 KB I2S stream buffer the firmware's speaker takes from the heap.
     core::mem::forget(alloc::vec![0u32; 2048]);
     let mut saves = SlotStore::new(FlashStorage::new(flash), SAVE_FLASH_OFFSET);
     click_action(&mut smoke.app);

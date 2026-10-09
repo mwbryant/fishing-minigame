@@ -1,8 +1,8 @@
-"""Fit check against Waveshare's STEP model of the board: `uv run check.py`.
+"""Fit check against Waveshare's STEP model of the board: `uv run check.py` (about 5 min).
 
-Exits non-zero if a printed part overlaps the board, the board can't be lowered in, a button
-misses its switch, the speaker, GPS antenna or battery collides, or the recommended screws would
-reach the display.
+Exits non-zero if a printed part overlaps the board, the board can't be lowered straight in, a
+button misses its switch, the speaker, GPS antenna, battery or plugs collide, the art covers a
+grille hole, or an M2x6 screw would reach the display.
 """
 
 import math
@@ -16,8 +16,8 @@ import parts
 import stack
 
 OVERLAP = 0.01  # mm^3 of overlap that still counts as touching
-PCB_FRONT_Z = board.PCB_BACK_Z + 1.2
-SWITCH_TRAVEL = 0.25
+PCB_FRONT_Z = board.PCB_BACK_Z + 1.2  # a 1.2 mm PCB
+SWITCH_TRAVEL = 0.25  # mm a full press goes past first touching the switch
 
 failures = []
 
@@ -29,12 +29,14 @@ def report(ok: bool, what: str):
 
 
 def where(shape) -> str:
+    """A shape's angle, radius and height, to say where a failure is."""
     c = shape.bounding_box().center()
     angle = math.degrees(math.atan2(c.Y, c.X))
     return f"{angle:5.0f} deg, r {math.hypot(c.X, c.Y):4.1f}, z {c.Z:5.1f}"
 
 
 def overlaps(cutter, solids) -> list:
+    """(solid, volume) for each of `solids` that `cutter` overlaps by more than OVERLAP."""
     hits = []
     box = cutter.bounding_box()
     for s in solids:
@@ -119,6 +121,7 @@ def check_variant(battery: bool, solids: list):
 
 
 def check_screws():
+    """Print which M2 lengths bite 2 mm and stop 0.3 mm short of the PCB front; M2x6 must."""
     print("\nboard screws (M2, head in the counterbore)")
     for length in (4, 5, 6, 8):
         thread = length - p.SCREW_SHELF

@@ -1,3 +1,5 @@
+//! Draws every Skate screen into the frame's shape list.
+
 use alloc::{format, vec::Vec};
 
 use bevy::{math::ops, prelude::*};

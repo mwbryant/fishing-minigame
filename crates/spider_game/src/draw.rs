@@ -1,3 +1,5 @@
+//! Draws every Spider Roulette screen into the frame's shape list.
+
 use alloc::{format, vec::Vec};
 
 use bevy::{math::ops, prelude::*};
@@ -177,7 +179,7 @@ fn bet(shapes: &mut Vec<Shape>, pals: &Pals, steer: f32) {
     }
 }
 
-/// Three rings and twelve spokes, static after the first frame.
+/// The web: three rings and twelve spokes, static after the first frame.
 fn web(shapes: &mut Vec<Shape>) {
     for radius in [60, 110, 190] {
         shapes.push(Shape::Ring {

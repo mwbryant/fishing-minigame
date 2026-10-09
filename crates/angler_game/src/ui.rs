@@ -1,5 +1,5 @@
-//! On-screen touch buttons. Their rectangles are shared by drawing and hit
-//! testing so what you see is what you tap.
+//! Angler's touch buttons. Drawing and hit testing share these rectangles, so
+//! what you see is what you tap.
 
 pub use orbit_ui::Button;
 
@@ -13,7 +13,7 @@ pub const EASIER: Button = Button::new(70, 182, 56, 44, "<");
 pub const HARDER: Button = Button::new(340, 182, 56, 44, ">");
 pub const GUTEN: Button = Button::new(173, 296, 120, 36, "GUTEN");
 pub const BACK: Button = Button::new(173, 352, 120, 36, "BACK");
-/// On the catch screen.
+/// On the catch screen, beside RELEASE.
 pub const KEEP_FISH: Button = Button::new(88, 330, 140, 40, "KEEP");
 pub const RELEASE_FISH: Button = Button::new(238, 330, 140, 40, "RELEASE");
 /// On the swap screen, clockwise from 12 o'clock: the kept fish, then

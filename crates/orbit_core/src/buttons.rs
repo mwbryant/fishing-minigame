@@ -5,14 +5,14 @@ pub(crate) fn plugin(app: &mut App) {
         .add_systems(Last, remember_buttons);
 }
 
-/// The board's two physical buttons by role. Platforms decide which switch is
-/// which (firmware: BOOT = action, PWR = zero; desktop: Space and Z) and call
+/// The board's two physical buttons by role. Platforms map the switches
+/// (firmware: PWR = action, BOOT = zero; desktop: Space and Z) and call
 /// [`ButtonState::set`] with the held state every frame.
 #[derive(Resource, Default, Debug, Clone, Copy)]
 pub struct Buttons {
     /// Hold-to-charge / confirm.
     pub action: ButtonState,
-    /// Re-zeroes the IMU from any screen.
+    /// Re-zeroes the IMU from any screen. A long hold starts sleep.
     pub zero: ButtonState,
 }
 

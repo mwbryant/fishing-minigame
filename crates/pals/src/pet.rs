@@ -11,16 +11,16 @@ use crate::{
 
 pub const MAX_NAME: usize = 8;
 pub const MAX_STAMINA_LEVEL: u32 = 20;
-/// Walking this many metres, squared by level, reaches the next level:
-/// level 2 at 100 m, 3 at 400 m, 4 at 900 m.
+/// Level n takes this many metres times (n - 1) squared: level 2 at 100 m,
+/// 3 at 400 m, 4 at 900 m.
 const METRES_PER_LEVEL_SQUARED: u32 = 100;
 /// Appeal for each species tier (0 common .. 3 trophy).
 const TIER_APPEAL: [u32; 4] = [10, 20, 35, 60];
-/// How far each confidently recognized command moves the taught word toward
-/// how it was just said, so the fish gets used to your voice...
+/// How far a confidently heard command pulls the taught word toward how it was
+/// just said, so the fish gets used to your voice.
 pub const VOICE_ADAPT: f32 = 0.2;
-/// ...where confident is within this much of the match distance, so a word
-/// that only just passed can't drag the taught one toward itself.
+/// Confident means within this fraction of the match distance, so a word that
+/// only just passed can't drag the taught one toward itself.
 const ADAPT_WITHIN: f32 = 0.7;
 
 /// Up to `MAX_NAME` capital letters and spaces.
@@ -108,14 +108,15 @@ impl TrickSlot {
         self.learned >= 100
     }
 
-    /// A successful try: praise right after doubles what it learns.
+    /// Counts a successful try; praise right after doubles what it learns.
     pub fn practice(&mut self, praised: bool) {
         let lesson = self.info().rarity.lesson();
         let gain = if praised { lesson } else { lesson.div_ceil(2) };
         self.learned = self.learned.saturating_add(gain).min(100);
     }
 
-    /// The chance it does the trick when asked.
+    /// The chance it does the trick when asked: 0.25 with nothing learned,
+    /// rising to 1 at mastery.
     pub fn success_chance(&self) -> f32 {
         if self.mastered() {
             return 1.0;
@@ -124,6 +125,7 @@ impl TrickSlot {
     }
 }
 
+/// A kept fish.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Pet {
     /// An index into the fishing game's species table.
@@ -174,9 +176,8 @@ impl Pet {
         (1 + (self.walked_m / METRES_PER_LEVEL_SQUARED).isqrt()).min(MAX_STAMINA_LEVEL)
     }
 
-    /// The walked distance at which the next level comes.
-    /// How far it has to have walked for the next stamina level; `None` at the
-    /// top level.
+    /// The total walked distance (m) that reaches the next stamina level;
+    /// `None` at the top level.
     pub fn next_level_m(&self) -> Option<u32> {
         let level = self.stamina_level();
         (level < MAX_STAMINA_LEVEL).then(|| level * level * METRES_PER_LEVEL_SQUARED)

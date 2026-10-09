@@ -1,9 +1,8 @@
-//! Angler in QEMU: scripted touch visits settings (saving a difficulty
-//! change) and the GUTEN easter egg, then button and tilt input casts onto the
-//! spot and fights with a steady hand. The first catch is kept and named by
-//! turning to each letter, the second released. Every save goes through
-//! `esp-storage` into the emulated flash, and the final log, settings and
-//! tank are read back.
+//! Angler in QEMU: touch visits settings (saving a difficulty change) and the
+//! GUTEN easter egg. Then buttons and tilt cast onto the spot and fight with a
+//! steady hand: the first catch is kept and named QEM by turning to each
+//! letter, the second released. Saves go through `esp-storage` into emulated
+//! flash, and the log, settings and tank are read back.
 
 #![no_std]
 #![no_main]

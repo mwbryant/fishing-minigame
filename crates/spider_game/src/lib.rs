@@ -1,14 +1,14 @@
 //! Spider Roulette: twelve eggs ring a web and one hides a spider. Press PWR
-//! (or tap) to spin: a pointer whirls round the ring and slows to a stop on
-//! a whole egg, which cracks. Every safe egg shortens the odds and quickens
-//! the heartbeat; the spider's egg makes the spider dancing in the middle
-//! pounce. Crack all eleven safe ones and the spider is trapped. The best run
-//! of safe eggs persists in the board's save record.
+//! or tap to spin a pointer that slows to a stop on a whole egg, which cracks.
+//! Every safe egg shortens the odds and quickens the heartbeat. Hit the
+//! spider's egg and the spider dancing in the middle pounces. Crack all eleven
+//! safe eggs and it's trapped. The best run persists in the `SPDR` section.
 //!
-//! In Fishing Minigame it's the den's gamble: with gold in the purse (`pals`), a
-//! round starts with a bet. Each safe egg raises what the bet is worth (fair
-//! odds, less the house's tenth); CASH OUT banks it, the spider takes it,
-//! and trapping the spider pays the whole run.
+//! In Fishing Minigame it's the den's gamble. With gold in the purse (`pals`),
+//! a round starts with a bet, worth [`cash_value`] after each safe egg: fair
+//! odds less the house's tenth, rounded down, so 0.98x after one egg and
+//! 10.8x after all eleven. CASH OUT banks it between spins, the spider takes
+//! it, and trapping the spider pays the whole run.
 
 #![no_std]
 
@@ -32,8 +32,9 @@ use pals::Pals;
 pub const EGGS: usize = 12;
 /// One egg's slice of the ring.
 pub const EGG_DEG: f32 = 360.0 / EGGS as f32;
-/// How long a spin takes to slow to a stop, and how many whole turns it makes.
+/// How long a spin takes to slow to a stop.
 pub const SPIN_SECS: f32 = 2.4;
+/// Whole turns a spin makes before it reaches its egg.
 pub const SPIN_TURNS: f32 = 3.0;
 /// The pause on the chosen egg before it cracks.
 pub const REVEAL_SECS: f32 = 0.5;
@@ -42,9 +43,9 @@ pub const POUNCE_SECS: f32 = 1.2;
 /// Results ignore presses this long, so a panicked double press can't skip them.
 pub const RESULT_GUARD_SECS: f32 = 0.8;
 pub const BACKGROUND: Rgb565 = orbit_ui::BLACK;
-/// What the den takes bets of.
+/// The bets the den takes, in gold.
 pub const STAKES: [u32; 5] = [5, 10, 25, 50, 100];
-/// The house keeps a tenth of fair odds.
+/// Percent of fair odds a bet pays; the house keeps a tenth.
 const PAYS_PCT: u32 = 90;
 
 /// The stakes a purse of `gold` can place, then a free game (0).
@@ -70,13 +71,15 @@ pub enum Phase {
     Title,
     /// Choosing a stake, with gold in the purse.
     Bet,
-    /// Waiting for PWR to spin.
+    /// Waiting for a press or tap to spin.
     Ready,
     Spinning,
     /// Stopped on an egg, about to crack it.
     Reveal,
+    /// The spider leaping out, for `POUNCE_SECS`.
     Pounce,
     Bitten,
+    /// Every safe egg cracked: the spider is trapped.
     Won,
     /// Banked the bet's worth.
     CashedOut,
@@ -87,11 +90,14 @@ pub enum Phase {
 pub struct Table {
     pub phase: Phase,
     pub phase_secs: f32,
+    /// Safe eggs cracked this round.
     pub safe: u8,
+    /// The longest run of safe eggs, saved.
     pub best: u16,
     pub new_best: bool,
-    /// This round's bet, and what the round paid out.
+    /// This round's bet; 0 in a free game.
     pub stake: u32,
+    /// What the round paid out.
     pub payout: u32,
     /// Where the pointer is, degrees clockwise from 12 o'clock, ever increasing.
     pub pointer_deg: f32,
@@ -190,8 +196,8 @@ impl Table {
     }
 }
 
-/// Seconds between heartbeats with `whole` eggs left: slow at the start,
-/// racing when only a couple remain.
+/// Seconds between heartbeats with `whole` eggs left: 1.25 with all twelve,
+/// racing to 0.35 with two.
 fn heartbeat_interval(whole: usize) -> f32 {
     0.35 + 0.9 * (whole.saturating_sub(2) as f32 / (EGGS - 2) as f32)
 }

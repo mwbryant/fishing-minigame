@@ -1,3 +1,5 @@
+//! Draws every Bees??? screen into the frame's shape list.
+
 use alloc::{format, vec::Vec};
 
 use bevy::{math::ops, prelude::*};
@@ -13,8 +15,8 @@ use crate::{
     DELIVERY_SECS, EARTH_RADIUS, FLIGHT_SECS, Orbit, Phase, RESULT_GUARD_SECS, sprites, ui,
 };
 
-/// The hat the lead fish in the tank wears, which the bees wear too: an
-/// index into `HATS`, if it wears one.
+/// The lead fish's hat, which the bees wear too: an index into `HATS`, or
+/// `None` for no hat.
 #[derive(Resource, Default, Debug)]
 pub struct Hat(pub Option<usize>);
 
@@ -148,7 +150,7 @@ fn swarm(shapes: &mut Vec<Shape>, orbit: &Orbit, hat: Option<&'static Sprite>) {
     }
 }
 
-/// During the last stretch before a refill, one bee flies up from Earth.
+/// One bee flying up from Earth in the last `FLIGHT_SECS` before a refill.
 fn delivery(shapes: &mut Vec<Shape>, orbit: &Orbit, hat: Option<&'static Sprite>) {
     if orbit.delivery_in > FLIGHT_SECS || orbit.delivery_in > DELIVERY_SECS {
         return;

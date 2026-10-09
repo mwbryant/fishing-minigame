@@ -1,3 +1,6 @@
+//! Draws the town: the clearing you're in, you, the purse and door sign, and
+//! the settings screens.
+
 use alloc::{format, vec::Vec};
 
 use angler_game::sprites::ANGLER;
@@ -96,7 +99,7 @@ fn clearing(shapes: &mut Vec<Shape>, screen: Screen) {
     }
 }
 
-/// The angler, feet where you stand, bobbing a pixel as they step.
+/// The angler, feet where you stand, bobbing a sprite pixel as they step.
 fn avatar(shapes: &mut Vec<Shape>, town: &Town) {
     let size = ANGLER.size() * AVATAR_SCALE;
     let bob = if town.stepping() { 2 } else { 0 };

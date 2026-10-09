@@ -80,9 +80,8 @@ pub(crate) const ALL_HATS: u32 = u32::MAX >> (32 - HATS.len() as u32);
 const OUTLINE: (u8, Rgb565) = (b'K', rgb(20, 22, 30));
 const EYE: (u8, Rgb565) = (b'W', rgb(245, 245, 240));
 
-// Hats are drawn on a 14-column head grid with the face in columns 4-8, the
-// bottom row over the top of the head. (They were first drawn for Angler's
-// angler; fish seat them by the same columns.)
+// Hats are drawn for a head whose face spans columns 4-8, with the bottom row
+// over the top of the head. Wearers (fish and bees) seat them by those columns.
 
 pub static STRAW_HAT: Sprite = Sprite {
     rows: &["....HHHHH", "...HHHHHHH", "..HHHHHHHHHH"],
@@ -98,7 +97,7 @@ pub static BEANIE: Sprite = Sprite {
     ],
 };
 
-/// The bill points the way the angler faces.
+/// The bill points the way the wearer faces.
 pub static BALL_CAP: Sprite = Sprite {
     rows: &[".....BBBB", "....BBBBBB", "...BBBBBBBVVV"],
     palette: &[(b'B', rgb(55, 95, 200)), (b'V', rgb(35, 60, 140))],
@@ -185,7 +184,7 @@ pub static TOP_HAT: Sprite = Sprite {
     ],
 };
 
-/// A koi asleep on the angler's head, nose to the front.
+/// A koi asleep on the wearer's head, nose to the front.
 pub static FISH_HAT: Sprite = Sprite {
     rows: &[
         "K.....KKKK",

@@ -1,3 +1,6 @@
+//! Draws the house: the tank, a fish's card, renaming, and the trick school's
+//! stage.
+
 use alloc::{format, vec::Vec};
 
 use angler_game::{SPECIES, length_text};
@@ -205,8 +208,8 @@ fn toast(shapes: &mut Vec<Shape>, home: &Home) {
     }
 }
 
-/// While a word is coming in, say so, and how loud, so it's clear whether
-/// the mic heard you at all.
+/// LISTENING... while a word comes in, and the mic level, so it's clear
+/// whether the mic heard you at all.
 pub(crate) fn listening(shapes: &mut Vec<Shape>, mic: &Mic) {
     if mic.speaking() {
         shapes.push(label(330, "LISTENING...", 1, TOAST));

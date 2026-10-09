@@ -1,5 +1,5 @@
-//! Skate played at random, street and halfpipe; the test harness checks every
-//! frame for crowded text (`orbit_gfx::crowding`).
+//! Plays Skate at random, street and halfpipe. The harness checks every frame
+//! for crowded text (`orbit_gfx::crowding`).
 
 use orbit_core::{Launcher, testing::*};
 use skate_game::SkatePlugin;

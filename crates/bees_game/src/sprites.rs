@@ -1,5 +1,4 @@
-//! Text pixel art (`.` is transparent). The bee faces right; its head is
-//! columns 8-9, its top at row 2.
+//! Bees???'s pixel art as text (`.` is transparent). The bee faces right.
 
 use orbit_gfx::Sprite;
 use orbit_ui::rgb;
@@ -21,5 +20,6 @@ pub static BEE: Sprite = Sprite {
     ],
 };
 
-/// The bee's head: center column (in sprite pixels) and top row.
+/// Where a hat sits on the bee: the head's center x in sprite pixels (it
+/// spans columns 8-9) and its top row.
 pub const BEE_HEAD: (f32, i32) = (9.0, 2);

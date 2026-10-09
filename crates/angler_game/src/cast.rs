@@ -1,3 +1,6 @@
+//! The cast: aiming by rotation, the timed power meter, the bobber's flight,
+//! and how long a cast waits for a bite.
+
 use bevy::math::{Vec2, ops};
 use orbit_core::Rng;
 
@@ -12,8 +15,9 @@ pub mod scene {
     pub const SHORE_X: f32 = 128.0;
     pub const DOCK_TOP: i32 = 240;
     pub const ANGLER_SCALE: i32 = 2;
-    /// The bareheaded angler; the hat is drawn above, over the hair row.
+    /// Top-left of the angler sprite, drawn at `ANGLER_SCALE`.
     pub const ANGLER_TOP_LEFT: (i32, i32) = (62, 206);
+    /// The angler's hands, where the rod pivots.
     pub const HANDS: Vec2 = Vec2::new(
         (ANGLER_TOP_LEFT.0 + ANGLER_HANDS.0 * ANGLER_SCALE + 1) as f32,
         (ANGLER_TOP_LEFT.1 + ANGLER_HANDS.1 * ANGLER_SCALE + 1) as f32,
@@ -21,8 +25,9 @@ pub mod scene {
     pub const ROD_LENGTH: f32 = 52.0;
     pub const GRAVITY: f32 = 420.0;
     pub const MAX_CAST_SPEED: f32 = 310.0;
-    /// The farthest a cast can reach; used to normalize cast distance.
+    /// The farthest a cast can reach; `distance` is 1 here.
     pub const FAR_X: f32 = 430.0;
+    /// Where the fishing spot can move to, as screen x.
     pub const SPOT_RANGE: (f32, f32) = (180.0, 410.0);
     /// Landing farther than this from the spot gets no help from it.
     pub const SPOT_REACH: f32 = 110.0;
@@ -39,9 +44,9 @@ pub const MIN_CAST_POWER: f32 = 0.08;
 /// Releasing with the meter at or above this throws at full power, landing
 /// exactly where the dotted path ends: about 0.1 s around the meter's peak.
 pub const PERFECT_POWER: f32 = 0.95;
-/// Charging gives up after two full sweeps. On the device the action button
-/// is PWR, and the power chip switches the board off after a long hold (the
-/// firmware stretches that to its 10 s maximum), so the game never rewards one.
+/// Charging gives up after two full up-and-down sweeps (4.4 s). The action
+/// button is PWR on the board, and its power chip switches off after a long
+/// hold (stretched to its 10 s maximum), so the game never rewards one.
 pub const MAX_CHARGE_SECS: f32 = 4.0 * CHARGE_SECS;
 
 /// Turning the device counterclockwise (negative steer) raises the rod, like
@@ -123,8 +128,9 @@ pub fn distance(land_x: f32) -> f32 {
     ((land_x - SHORE_X) / (FAR_X - SHORE_X)).clamp(0.0, 1.0)
 }
 
-/// Seconds until something bites, or `None` if nothing will. Casts on the
-/// spot get bites fast; casts that miss it entirely rarely get any.
+/// Seconds until something bites, or `None` if nothing will. A cast on the
+/// spot gets a bite in 1.2-2.7 s. One that misses it entirely gets a bite only
+/// 35% of the time, after 4-8 s.
 pub fn bite_delay(rng: &mut Rng, accuracy: f32) -> Option<f32> {
     if accuracy <= 0.0 {
         return (rng.next_f32() < 0.35).then(|| 4.0 + 4.0 * rng.next_f32());

@@ -46,6 +46,7 @@ def screech():
 
 
 def win():
+    """Trapping the spider or cashing out: a rising arpeggio and a bell."""
     notes = [659.25, 783.99, 987.77, 1318.5]
     parts = [(i * 0.09, tone(0.16, f, SOFT_SQUARE, decay=0.1), 0.8) for i, f in enumerate(notes)]
     parts.append((0.36, tone(0.5, 1318.5, BELL, decay=0.25), 0.6))

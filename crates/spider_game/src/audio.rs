@@ -2,6 +2,7 @@
 
 use orbit_core::Clip;
 
+/// A safe egg cracking.
 pub static CRACK: Clip = Clip {
     pcm: include_bytes!("../assets/sfx/crack.pcm"),
 };
@@ -9,9 +10,11 @@ pub static CRACK: Clip = Clip {
 pub static HEARTBEAT: Clip = Clip {
     pcm: include_bytes!("../assets/sfx/heartbeat.pcm"),
 };
+/// The spider's egg cracking.
 pub static SCREECH: Clip = Clip {
     pcm: include_bytes!("../assets/sfx/screech.pcm"),
 };
+/// Trapping the spider or cashing out.
 pub static WIN: Clip = Clip {
     pcm: include_bytes!("../assets/sfx/win.pcm"),
 };

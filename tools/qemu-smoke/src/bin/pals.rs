@@ -1,8 +1,8 @@
-//! Fishing Minigame in QEMU: the town walks to every door in turn, PWR goes in, the
-//! place's app is built in the town's place, its way out (OUT, or PWR from
-//! an empty tank, park or hall) ends it, and the town comes back at that
-//! door, twice round. Internal heap after each return to the town must not
-//! creep (no leak across apps), and nothing may spill into PSRAM.
+//! Fishing Minigame in QEMU, twice round every door: the town stands at the
+//! door and PWR goes in. The place's app replaces the town, its way out (OUT,
+//! or PWR from an empty tank, park or hall) ends it, and the town comes back at
+//! that door. Internal heap at each return to the town must not creep (no leak
+//! across apps), and nothing may spill into PSRAM.
 
 #![no_std]
 #![no_main]
@@ -46,6 +46,7 @@ fn main() -> ! {
         },
         pals_game::town::BACKGROUND,
     );
+    // Hold the 8 KB I2S stream buffer the firmware's speaker takes from the heap.
     core::mem::forget(alloc::vec![0u32; 2048]);
     let mut at_town: Vec<usize> = Vec::new();
     let mut failure = None;
@@ -118,6 +119,7 @@ fn leave(smoke: &mut Smoke, place: Place) {
     }
 }
 
+/// The app behind each door, as in the firmware's `pals` binary.
 fn launch(place: Place) -> (fn(&mut App), Rgb565) {
     match place {
         Place::Home => (

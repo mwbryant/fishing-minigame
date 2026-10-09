@@ -1,11 +1,11 @@
 // REFERENCE ONLY: not compiled as part of the repo.
 //
-// Speaker driver written during research on 2026-10-04. It compiled and linked
-// (clippy clean) as `mod audio` inside a scratch copy of `firmware/` against
-// esp-hal 1.2.2, but it has never run on hardware. The wiring, register
-// provenance, and caveats are in docs/ESP32_PLATFORM.md section 10.2. To use it:
-// copy it to firmware/src/audio.rs, add `embedded-hal-bus = "0.3"`, and share
-// the I2C bus between this and touch via `RefCell` + `RefCellDevice`.
+// The original ES8311 speaker driver from research on 2026-10-04. It compiled
+// and linked (clippy clean) as `mod audio` in a scratch copy of `firmware/`
+// against esp-hal 1.2.2, but never ran on hardware. The live version is
+// firmware/src/speaker.rs, adapted from this one, and it runs on the board (the
+// codec answers 0x83 0x11). Wiring, register provenance and caveats are in
+// docs/ESP32_PLATFORM.md section 10.2.
 
 //! Speaker output: ES8311 codec (I2C 0x18) -> NS4150B class-D amp (enable on
 //! GPIO46, active high) -> MX1.25 speaker connector, fed by I2S0 TX through a
@@ -146,6 +146,11 @@ fn fill_frames(bytes: &mut [u8], source: &mut impl SampleSource) -> usize {
 /// already consumed, so the queued audio (= latency) stays at about the
 /// buffer length. If a frame stalls long enough to drain the buffer, the
 /// transfer stops and `pump` restarts it.
+///
+/// Known bug, fixed in firmware/src/speaker.rs: `pump` restarts only when the
+/// whole buffer is also free. An underrun that lands mid-pump leaves bytes in a
+/// dead transfer, so the speaker stays silent until reboot. Restart on
+/// `is_done()` alone.
 pub struct AudioOut {
     transfer: Option<I2sTxDmaTransfer<'static, Blocking, DmaTxStreamBuf>>,
     capacity: usize,

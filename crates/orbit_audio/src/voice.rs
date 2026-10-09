@@ -1,8 +1,11 @@
-//! Voice commands without speech recognition: the mic's samples become a
-//! short print of how a word's spectrum (seven bands, each against the
-//! frame's own loudness) and its loudness move through the word; a command
-//! is whichever recorded print it's nearest. Like Nintendogs, it only has to
-//! tell apart the words one player taught.
+//! Voice commands without speech recognition. Each word becomes a short print
+//! of how its spectrum and loudness move over time, and a command is whichever
+//! taught print it's nearest. Like Nintendogs, it only has to tell apart the
+//! words one player taught.
+//!
+//! A print is [`PRINT_FRAMES`] frames of [`FEATURES`] bytes: seven band levels,
+//! each against the frame's mean band level, then the frame's loudness against
+//! the word's. Prints are compared by dynamic time warping (DTW).
 
 use libm::{cosf, expf, fabsf, logf, sinf};
 
@@ -17,51 +20,50 @@ const CENTERS: [f32; BANDS] = [300.0, 500.0, 800.0, 1_250.0, 2_000.0, 3_150.0, 5
 const BANDS: usize = 7;
 /// How narrow each band is.
 const BAND_Q: f32 = 1.4;
-/// Each band against the frame's loudness, then the loudness against the
-/// word's.
+/// Bytes per print frame: seven bands, then loudness.
 pub const FEATURES: usize = BANDS + 1;
 /// The longest command: about 1.6 s.
 pub const MAX_FRAMES: usize = 100;
 /// Prints farther than this from every recording aren't a command. Measured
-/// on spoken words with the perturbations in this crate's tests: the same
-/// word said faster, slower, higher, echoing or softly comes in under about
-/// 29 nine times in ten; a different word rarely under 38.
+/// with this crate's test perturbations: the same word said faster, slower,
+/// higher, echoing or softly scores under about 29 nine times in ten, and a
+/// different word rarely scores under 38.
 pub const MATCH_DISTANCE: f32 = 34.0;
-/// ...and the nearest has to beat the next nearest by this much, so a word
-/// that's about as like two taught words as each other is neither.
+/// The nearest print must be under this fraction of the runner-up's distance,
+/// so a word about as like two taught words is neither.
 pub const MATCH_MARGIN: f32 = 0.85;
 
-/// Loudness (natural log of energy) this far over the room's floor is speech...
+/// Loudness (natural log of energy) this far over the room's floor starts speech.
 const SPEECH_OVER_FLOOR: f32 = 2.5;
-/// ...and it stays speech until it falls this close to the floor...
+/// Frames under this much over the floor count toward ending a word.
 const QUIET_OVER_FLOOR: f32 = 1.5;
-/// ...for this many frames (about 0.2 s), so the gap before a "p" doesn't
-/// split a word.
+/// Quiet frames in a row that end a word (about 0.2 s), so the gap before a
+/// "p" doesn't split it.
 const END_FRAMES: usize = 12;
 /// Shorter than this (about 80 ms) is a click, not a word.
 const MIN_FRAMES: usize = 5;
 /// Frames kept from before speech is detected, for a soft onset like "f".
 const PRE_ROLL: usize = 6;
-/// A word's edges are where it rises out of the room to within this of its
-/// own peak (natural log of energy: about 20 dB), so a word said softly is
-/// cut at the same sounds as the same word said loudly...
+/// A word's ends are trimmed back to where it comes within this of its peak
+/// loudness (natural log of energy, about 20 dB), so a soft take is cut at the
+/// same sounds as a loud one.
 const EDGE_UNDER_PEAK: f32 = 4.5;
-/// ...but never below this over the floor, which is the room's own hiss.
+/// The trim edge is never lower than this over the floor, the room's own hiss.
 const EDGE_OVER_FLOOR: f32 = 1.0;
-/// How fast the floor creeps up toward a steadily louder room, per frame.
+/// The floor rises at most this much per frame toward a louder room, and drops
+/// at once to a quieter one.
 const FLOOR_RISE: f32 = 0.02;
 /// Quantization: one natural-log unit of loudness is this many steps.
 const STEPS_PER_LOG: f32 = 16.0;
-/// How much a step of the loudness contour counts against a frame, against
-/// one step of a band's shape.
+/// Weight of one loudness step in a frame's distance, against one band step.
 const LOUDNESS_WEIGHT: f32 = 1.0;
-/// Two takes of a word while teaching it may be this much farther apart
-/// than a command may be from it.
+/// Teaching accepts two takes up to this many times `MATCH_DISTANCE` apart.
 const TAKE_SLACK: f32 = 1.3;
-/// How far apart in time DTW may pair frames.
+/// The most frames apart DTW may pair.
 const WARP_BAND: usize = 9;
 
-/// One word, `PRINT_FRAMES` frames of `FEATURES`, and how long it was.
+/// One word: `PRINT_FRAMES` frames of `FEATURES` bytes, plus its length in
+/// analysis frames (capped at 255).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct VoicePrint {
     frames: [[u8; FEATURES]; PRINT_FRAMES],
@@ -69,6 +71,7 @@ pub struct VoicePrint {
 }
 
 impl VoicePrint {
+    /// Stored size: the frames, then the length byte.
     pub const BYTES: usize = PRINT_FRAMES * FEATURES + 1;
 
     pub fn to_bytes(&self) -> [u8; Self::BYTES] {
@@ -80,6 +83,7 @@ impl VoicePrint {
         out
     }
 
+    /// `None` for the wrong size or a zero length.
     pub fn from_bytes(bytes: &[u8]) -> Option<Self> {
         if bytes.len() != Self::BYTES || bytes[Self::BYTES - 1] == 0 {
             return None;
@@ -421,10 +425,9 @@ impl Frame {
     };
 }
 
-/// Stretches `frames` to `PRINT_FRAMES` as each frame's spectral shape (each
-/// band against the frame's own loudness) and the loudness contour (each
-/// frame against the word's), so a word said softly, or farther off, matches
-/// the same word said loudly and close; then quantizes.
+/// Resamples `frames` to `PRINT_FRAMES` and quantizes them. Bands are taken
+/// against their frame's mean level and loudness against the word's mean, so
+/// a soft or distant take matches a loud, close one.
 fn print(frames: &[Frame]) -> VoicePrint {
     let word = frames.iter().map(|frame| frame.loudness).sum::<f32>() / frames.len() as f32;
     let described = |frame: &Frame| {

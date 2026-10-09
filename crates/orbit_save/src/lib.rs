@@ -1,10 +1,11 @@
 //! Power-fail-safe storage for one small save record on NOR flash.
 //!
-//! Two erase sectors take turns: each save erases the older one and writes
-//! `magic | seq | len | crc32 | payload`. Loading picks the valid record with
-//! the highest sequence number, so a save torn by power loss leaves the
-//! previous one readable. Works on any `embedded-storage` NOR flash: the
-//! ESP32's (`esp-storage`) or [`RamFlash`] (tests, desktop file saves).
+//! Two erase sectors take turns. Each save erases the older one and writes
+//! `ORBS | seq u32 | len u32 | crc32 | payload` (little-endian, the CRC over
+//! seq, len and payload). Loading picks the valid record with the highest
+//! sequence number, so a save torn by power loss leaves the previous one
+//! readable. Works on any `embedded-storage` NOR flash: the ESP32's
+//! (`esp-storage`) or [`RamFlash`] (tests, desktop file saves).
 
 #![no_std]
 
@@ -52,6 +53,7 @@ impl<F: NorFlash> SlotStore<F> {
         self.read_record(slot).map(|(_, payload)| payload)
     }
 
+    /// Writes over the older slot. Payloads over [`MAX_PAYLOAD`] are refused.
     pub fn save(&mut self, payload: &[u8]) -> Result<(), SaveError<F::Error>> {
         if payload.len() > MAX_PAYLOAD {
             return Err(SaveError::TooLarge);
@@ -74,6 +76,8 @@ impl<F: NorFlash> SlotStore<F> {
         self.flash.write(start, &record).map_err(SaveError::Flash)
     }
 
+    /// Slot and sequence number of the newest valid record. Sequence numbers
+    /// compare across wraparound.
     fn newest(&mut self) -> Option<(usize, u32)> {
         let a = self.read_record(0).map(|(seq, _)| seq);
         let b = self.read_record(1).map(|(seq, _)| seq);

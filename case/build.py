@@ -1,8 +1,9 @@
-"""Build every printable part into out/: `uv run build.py`.
+"""Build every printable part into out/: `uv run build.py` (about 20 s).
 
-out/ gets, for each case variant, a STEP (edit it in any CAD program) and an STL, plus a
-3MF print plate with the case on its back and three button caps beside it, and a
-_two_colour.3mf where the raised art is its own part, ready for a second filament on an AMS.
+For each case variant: a STEP (edit it in any CAD program), an STL, a 3MF print plate with the
+case on its back and three button caps beside it, and a _two_colour.3mf where the raised art is
+its own part for a second filament on an AMS. Also the button and the fit-test ring, and it
+prints each case's size and where to change filament for the two-tone rim.
 """
 
 from pathlib import Path
@@ -18,11 +19,13 @@ VARIANTS = {"reel_case": False, "reel_case_battery": True}
 
 
 def save(shape, name: str):
+    """out/<name>.step and .stl."""
     export_step(shape, OUT / f"{name}.step")
     export_stl(shape, OUT / f"{name}.stl", tolerance=0.005, angular_tolerance=0.1)
 
 
 def mesh_object(mesher: Mesher, shape, name: str):
+    """`shape` as a named lib3mf mesh, to group into a multi-part object."""
     verts, tris = Mesher._mesh_shape(shape, 0.001, 0.1)
     mesh = mesher.model.AddMeshObject()
     mesh.SetGeometry(*Mesher._create_3mf_mesh(verts, tris))
@@ -66,6 +69,7 @@ def fit_ring():
 
 
 def summary(name: str, battery: bool):
+    """Print the case's size, what lies under its board, and the two-tone rim's heights."""
     zb = parts.back_z(battery)
     height = parts.TOP_Z - zb
     items = stack.stack(battery)[0]

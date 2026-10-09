@@ -1,6 +1,6 @@
-//! Spider Roulette in QEMU: PWR spins the pointer round the eggs again and
-//! again until it stops on the spider's egg (or traps it); the best run is
-//! saved through `esp-storage` into emulated flash and read back.
+//! Spider Roulette in QEMU: with the spider hidden in the second-to-last egg,
+//! PWR spins the pointer onto each egg in turn until it finds the spider. The
+//! best run must reach emulated flash through `esp-storage` and read back.
 
 #![no_std]
 #![no_main]
@@ -30,6 +30,7 @@ fn main() -> ! {
         },
         spider_game::BACKGROUND,
     );
+    // Hold the 8 KB I2S stream buffer the firmware's speaker takes from the heap.
     core::mem::forget(alloc::vec![0u32; 2048]);
     let mut saves = SlotStore::new(FlashStorage::new(flash), SAVE_FLASH_OFFSET);
     click_action(&mut smoke.app);

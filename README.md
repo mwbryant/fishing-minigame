@@ -351,8 +351,8 @@ Bevy's own bookkeeping (schedules, per-resource tables) dominates the heap.
 - **Resources are expensive:** a Bevy resource costs about 64 times its size in heap, so big
   state is boxed.
 - **The budget:** the firmware gives Bevy about 284 KB of internal SRAM (`INTERNAL_HEAP_BYTES`
-  plus the 72 KB reclaimed region) and keeps about 74 KB of stack. PSRAM is registered last,
-  only as a safety net.
+  plus the 72 KB reclaimed region), and what DRAM is left is the stack: 67 KB for Fishing
+  Minigame, 69 to 71 KB for one game. PSRAM is registered last, only as a safety net.
 - **Why not PSRAM:** on the ESP32-S3, atomic read-modify-write doesn't work on PSRAM, and Bevy
   keeps `Arc` counts and spinlocks on the heap. So Bevy's working set stays internal, and big
   plain buffers (sprites, framebuffers) go in PSRAM explicitly with
@@ -388,4 +388,8 @@ The display, touch, mic and GPS protocols can only be proven on the real board.
   still unverified.
 - [devlog/beats.md](devlog/beats.md): the story of building it, beat by beat.
 
-The Rust crates are licensed MIT OR Apache-2.0, as declared in `Cargo.toml`.
+## License
+
+Licensed under either of [Apache License 2.0](LICENSE-APACHE) or [MIT](LICENSE-MIT), at your
+option. Waveshare's board files in `docs/` (the schematic PDF and the 3D models) are theirs. The
+trailer's music and font are downloaded when it builds and keep their own licenses.

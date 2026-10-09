@@ -1,4 +1,4 @@
-//! Text pixel art (`.` is transparent).
+//! Spider Roulette's pixel art as text (`.` is transparent).
 
 use orbit_gfx::Sprite;
 use orbit_ui::rgb;
@@ -25,8 +25,8 @@ const BODY: (u8, orbit_gfx::Rgb565) = (b'P', rgb(140, 80, 190));
 const EYE: (u8, orbit_gfx::Rgb565) = (b'E', rgb(255, 250, 120));
 const GRIN: (u8, orbit_gfx::Rgb565) = (b'W', rgb(250, 250, 250));
 
-/// The spider dancing in the middle of the web: two poses, legs up one way
-/// then the other. It's also the one that pounces.
+/// The spider dancing in the middle of the web, in two poses with its legs up
+/// one way then the other. It's also the one that pounces.
 pub static DANCER: [Sprite; 2] = [
     Sprite {
         rows: &[

@@ -13,7 +13,7 @@ use orbit_qemu_smoke::Smoke;
 
 esp_bootloader_esp_idf::esp_app_desc!();
 
-/// Game time to play; emulated frames are much shorter than real ones, so
+/// Game time to play. Emulated frames are much shorter than real ones, so
 /// the script runs on game time, never frame counts.
 const PLAY_SECS: f32 = 40.0;
 

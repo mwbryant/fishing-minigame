@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
-"""The architecture diagrams for blog posts and devlogs, drawn as HTML and rendered to
-1920x1080 PNGs by headless Chrome.
+"""The architecture slides for posts and devlogs: HTML placed in px, shot to 1920x1080 PNGs by
+headless Chrome (Google Chrome in /Applications).
 
     python3 docs/architecture/build.py                      # a PNG per board in BOARDS
     python3 docs/architecture/build.py --canvas DIR BLOBS   # the same boards as .dc.html
 
-Every element is placed in px on one board, so the PNGs are exact and re-render
-identically. `--canvas` writes each board as a Design canvas artboard into DIR, with
-images pointing at the uploaded copies named in BLOBS (JSON: repo path -> /_blob/ url).
+Placing everything in px keeps the PNGs exact and repeatable. `--canvas` writes each board into
+DIR as a Design canvas artboard, with images pointing at the uploaded copies named in BLOBS
+(JSON: repo path -> /_blob/ url).
 """
 
 import json
@@ -49,12 +49,14 @@ FONTS = (
 
 
 def rgb(c, a=1.0):
+    """CSS colour for an (r, g, b) tuple, rgba when `a` is below 1."""
     if a >= 1:
         return f"rgb({c[0]}, {c[1]}, {c[2]})"
     return f"rgba({c[0]}, {c[1]}, {c[2]}, {a})"
 
 
 def css(**props):
+    """Keyword arguments as inline CSS, underscores turned into hyphens."""
     return "; ".join(f"{k.replace('_', '-')}: {v}" for k, v in props.items())
 
 
@@ -63,10 +65,12 @@ def span(inner, **props):
 
 
 def mono(name, hue, size=18):
+    """A name in bold monospace, coloured."""
     return span(name, font_family=MONO, font_weight=700, font_size=f"{size}px", color=rgb(hue))
 
 
 def tag(name, hue):
+    """A section tag in the pixel font."""
     return span(name, font_family=PIXEL, font_size="16px", color=rgb(hue))
 
 
@@ -79,11 +83,13 @@ class Board:
         self.markers = 0
 
     def place(self, layer, x, y, inner="", **props):
+        """An absolutely placed div. With x None, pass `right` instead of a left edge."""
         at = {"left": f"{x}px"} if x is not None else {}
         style = css(position="absolute", **at, top=f"{y}px", **props)
         self.layers[layer].append(f'<div style="{style}">{inner}</div>')
 
     def text(self, x, y, inner, size=16, color=INK, font=SANS, weight=400, line=None, **props):
+        """A label. It wraps only when given a `width`."""
         self.place(
             "labels",
             x,
@@ -99,6 +105,7 @@ class Board:
         )
 
     def card(self, x, y, w, h, inner, hue, fill=0.09, edge=0.55, radius=12, pad="0 18px", align="center", **props):
+        """A rounded flex box, tinted and outlined in `hue`."""
         self.place(
             "cards",
             x,
@@ -118,6 +125,7 @@ class Board:
         )
 
     def band(self, x, y, w, h, hue=WHITE, fill=0.03, edge=0.12, radius=20):
+        """A faint panel behind a group of cards."""
         self.place(
             "bands",
             x,
@@ -131,10 +139,12 @@ class Board:
         )
 
     def image(self, x, y, w, h, src, alt, **props):
+        """An image by repo path, left as `{{path}}` for `body` to turn into a URL."""
         style = css(position="absolute", left=f"{x}px", top=f"{y}px", width=f"{w}px", height=f"{h}px", **props)
         self.layers["cards"].append(f'<img src="{{{{{src}}}}}" alt="{alt}" style="{style}">')
 
     def marker(self, color, orient):
+        """A filled arrowhead <marker> with an id unique on this board."""
         self.markers += 1
         mid = f"dc-arrow-head-filled-{self.markers}"
         head = (
@@ -209,6 +219,7 @@ class Board:
         return f'<div style="{root}">\n{inner}\n</div>'
 
     def page(self):
+        """The board as a page for Chrome, its images as file:// URLs."""
         return f"""<!doctype html>
 <html lang="en">
 <head>
@@ -224,6 +235,7 @@ class Board:
 """
 
     def artboard(self, blobs):
+        """The board as a Design canvas artboard, its images as the uploaded blob URLs."""
         props = json.dumps({"$preview": {"width": W, "height": H}})
         return f"""<!doctype html>
 <html lang="en">
@@ -253,6 +265,7 @@ return {{}};
 
 
 def header(b, title, subtitle, chips):
+    """Every board's top: FISHING MINIGAME and its title, a subtitle, and chips at the right."""
     b.text(
         64,
         34,
@@ -295,6 +308,7 @@ BACKENDS = [
 
 
 def crate_label(b, x, w, crate, label_w):
+    """A bracket under x..x+w with the crate's name centred below it."""
     b.place(
         "lines",
         x,
@@ -311,6 +325,7 @@ def crate_label(b, x, w, crate, label_w):
 
 
 def overview():
+    """How it's built: the town's places, the crates under them, and the no_std libraries."""
     b = Board("Fishing Minigame: how it's built")
     header(
         b,
@@ -481,6 +496,7 @@ STAGES = [
 
 
 def pipeline():
+    """How a frame gets to the glass: four stages, dirty rects, bytes per frame, ping-pong DMA."""
     b = Board("Fishing Minigame: how a frame gets to the glass")
     header(
         b,
@@ -625,6 +641,7 @@ LOOP = [
 
 
 def core():
+    """orbit_core meets the hardware: a row per channel from chip to resource to game call."""
     b = Board("Fishing Minigame: orbit_core meets the hardware")
     header(
         b,
@@ -708,7 +725,7 @@ def core():
     return b
 
 
-# The trailer's shots: (start s, label, fill, text colour). It ends at 46.18 s.
+# The trailer's shots, copied from trailer/edit.py: (start s, label, fill, text colour).
 SHOTS = [
     (0.0, "TITLE", "#6fb7e8", "#0b1020"),
     (3.83, "FISH", "#2b9cf2", "#0b1020"),
@@ -727,11 +744,12 @@ TRAILER_END = 46.18
 
 
 def at(t):
-    """The x of trailer time t on the cut's timeline."""
+    """The x, in px, of trailer time t on the cut's timeline."""
     return round(200 + t * 1608 / TRAILER_END)
 
 
 def trailer():
+    """How the trailer was made: sources through to the MP4, and the cut on a timeline."""
     b = Board("Fishing Minigame: how the trailer was made")
     header(
         b,
@@ -903,6 +921,7 @@ def trailer():
     return b
 
 
+# The case board's "worth a closer look" cards: (title, what).
 TRICKS = [
     ("Line, not a helix", "16 stacked rings, the pitch stretched to fit a whole number of them"),
     ("Art that prints face down", "the background is recessed 0.7 mm and the art mirrored, to read from behind"),
@@ -912,6 +931,7 @@ TRICKS = [
 
 
 def case():
+    """How the case was made: the Python files and what flows between them, tricks, previews."""
     b = Board("Fishing Minigame: how the case was made")
     header(
         b,
@@ -1025,10 +1045,12 @@ def case():
     return b
 
 
+# Each board's file name, and the function that draws it.
 BOARDS = {"overview": overview, "orbit-core": core, "frame-pipeline": pipeline, "trailer": trailer, "case": case}
 
 
 def render(name, board):
+    """Shoot one board to docs/architecture/<name>.png with headless Chrome."""
     with tempfile.TemporaryDirectory() as tmp:
         page = Path(tmp) / f"{name}.html"
         page.write_text(board.page())

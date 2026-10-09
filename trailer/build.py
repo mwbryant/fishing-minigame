@@ -3,7 +3,7 @@
 # requires-python = ">=3.11"
 # dependencies = ["numpy>=2", "pillow>=11"]
 # ///
-"""Builds the FISHING MINIGAME trailer into out/fishing_minigame_trailer.mp4.
+"""Build the FISHING MINIGAME trailer into out/fishing_minigame_trailer.mp4.
 
     uv run build.py              everything that's missing or out of date
     uv run build.py --refilm     film the game's takes again (after the game changes)
@@ -11,7 +11,7 @@
     uv run build.py --still 9.5  one frame of the trailer, as out/still-09.50.png
     uv run build.py --preview    half size and 15 fps, quick to check the edit
 
-The edit (what plays when) is in edit.py. Downloads (music, font), the filmed takes and the
+The edit (what plays when) is in edit.py. The downloads (music, font), the filmed takes and the
 Blender ending are kept in cache/; delete a folder there to make it again.
 """
 
@@ -39,9 +39,9 @@ CACHE = HERE / "cache"
 OUT = HERE / "out"
 W, H = edit.SIZE
 FPS = edit.FPS
-SR = 48000
-TAKE_HZ = 60
-SCREEN = 466
+SR = 48000  # output sample rate, Hz
+TAKE_HZ = 60  # the takes' frames a second of game time
+SCREEN = 466  # panel size, px
 FONT_URL = "https://github.com/google/fonts/raw/main/apache/luckiestguy/LuckiestGuy-Regular.ttf"
 CASE_STL = ROOT / "case" / "out" / "reel_case.stl"
 BLENDERS = [
@@ -53,9 +53,8 @@ BLENDERS = [
         "/Contents/MacOS/Blender"
     ),
 ]
-INK = "#1d1a3a"
-# How fast the man chews, in bites a second.
-CHEW_HZ = 2.4
+INK = "#1d1a3a"  # letter outlines
+CHEW_HZ = 2.4  # how fast the man chews, in bites a second
 SKY_TOP, SKY_BOTTOM = "#6fbdf7", "#d9f1ff"
 
 
@@ -74,6 +73,7 @@ def clamp(x, lo=0.0, hi=1.0):
 
 
 def smooth(x):
+    """Smoothstep: 0 to 1, easing in and out."""
     x = clamp(x)
     return x * x * (3 - 2 * x)
 
@@ -89,6 +89,7 @@ def back_out(x):
 
 
 def download(urls, dest):
+    """Fetch `dest` from the first of `urls` that works, unless it's already there."""
     if dest.exists():
         return dest
     dest.parent.mkdir(parents=True, exist_ok=True)
@@ -107,7 +108,7 @@ def download(urls, dest):
 
 
 def archive_urls(path):
-    """FreePD's library lives on in the Internet Archive's `freepd` item."""
+    """Download URLs for `path` in FreePD's library, which lives on in archive.org's `freepd`."""
     quoted = urllib.parse.quote(path)
     urls = []
     try:
@@ -120,6 +121,7 @@ def archive_urls(path):
 
 
 def fetch_assets():
+    """The font and each music track, downloaded into cache/assets/ once."""
     font = download([FONT_URL], CACHE / "assets" / "LuckiestGuy-Regular.ttf")
     music = {}
     for name, track in edit.MUSIC.items():
@@ -135,6 +137,7 @@ def fetch_assets():
 
 
 def load_audio(path, channels=2):
+    """Any audio file as float32 samples at SR, decoded by ffmpeg."""
     raw = subprocess.run(
         [
             "ffmpeg",
@@ -157,17 +160,18 @@ def load_audio(path, channels=2):
 
 
 def db(gain_db):
+    """dB to a linear gain."""
     return 10 ** (gain_db / 20)
 
 
 def first_sound(track, threshold=0.02):
+    """Seconds to just before `track` first gets louder than `threshold`."""
     loud = np.flatnonzero(np.abs(track).max(axis=1) > threshold)
     return max(0.0, loud[0] / SR - 0.02) if len(loud) else 0.0
 
 
 def noise_burst(rng, secs, cutoff, decay):
-    """White noise through a one-pole low-pass, dying away: the stuff crunches and whooshes
-    are made of."""
+    """White noise through a one-pole low-pass, dying away: the grains of a crunch."""
     n = int(secs * SR)
     noise = rng.standard_normal(n).astype(np.float32)
     alpha = 1 - math.exp(-2 * math.pi * cutoff / SR)
@@ -181,6 +185,7 @@ def noise_burst(rng, secs, cutoff, decay):
 
 
 def crunch(seed):
+    """A crunch: 14 random noise bursts in 0.42 s, normalized."""
     rng = np.random.default_rng(seed)
     out = np.zeros(int(0.42 * SR), np.float32)
     for _ in range(14):
@@ -246,12 +251,15 @@ def scratch(track, at, secs=0.6):
 
 
 class Takes:
+    """The filmed takes: frames by time, their sounds, and where the player stands."""
+
     def __init__(self, root):
         self.root = root
         self.counts = {}
         self.cache = OrderedDict()
 
     def count(self, take):
+        """How many frames a take has; exits if it was never filmed."""
         if take not in self.counts:
             self.counts[take] = len(list((self.root / take).glob("*.png")))
             if not self.counts[take]:
@@ -259,10 +267,12 @@ class Takes:
         return self.counts[take]
 
     def path(self, take, secs):
+        """The frame file `secs` into a take, clamped to its ends."""
         index = min(max(round(secs * TAKE_HZ), 0), self.count(take) - 1)
         return self.root / take / f"{index:05d}.png"
 
     def frame(self, take, secs):
+        """That frame as an image; the last 64 loaded are kept."""
         path = self.path(take, secs)
         if path not in self.cache:
             self.cache[path] = Image.open(path).convert("RGB")
@@ -280,6 +290,7 @@ class Takes:
 
 
 def film(refilm):
+    """Film every take if `refilm` or if any take the edit uses is missing."""
     footage = CACHE / "footage"
     wanted = {take for shot in edit.SHOTS for take, *_ in shot.get("takes", [])}
     wanted |= {shot["screen"][0] for shot in edit.SHOTS if "screen" in shot}
@@ -306,6 +317,7 @@ def segments(shot):
 
 
 def at_time(shot, t):
+    """The take, and the time into it, that plays `t` seconds into the shot."""
     for take, start, at, span in segments(shot):
         if t < at + span or (take, start, at, span) == segments(shot)[-1]:
             return take, start + (t - at)
@@ -313,6 +325,7 @@ def at_time(shot, t):
 
 
 def sheets(takes):
+    """A contact sheet per take in cache/sheets/: 24 frames, evenly spaced and timestamped."""
     out = CACHE / "sheets"
     out.mkdir(parents=True, exist_ok=True)
     for take_dir in sorted(p for p in takes.root.iterdir() if p.is_dir()):
@@ -335,6 +348,7 @@ def sheets(takes):
 
 
 def blender():
+    """The first Blender found: $BLENDER, PATH, /Applications, then Steam."""
     for path in BLENDERS:
         if path and Path(path).exists():
             return path
@@ -358,6 +372,7 @@ def mouth_curve(frames, bites):
 
 
 def render_eat(shot, takes):
+    """Render the ending in Blender, unless frames for this config, screen, eat.py and STL exist."""
     frames = round((shot["end"] - shot["start"]) * FPS)
     bites = [round(b * FPS) for b in shot["bites"]]
     work = CACHE / "eat"
@@ -500,6 +515,7 @@ class Device:
         self.sprites = OrderedDict()
 
     def sprite(self, screen):
+        """The case around `screen`; the last 4 made are kept."""
         key = id(screen)
         if key not in self.sprites:
             out = Image.new("RGBA", (self.size, self.size))
@@ -520,6 +536,7 @@ class Device:
         )
 
     def draw(self, canvas, screen, at, scale, angle=0.0, pivot=None, blur=0.0, shadow=True):
+        """The device turned about `pivot` (its centre by default), with a shadow unless blurred."""
         pivot = pivot or self.center
         if shadow and blur < 0.3:
             shift = (at[0] + 16, at[1] + 26)
@@ -590,6 +607,8 @@ class Letters:
 
 
 class Backdrops:
+    """Full-frame backgrounds: diagonal stripes, a sky with drifting clouds, and honeycomb."""
+
     def __init__(self):
         yy, xx = np.mgrid[0:H, 0:W]
         self.diagonal = (xx + yy).astype(np.int32)
@@ -679,6 +698,8 @@ def bee_sprite():
 
 
 class Trailer:
+    """Draws any frame: `frame(t)` finds the shot and calls the method named after its kind."""
+
     def __init__(self, takes, font, eat_frames):
         self.takes = takes
         self.font = font
@@ -707,6 +728,7 @@ class Trailer:
         return self.takes.frame(*at_time(shot, t))
 
     def opening(self, shot, t, index):
+        """The title beside the player at their house, then the dive into the player."""
         canvas = self.back.sky(t)
         length = shot["end"] - shot["start"]
         dive = clamp(
@@ -739,6 +761,7 @@ class Trailer:
         return canvas
 
     def beat(self, shot, t, index):
+        """A gameplay shot: the device on stripes beside its label, alternating sides."""
         n = self.beats.index(shot)
         canvas = self.back.stripes(shot["color"], t + n * 3)
         length = shot["end"] - shot["start"]
@@ -763,6 +786,7 @@ class Trailer:
         return canvas
 
     def scratch(self, shot, t, index):
+        """The last frame of the shot before, frozen, draining to grey and fading to black."""
         previous = edit.SHOTS[index - 1]
         key = id(previous)
         if key not in self.frozen:
@@ -782,6 +806,7 @@ class Trailer:
         return Image.blend(canvas.convert("RGB"), Image.new("RGB", (W, H)), clamp(u * 1.4) ** 1.5)
 
     def chaos(self, shot, t, index):
+        """BEES, SKATEBOARDS, SPIDERS: shaking on fast backdrops; a `pounce` comes at you."""
         if shot.get("honey"):
             canvas = self.back.honey(t * 2)
         else:
@@ -828,6 +853,7 @@ class Trailer:
         return canvas
 
     def eat(self, shot, t, index):
+        """The Blender ending, with YOU CAN EAT IT popping in a word at a time."""
         frames = sorted(self.eat_frames.glob("[0-9]*.png"))
         canvas = Image.open(frames[min(round(t * FPS), len(frames) - 1)]).convert("RGBA")
         if canvas.size != (W, H):
@@ -851,6 +877,7 @@ class Trailer:
         return canvas
 
     def guten(self, shot, t, index):
+        """The spinning fish beside the message, then the title tag in the corner."""
         canvas = self.back.sky(t + 40)
         u = t / (shot["end"] - shot["start"])
         lines = shot.get("message", [])
@@ -879,6 +906,7 @@ class Trailer:
 
 
 def mix(takes, music_files):
+    """cache/mix.wav: the music cues, the scratch, whoosh and crunches, and the takes' sounds."""
     out = np.zeros((int(edit.LENGTH * SR) + SR, 2), np.float32)
 
     def add(clip, at, gain=1.0, fade_out=0.005, fade_in=0.005):
@@ -960,6 +988,7 @@ def mix(takes, music_files):
 
 
 def encode(trailer, audio, preview):
+    """Pipe every frame and the mix into ffmpeg for the MP4 (or the half-size preview)."""
     OUT.mkdir(exist_ok=True)
     fps = 15 if preview else FPS
     size = (W // 2, H // 2) if preview else (W, H)

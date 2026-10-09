@@ -21,10 +21,10 @@ const HAT_SEATS: [(f32, i32); 8] = [
     (17.0, 1),
     (13.0, 0),
 ];
-/// Hats are drawn on a head grid whose face spans columns 4-8.
+/// The middle of a hat sprite's face, which spans columns 4-8.
 const HAT_MIDDLE: f32 = 6.5;
 
-/// The sprite's size at `scale`.
+/// The fish sprite's size at `scale`, hat not included.
 pub fn size(pet: &Pet, scale: u32) -> Size {
     sprite(pet).size() * scale
 }
@@ -111,12 +111,12 @@ pub fn dial(
     }
 }
 
-/// How long a trick takes to perform.
+/// Seconds a trick takes to perform.
 pub const TRICK_SECS: f32 = 1.6;
 
-/// Where a trick has the fish `t` seconds in (as an offset from where it
-/// started, in pixels at `scale` 1 of a fish that's 1 unit tall), and
-/// whether it faces the other way.
+/// Where a trick has the fish `t` seconds in, as a pixel offset from where it
+/// started (callers scale it to fit their stage), and whether it faces the
+/// other way.
 pub fn pose(motion: Motion, t: f32) -> (Vec2, bool) {
     let u = (t / TRICK_SECS).clamp(0.0, 1.0);
     let arc = |height: f32| -height * 4.0 * u * (1.0 - u);

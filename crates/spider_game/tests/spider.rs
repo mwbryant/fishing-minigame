@@ -1,3 +1,6 @@
+//! Spider Roulette played through the headless app: spins, the pounce, the
+//! trap, the heartbeat, the saved best run, and betting gold.
+
 use bevy::{app::AppExit, prelude::*};
 use orbit_core::{ClipRef, Frame, Launcher, SaveBlob, SoundCommand, SoundQueue, testing::*};
 use orbit_gfx::{Shape, SpriteRef};
@@ -24,7 +27,7 @@ fn play(clip: &'static orbit_core::Clip) -> SoundCommand {
     SoundCommand::Play(ClipRef(clip))
 }
 
-/// From the title to the first spin, with the spider in `egg`.
+/// Starts a free round from the title and hides the spider in `egg`.
 fn round_with_spider_in(app: &mut App, egg: usize) {
     click_action(app);
     assert_eq!(table(app).phase, Phase::Ready);

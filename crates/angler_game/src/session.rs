@@ -1,5 +1,6 @@
-//! The whole game flow as one phase machine resource (no Bevy states: every
-//! state schedule costs heap the ESP32 doesn't have).
+//! Angler's game flow: the `Session` resource and its `Phase` machine. It's a
+//! plain enum, not Bevy states, because every state schedule costs heap the
+//! ESP32 doesn't have.
 
 use core::cell::Cell;
 
@@ -26,10 +27,15 @@ pub const RESULT_GUARD_SECS: f32 = 0.8;
 /// GUTEN ignores taps and presses this long, so a touch that flickers as the
 /// finger lifts off the GUTEN button can't stop the song it just started.
 pub const GUTEN_GUARD_SECS: f32 = 0.6;
+/// IT GOT AWAY goes back to aiming on its own after this long.
 pub const ESCAPED_SECS: f32 = 3.0;
+/// The bite's "!" shows this long before the fight starts.
 pub const BITE_SHOW_SECS: f32 = 0.7;
+/// A cast that will get no bite gives up after this long.
 pub const NOTHING_BITES_SECS: f32 = 9.0;
+/// How long a `Phase::Notice` message stays up.
 pub const NOTICE_SECS: f32 = 1.4;
+/// How long LEVEL SET shows after the zero button.
 pub const TOAST_SECS: f32 = 1.2;
 /// The reel clicks each time the catch meter rises by this much.
 pub const REEL_CLICK_STEP: f32 = 0.03;
@@ -38,6 +44,7 @@ pub const RELEASE_TURN_DEG: f32 = 10.0;
 /// The swap screen's options, clockwise from 12 o'clock: the three kept fish,
 /// then letting the new catch go.
 pub const SWAP_CHOICES: usize = 4;
+/// The swap option that lets the new catch go.
 pub const LET_IT_GO: usize = 3;
 
 #[derive(Clone, Debug, PartialEq)]
@@ -51,11 +58,13 @@ pub enum Phase {
     Aim {
         charging_secs: Option<f32>,
     },
-    /// `perfect` when released inside the window at the top of the meter.
+    /// The bobber in the air; `perfect` if released in the meter's top window.
     Flight {
         flight: Flight,
         perfect: bool,
     },
+    /// The bobber is down. `bite_in` is seconds into this phase until a bite,
+    /// or `None` if nothing will bite.
     Waiting {
         bobber_x: f32,
         bite_in: Option<f32>,
@@ -154,6 +163,7 @@ fn first_spot(mut session: ResMut<Session>, mut rng: ResMut<Rng>) {
     session.move_spot(&mut rng);
 }
 
+/// Input, menus and timed phase changes, once per frame.
 #[allow(clippy::too_many_arguments)]
 fn play(
     time: Res<Time>,
@@ -404,6 +414,7 @@ fn play(
     }
 }
 
+/// The bobber's flight and the fight, on the fixed step.
 #[allow(clippy::too_many_arguments)]
 fn simulate(
     time: Res<Time>,

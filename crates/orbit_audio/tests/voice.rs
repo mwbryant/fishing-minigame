@@ -212,7 +212,7 @@ fn a_word_nobody_taught_is_no_command() {
     let mut fooled = Vec::new();
     for speaker in SPEAKERS {
         let known = recordings(speaker);
-        // Teach two of the words; say each of the other three, every way.
+        // Teach two words, then say each of the other three every way.
         for taught in [[0, 1], [2, 3], [1, 4], [0, 3]] {
             for (said, word) in WORDS.iter().enumerate() {
                 if taught.contains(&said) {

@@ -1,3 +1,5 @@
+//! The fish log: how many of each species were landed, and their bests.
+
 use bevy::prelude::*;
 
 use crate::species::{Catch, SPECIES};
@@ -9,7 +11,7 @@ pub struct SpeciesRecord {
     pub best_weight_g: u32,
 }
 
-/// Every fish ever landed, persisted through the platform's save storage.
+/// Every fish ever landed, saved in the `FLOG` section.
 #[derive(Resource, Clone, Debug, Default, PartialEq, Eq)]
 pub struct FishLog {
     pub total: u32,
@@ -25,6 +27,7 @@ pub struct Milestones {
 }
 
 impl FishLog {
+    /// Adds `catch` and reports what it beat.
     pub fn record(&mut self, catch: &Catch) -> Milestones {
         self.total += 1;
         let entry = &mut self.species[catch.species];

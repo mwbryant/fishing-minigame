@@ -1,3 +1,6 @@
+//! Bees??? played through the headless app: spilling, steadying the jar,
+//! refills, the bees' hats and the saved best orbit count.
+
 use bees_game::{BeesPlugin, CONTROL_GAIN, Orbit, Phase, audio, spill_limit_deg, ui};
 use bevy::{app::AppExit, prelude::*};
 use orbit_core::{ClipRef, Frame, Launcher, SaveBlob, SoundCommand, SoundQueue, testing::*};

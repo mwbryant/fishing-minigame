@@ -1,11 +1,10 @@
 //! Device orientation from a 6-axis IMU, relative to a user-chosen zero pose.
 //!
-//! Samples are in the screen's frame: x to the screen's right, y to the
-//! screen's bottom, z into the screen (away from the viewer). Firmware maps the
-//! QMI8658's axes into this frame; the desktop simulator synthesizes samples
-//! from a virtual device. A Mahony complementary filter integrates the gyro and
-//! pulls tilt back toward the accelerometer's "up", so lean is drift-free and
-//! steer is drift-free whenever the screen isn't lying flat.
+//! Samples are in the screen's frame: x to the screen's right, y to its bottom,
+//! z into the screen (away from the viewer). Firmware maps the QMI8658's axes
+//! into this frame, and the desktop simulator synthesizes samples. A Mahony
+//! filter integrates the gyro and pulls tilt toward the accelerometer's "up".
+//! Lean never drifts, and steer only drifts while the screen lies flat.
 
 #![no_std]
 
@@ -20,12 +19,16 @@ pub struct ImuSample {
     pub dt: f32,
 }
 
+/// Mahony proportional gain: how hard tilt is pulled toward gravity.
 const KP: f32 = 2.0;
+/// Mahony integral gain, which learns the gyro's bias.
 const KI: f32 = 0.05;
-/// Accelerometer readings this far from 1 g are mostly hand motion, not
-/// gravity, and are ignored for tilt correction.
+/// Accelerometer magnitudes (g) outside this range are mostly hand motion, not
+/// gravity, so they don't correct tilt.
 const ACCEL_TRUST: core::ops::RangeInclusive<f32> = 0.8..=1.2;
 
+/// Orientation from a stream of [`ImuSample`]s, read as steer and lean from the
+/// zero pose.
 #[derive(Clone, Debug, Default)]
 pub struct MotionTracker {
     /// Device-to-world rotation, world +Z up. `None` until the first sample.

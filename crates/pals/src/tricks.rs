@@ -39,13 +39,14 @@ impl Rarity {
         [5, 8, 12, 18, 25][self as usize]
     }
 
-    /// Learning (out of 100) a praised practice adds; unpraised adds half.
+    /// Learning (out of 100) a praised practice adds; unpraised adds half,
+    /// rounded up.
     pub fn lesson(self) -> u8 {
         [25, 17, 12, 9, 6][self as usize]
     }
 
-    /// Odds of rolling this rarity for a fish of the lowest and highest tier;
-    /// tiers between blend.
+    /// Percent chance of rolling this rarity for the lowest and highest tier;
+    /// tiers between blend linearly.
     fn odds(self) -> (f32, f32) {
         [
             (60.0, 25.0),

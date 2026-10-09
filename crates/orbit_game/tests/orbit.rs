@@ -1,3 +1,6 @@
+//! Orbit played through the headless app: starting, steering, serves,
+//! returns, game over and retry, and what each frame draws.
+
 use bevy::prelude::*;
 use orbit_game::{
     Ball, Frame, Paddle, Score, Screen,

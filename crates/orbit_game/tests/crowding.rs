@@ -1,5 +1,5 @@
-//! Orbit played at random; the test harness checks every frame for crowded
-//! text (`orbit_gfx::crowding`).
+//! Plays Orbit at random. The harness checks every frame for crowded text
+//! (`orbit_gfx::crowding`).
 
 use orbit_core::{Buttons, Tilt, testing::*};
 use orbit_game::OrbitPlugin;

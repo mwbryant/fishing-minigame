@@ -1,4 +1,4 @@
-//! What the screens call things, checked across every crate's source.
+//! Screens say PRESS, never PWR. Checked in every crate's string literals.
 
 use std::{
     fs,

@@ -1,8 +1,8 @@
-//! Fishing Minigame's places, each its own Bevy app so only one is ever in the
-//! board's memory: the town you walk around (the hub, and where the platform
-//! starts), and the house, park, contest hall and hat shop you walk into.
-//! The pond, the den and the arcade's games are the other crates' apps. The
-//! kept fish, gold and hats pass between them in the `PALS` save section.
+//! Fishing Minigame's places: the town (the hub, where the board starts) and
+//! the house, park, contest hall and hat shop. Each is its own Bevy app, so only
+//! one is in the board's memory at a time. The pond, the den, the arcade and the
+//! humming tree are other crates' apps. The kept fish, gold and hats pass
+//! between them in the `PALS` save section.
 
 #![no_std]
 
@@ -23,7 +23,7 @@ use bevy::prelude::*;
 pub enum Place {
     /// Your house: the tank, the fish's cards and trick training.
     Home,
-    /// Angler: fishing for new pals.
+    /// Angler: catching fish to keep.
     Pond,
     /// Walks, for stamina.
     Park,

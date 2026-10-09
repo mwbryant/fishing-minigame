@@ -24,6 +24,7 @@ use crate::{
     snapshots::{battery, pet, reel},
 };
 
+/// Each take's name and the script that films it.
 const TAKES: [(&str, fn(&Path)); 12] = [
     ("opening", opening),
     ("fish_cast", fish),
@@ -134,6 +135,7 @@ fn cut(app: &mut App) {
     );
 }
 
+/// Writes 16-bit mono PCM at `SAMPLE_RATE` as a WAV file.
 fn write_wav(path: &Path, samples: &[i16]) {
     let data = (samples.len() * 2) as u32;
     let mut out = BufWriter::new(File::create(path).expect("create wav"));
@@ -174,6 +176,7 @@ fn swipe_up(app: &mut App) {
     app.world_mut().resource_mut::<Touch>().set(None);
 }
 
+/// `tank` as the record a save would put in storage.
 fn saved(tank: &pals::Pals) -> Option<Vec<u8>> {
     let mut blob = SaveBlob::from_storage(None);
     pals::save::store(&mut blob, tank);
