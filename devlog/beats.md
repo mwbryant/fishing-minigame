@@ -785,3 +785,36 @@ Images are in `img/`. Newest beats go at the bottom.
   voice command, a GPS fix, waking from sleep, and battery charging.
 - **Cut for honesty:** a line saying the board "costs less than a game cartridge", since
   nothing in the repo backs up a price.
+
+## 45. Cleaning house: license, plain words, and a lighter history (2026-10-09)
+
+- **The ask:** add a license, do "a deep docs cleanup pass over the entire codebase" so a human
+  gets each file or system in the fewest words, drop every "untested" note ("It is all tested
+  and working"), and take anything downloaded from outside out of git history, with links in its
+  place.
+- **License:** MIT OR Apache-2.0, as `Cargo.toml` already declared.
+- **The docs pass:**
+  - six agents took a slice each (core libraries, the pals crates, the games, firmware and
+    tools, case and trailer, the handbook) with one style guide;
+  - a comment-stripping diff proved 128 code files changed only in comments, and clippy,
+    rustdoc with warnings as errors, and all 337 tests passed after;
+  - Markdown went from 21,585 words to 21,106, and the handbook from 12,871 to 12,278;
+  - Rust comments grew from 17,366 words to 19,140, because files and items that had no doc
+    got one line.
+- **What the pass caught:** stale comments that said the opposite of the code.
+  - PWR is the action button and BOOT the zero button, not the other way round.
+  - Standalone games never offer OUT.
+  - Fish and bees wear the hats, not the angler.
+  - The shop's hats sit 78 px apart, not 83.
+  - The case README told you to peel the tape before driving the screws.
+- **Untested notes:** gone. The handbook drops its [verified]/[unverified] flags, and the case
+  README's "Not verified yet" list became tuning advice.
+- **History:**
+  - Waveshare's two 3D-model zips and the schematic PDF came out of all 100 commits, along with
+    the GUTEN song (a TikTok meme's audio).
+  - `docs/WAVESHARE_FILES.md` links the originals, which match byte for byte.
+  - The song stays on disk for local builds. A clean clone builds GUTEN silent but still
+    15.15 s long, and the tests pass both ways (337 without the song, 338 with).
+  - The repo went from a 16.4 MB bundle to a 9.8 MiB pack. `HEAD`'s tree is unchanged.
+- **A slip worth telling:** a commit with an unchained second step swept in three `.pyc` files.
+  It was undone before anything else happened, and `__pycache__/` is now ignored.
