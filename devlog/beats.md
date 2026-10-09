@@ -667,3 +667,74 @@ Images are in `img/`. Newest beats go at the bottom.
 - **One place the slop was wrong:** at a door, GO IN's padding caught taps on the end of
   the path just below the sign, which should walk you down it. Now the whole sign is the
   target, and below it you walk.
+
+## 40. The whole thing on one slide (2026-10-09)
+
+- **The ask:** a diagram of the project's high-level structure, good-looking enough for
+  blog posts and YouTube devlogs, saved as PNGs.
+- **Two 1080p slides**, drawn by `docs/architecture/build.py` (HTML placed in px, shot by
+  headless Chrome, so they re-render exactly):
+  - **How it's built:** the town's street of places as real round screenshots, grouped by
+    crate. Below them `pals`, `orbit_ui`, then `orbit_core`, and four plain `no_std`
+    libraries. Each library has an arrow to what feeds it on the board (orange) and in
+    the simulator (blue): QMI8658 or arrow keys, CO5300 or a minifb window, and so on.
+    `tools/`, `case/` and `trailer/` run down the side.
+  - **How a frame gets to the glass:** `app.update()` → `Frame` → `FrameDiff` → 8-row
+    bands → the CO5300 or the desktop window. Then the dirty rects on a real Orbit frame,
+    25 KB against 434 KB a frame, and the ping-pong DMA.
+- **The layers tell the truth:** `pals` stops short of the arcade, and `orbit_ui` stops
+  short of Orbit, because Skate and Orbit don't use them. Touch, buttons and GPS bypass
+  the libraries and go straight into `orbit_core`.
+- **The numbers:** 337 tests passing, about 25k lines of Rust, 7,456 B per band, about 25 KB
+  (1.3 ms) for a normal frame against 434 KB (22 ms) for a full redraw.
+- **Honest labels:** the dashed dirty-rect boxes on the Orbit frame are drawn by hand, and
+  the DMA timeline is schematic. Both slides say so.
+- **Hook:** "Here's the whole game on one slide: a round watch-sized screen, a fish, and
+  twenty-five thousand lines of no_std Rust."
+- Images: `40-architecture.png`, `40-frame-pipeline.png`.
+
+## 41. Three more slides: the hardware layer, the trailer, the case (2026-10-09)
+
+- **The ask:** a diagram of just orbit_core and how it connects the games to the hardware.
+  Also, take the trailer and CAD panels off the overview and give each its own slide,
+  "because each are built in cool ways worth discussing."
+- **The overview:** the stack now runs the full width, with bigger screenshots and backend
+  cards (before: `40-architecture.png`, after: `41-architecture.png`).
+- **orbit_core meets the hardware:** one row per channel, from what a game calls, through
+  the Bevy resource, to the chip on the board or its stand-in on the desktop.
+  - **Inputs:** Touch, Buttons, ImuFeed → Tilt, Power, Mic and Gps are written before
+    `app.update()`.
+  - **Outputs:** Frame, SoundQueue and SaveBlob are drained after it.
+  - **The board side:** seven chips share one 400 kHz I2C bus (touch 0x5A, the TCA9554
+    expander 0x20, IMU 0x6B, AXP2101 0x34, ES7210 0x40, LC76G 0x50 and 0x54, ES8311 0x18).
+    The panel has its own 40 MHz QSPI link.
+  - **The frame loop:** a strip along the bottom shows the firmware's loop at 60 fps, 20
+    when idle.
+  - **What stood out:** the opt-in plugins work as power switches too. The firmware only
+    starts the speaker if the app has a SoundQueue, and only powers the mics if it has a
+    Mic.
+- **How the trailer was made:** picture and sound are built separately and meet in ffmpeg.
+  - **Picture:** 12 scripts film 14 takes (4,192 frames at 466², 60 fps) in about 7 s.
+    Blender bites the real `reel_case.stl` (255 frames in about 91 s). `Trailer.frame(t)`
+    composites everything in Pillow and numpy.
+  - **Sound:** the takes' WAVs go under the two tracks with a synthesized scratch, whoosh
+    and crunches.
+  - **The cut:** a timeline of all 12 shots shows the 130 BPM beat ticks under the cozy
+    half and where each track and sound lands.
+  - **Result:** 46.2 s, 1080p30, 28.5 MB.
+- **How the case was made:** `params.py` and `board.py` feed `stack.py` and `parts.py`
+  (build123d), and the parts fan out to `build.py`, `render.py` and `check.py`.
+  - **The fit test:** check.py gets the whole Waveshare STEP as solids. It lowers the board
+    in from 16 mm, presses each switch 0.35 mm, and checks that the M2×6 screw bites.
+  - **Four tricks get cards:** line rings instead of a helix, art that prints face down,
+    words fitted between the screws, and buttons kept from turning.
+- **Found on the way, and fixed:**
+  - case/README.md said to change filament at 16.0 mm; the 24.6 mm case wants 22.4 (and the
+    battery case 29.2), as build.py prints.
+  - `previews/button_cap.png` showed the caps before their 45° cone, and nothing made or used
+    it any more, so it's gone.
+  - The README called the trailer 45 s (it's 46.2), and build.py's help named its stills
+    `out/still.png` (they're `out/still-09.50.png`).
+- **Hook:** "The game never talks to a single chip. Here's the one layer that does."
+- Images: `41-architecture.png`, `41-orbit-core.png`, `41-trailer-pipeline.png`,
+  `41-case-pipeline.png`.

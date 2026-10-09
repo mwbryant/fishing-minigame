@@ -81,7 +81,9 @@ crates/orbit_game    Orbit
 desktop/             minifb simulator for Fish Pals or any one app + headless PNG snapshots (std)
 firmware/            ESP32-S3: board support lib, the pals binary, and one binary per game
 case/                3D-printable fly-reel case (Python/build123d), see case/README.md
-trailer/             the 45 s FISHING MINIGAME trailer, built from filmed takes, see trailer/README.md
+trailer/             the 46 s FISHING MINIGAME trailer, built from filmed takes, see trailer/README.md
+docs/architecture/   slides of all this for posts and devlogs (the stack, orbit_core and the hardware,
+                     a frame's trip to the glass, the trailer, the case): python3 docs/architecture/build.py
 ```
 
 ## How a frame gets to the glass

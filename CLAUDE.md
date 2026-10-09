@@ -27,6 +27,9 @@ behind `firmware/src/mic.rs` (ES7210, sharing the speaker's I2S clocks) and
 `case/` is the printable enclosure: parametric Python (build123d via uv), separate from the
 Rust workspace. Tunables are in `case/params.py`; after changing them run `uv run check.py`,
 which fit-tests the parts against Waveshare's STEP model of the board (`case/README.md`).
+`docs/architecture/build.py` draws the 1080p slides of all this for posts and devlogs (the PNGs
+beside it, and the same boards on a Design canvas). Their facts are written in by hand, so when a
+change makes a slide wrong (a crate, a place, a chip, a number), fix it there and re-render.
 
 Rules that bite:
 - Every crate under `crates/` stays `#![no_std]`. Use `bevy::math::ops`
