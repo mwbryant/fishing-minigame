@@ -249,7 +249,7 @@ fn play(
         }
         Phase::Settings if tapped(&ui::BACK) || action.pressed() => Some(Phase::Title),
         Phase::Guten
-            if elapsed >= GUTEN_MORGEN.duration_secs()
+            if elapsed >= audio::GUTEN_SECS
                 || (elapsed >= GUTEN_GUARD_SECS && (tap || action.pressed())) =>
         {
             sound.stop();

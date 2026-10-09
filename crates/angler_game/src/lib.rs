@@ -27,7 +27,7 @@ pub mod ui;
 use bevy::prelude::*;
 use orbit_core::{ControlsPlugin, CorePlugin, SoundPlugin};
 
-pub use audio::{GUTEN_MORGEN, GUTEN_SPIN_SECS};
+pub use audio::{GUTEN_MORGEN, GUTEN_SECS, GUTEN_SPIN_SECS};
 pub use draw::{BACKGROUND, PREVIEW_DOT, length_text, weight_text};
 pub use log::{FishLog, Milestones};
 pub use session::{Phase, Session};

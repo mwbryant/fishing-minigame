@@ -2,7 +2,7 @@
 //! keeping and naming fish, the log, settings, GUTEN, sounds, power and saves.
 
 use angler_game::{
-    Catch, Difficulty, FishLog, GUTEN_MORGEN, Phase, Session, Settings, audio,
+    Catch, Difficulty, FishLog, GUTEN_MORGEN, GUTEN_SECS, Phase, Session, Settings, audio,
     cast::{self, CHARGE_SECS, Flight, scene::WATER_Y},
     reel::{LEAN_DEAD_ZONE_DEG, LEAN_FULL_DEG},
     save,
@@ -515,15 +515,20 @@ fn guten_plays_the_song_and_spins_the_trout() {
 
 #[test]
 fn guten_lasts_as_long_as_the_song_then_returns_to_settings() {
-    assert!((GUTEN_MORGEN.duration_secs() - 15.15).abs() < 0.05);
     let mut app = headless_app();
     open_settings(&mut app);
     tap(&mut app, ui::GUTEN.center());
-    tick(&mut app, (GUTEN_MORGEN.duration_secs() * 60.0) as u32 - 10);
+    tick(&mut app, (GUTEN_SECS * 60.0) as u32 - 10);
     assert_eq!(phase(&app), Phase::Guten);
     tick(&mut app, 12);
     assert_eq!(phase(&app), Phase::Settings);
     assert_eq!(sounds(&app).last(), Some(&SoundCommand::Stop));
+}
+
+#[cfg(guten_song)]
+#[test]
+fn guten_secs_is_the_songs_length() {
+    assert!((GUTEN_MORGEN.duration_secs() - GUTEN_SECS).abs() < 0.01);
 }
 
 #[test]

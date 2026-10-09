@@ -4,11 +4,18 @@
 
 use orbit_core::Clip;
 
-/// "Guten Morgen, Sonnenschein" from the spinning-fish meme (see
-/// assets/README.md), played by the GUTEN easter egg.
-pub static GUTEN_MORGEN: Clip = Clip {
-    pcm: include_bytes!("../assets/guten_morgen.pcm"),
-};
+/// "Guten Morgen, Sonnenschein" from the spinning-fish meme, played by the GUTEN
+/// easter egg. Its PCM is gitignored (see assets/README.md), so a clean clone
+/// builds it silent.
+pub static GUTEN_MORGEN: Clip = Clip { pcm: GUTEN_PCM };
+
+#[cfg(guten_song)]
+const GUTEN_PCM: &[u8] = include_bytes!("../assets/guten_morgen.pcm");
+#[cfg(not(guten_song))]
+const GUTEN_PCM: &[u8] = &[];
+
+/// How long GUTEN lasts: the song's length, so it ends on cue even when silent.
+pub const GUTEN_SECS: f32 = 15.15;
 
 /// Seconds per turn of the spinning fish, as in logic-fish.
 pub const GUTEN_SPIN_SECS: f32 = 2.3;
