@@ -7,7 +7,6 @@
 
 extern crate alloc;
 
-use bevy::prelude::*;
 use esp_backtrace as _;
 use esp_hal::main;
 use esp_storage::FlashStorage;
