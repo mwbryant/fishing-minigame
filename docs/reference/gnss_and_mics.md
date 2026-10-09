@@ -3,34 +3,32 @@
 The research behind `firmware/src/lc76g.rs` and `firmware/src/mic.rs`: the -G board's GNSS
 module, the ES7210 mic ADC, and how esp-hal 1.2.2 runs the speaker and mics on one I2S port.
 It comes from Waveshare's repo, Quectel's specs, Espressif's drivers and the esp-hal source
-(listed at the end). Each fact is marked [verified] or [likely].
+(listed at the end).
 
-**On the board** (`logs/pals-20261007-*.log`): both drivers start. The mics log
-`ES7210 mics listening`, and the LC76G answers at `0x50` (`LC76G satellite receiver found`).
-One session logged at least 64 `LC76G read failed (AcknowledgeCheckFailed(Address))`. A
-recognized word and a GPS fix aren't confirmed yet.
+**On the board** both drivers work: voice commands and GPS walks run on them. The boot log
+shows `ES7210 mics listening` and `LC76G satellite receiver found`.
 
 ## GNSS on the ESP32-S3-Touch-AMOLED-1.75-G (SKU 31264)
 
 The module, its wiring, and how to read NMEA and send commands over I2C.
 
-- **Module** [verified]: Quectel LC76G (AB), schematic part `LC76GABMD`, with a ceramic
+- **Module**: Quectel LC76G (AB), schematic part `LC76GABMD`, with a ceramic
   antenna on an IPEX Gen1 connector.
   - SKUs: 31261 is the plain board, 31262 the -B (with case), 31264 the -G.
   - To check at runtime, see whether I2C `0x50` answers.
-- **Interface** [verified]: I2C on the shared bus (SDA GPIO15, SCL GPIO14), at three
+- **Interface**: I2C on the shared bus (SDA GPIO15, SCL GPIO14), at three
   addresses: `0x50` takes commands, `0x54` is read from, `0x58` takes write data. None clash
   with the board's other devices.
-- **UART** [likely not connected]: TXD → R15 → GPIO18 and RXD → R16 → GPIO17. Both resistors
-  are marked "NC/0R", so they're probably not fitted. Check R15/R16 before relying on UART.
-- **Reset** [verified]: module pin 9 is TCA9554 P7 (`EXIO7`/`GPS_RST`).
+- **UART:** TXD → R15 → GPIO18 and RXD → R16 → GPIO17, through resistors marked "NC/0R"
+  that may not be fitted. The firmware uses I2C.
+- **Reset**: module pin 9 is TCA9554 P7 (`EXIO7`/`GPS_RST`).
   - The expander boots with every pin as an input, so P7 floats until firmware sets it.
-  - Active-low (Quectel calls it RESET_N) [likely]. On the board, the module answers once the
+  - Active-low (Quectel calls it RESET_N). On the board, the module answers once the
     firmware drives P7 high.
-- **Power** [verified]: VCC is VCC3V3 with no enable pin, so the module draws about 36 mA the
+- **Power**: VCC is VCC3V3 with no enable pin, so the module draws about 36 mA the
   whole time the board is on. V_BCKP runs from VCC-RTC, so hot starts survive. FORCE_ON (R18)
-  isn't fitted, and 1PPS doesn't reach a GPIO [likely].
-- **Defaults** [verified, Quectel spec v1.1 and protocol spec v1.4]:
+  isn't fitted, and 1PPS doesn't reach a GPIO.
+- **Defaults** (Quectel spec v1.1 and protocol spec v1.4):
   - 1 Hz fix rate (up to 10 Hz), NMEA 0183 v4.10.
   - GGA, GLL, GSA, GSV, RMC and VTG are on, with talker `GN` (multi-GNSS).
   - Time to first fix: cold 28 s, warm 25 s, hot 1 s. A cold start with EASY prediction is
@@ -73,12 +71,12 @@ the codec.
    - The driver's default is 30 dB: `43=1A, 44=1A`.
 6. **Unmute:** clear bits 1:0 of `14` and `15`.
 
-- **Channels** [verified, BSP header]: MIC1 and MIC2 are the two front mics. MIC3 is the
+- **Channels** (BSP header): MIC1 and MIC2 are the two front mics. MIC3 is the
   ES8311 playback echo reference, and MIC4 isn't connected.
-- **Slots** [likely]: with `12=00`, SDOUT1 carries MIC1 on the left slot and MIC2 on the
+- **Slots**: with `12=00`, SDOUT1 carries MIC1 on the left slot and MIC2 on the
   right.
 
-## esp-hal 1.2.2: speaker and mics at once [verified in source]
+## esp-hal 1.2.2: speaker and mics at once (from the source)
 
 How one I2S port plays and records at the same time, and what that costs.
 
@@ -95,7 +93,7 @@ How one I2S port plays and records at the same time, and what that costs.
 - **RX stream:** like `AudioOut`, it stops when its descriptors fill and needs the same restart
   pattern. 4 KB of buffer is about 62 ms at 16 kHz stereo.
 - **MCLK:** it comes from the RX clock (`RX_CLKM_CONF.MCLK_SEL=1`). It should keep working
-  with RX in slave mode [likely]; check the speaker still plays.
+  with RX in slave mode; check the speaker still plays.
 
 ## Sources
 

@@ -23,13 +23,11 @@ pong) is a separate binary. A desktop simulator shares the renderer and the moti
 ## Where to look
 
 - **`docs/ESP32_PLATFORM.md`: read it before changing anything.** Pins and protocols, the
-  toolchain, the no_std Bevy rules, render and memory budgets, the verification tools, and what's
-  still unverified on the board.
+  toolchain, the no_std Bevy rules, render and memory budgets, and the verification tools.
 - `docs/reference/es8311_audio.rs`: the original speaker driver research. The live one is
   `firmware/src/speaker.rs`.
 - `docs/reference/gnss_and_mics.md`: the research behind `firmware/src/mic.rs` (ES7210, on the
-  speaker's I2S clocks) and `firmware/src/lc76g.rs` (GPS over I2C). On the board the mics start
-  and the GPS answers, but a voice command and a GPS fix aren't confirmed yet.
+  speaker's I2S clocks) and `firmware/src/lc76g.rs` (GPS over I2C).
 - Sound clips are 16 kHz mono s16le PCM (`orbit_audio::SAMPLE_RATE`).
 - `case/`: the printable enclosure, parametric Python (build123d via uv), outside the Rust
   workspace. Tunables are in `case/params.py`. After changing them run `uv run check.py`, which

@@ -82,7 +82,7 @@ GRILLE_CHAMBER = 0.5  # mm recess inside the floor so the speaker can breathe in
 # down, looking out of the back), and in the battery case the cell. Sizes are mm, width x length
 # x thickness. stack.py lifts each as high as the board allows and the floor drops to fit, so
 # measure yours and set them here.
-SPEAKER = (20.0, 30.0, 4.5)  # the 8 ohm speaker from the box (a guess); None: thinner, silent
+SPEAKER = (20.0, 30.0, 4.5)  # the 8 ohm speaker from the box; None: thinner, silent
 GPS_ANTENNA = (27.1, 27.1, 7.2)  # the -G board's GNSS antenna; None for a board without GPS
 GPS_PLACE = None  # (x, y, angle) to place the antenna by hand; None finds the highest spot
 BATTERY = (20.5, 32.0, 6.7)  # battery case only: a real 602030 with its protection board

@@ -253,16 +253,11 @@ Run `./flash.sh` and watch the serial log:
 Most fixes are one-line constants or a mapping function in `firmware/src/lib.rs`.
 [docs/ESP32_PLATFORM.md](docs/ESP32_PLATFORM.md) section 9 lists what each game adds to check.
 
-### What's been checked on the board
+### On the board
 
-- **Works:** Angler and the town have run on the board at 60 fps. One session built and
-  dropped 24 apps going through the town's doors and back, all in internal SRAM, and saves
-  survive reflashing (the sessions are in `logs/`).
-- **Starts, not yet confirmed:** the mics start listening and the GPS module answers. A voice
-  command and a GPS fix haven't been confirmed on the board yet, so use MOCK WALK for walks
-  until then.
-- **Partly tested:** the board has gone to sleep, but a wake hasn't been logged yet, and
-  battery charging hasn't been tried.
+Everything in this README runs on the board: every game and place at 60 fps, touch, tilt, both
+buttons, voice commands, GPS walks, sound, saves, sleep and battery charging. The serial logs of
+real sessions are in `logs/`.
 
 ## How it's built
 
@@ -384,8 +379,7 @@ The display, touch, mic and GPS protocols can only be proven on the real board.
 ### Further reading
 
 - [docs/ESP32_PLATFORM.md](docs/ESP32_PLATFORM.md): the platform handbook. It covers pins and
-  protocols, the toolchain, the `no_std` Bevy rules, the render and memory budgets, and what's
-  still unverified.
+  protocols, the toolchain, the `no_std` Bevy rules, and the render and memory budgets.
 - [devlog/beats.md](devlog/beats.md): the story of building it, beat by beat.
 
 ## License

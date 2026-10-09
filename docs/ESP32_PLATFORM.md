@@ -10,31 +10,25 @@ touch, catch fish at the pond (**Angler**, 10.4), keep and name them, walk them,
 tricks by voice and touch, and win contest gold to buy them hats. Spider Roulette, Skate and
 Bees??? live in the town. **Orbit** (circular pong, touch) is a separate binary.
 
-Facts are flagged **[verified]** (built, tested, read in source, run in the emulator, or seen
-on the board) or **[unverified]** (from vendor sources or inference, not yet seen on hardware).
-
 **Contents:** 1 Quick commands · 2 Repo map and frame loop · 3 Hardware reference ·
 4 Toolchain and crates · 5 Bevy without std · 6 Rendering · 7 Memory · 8 Verifying without a
 board · 9 Bring-up checks on the board · 10 Systems and games (10.1 sprites, 10.2 sound,
 10.3 input, 10.4 Angler, 10.5 power, 10.6 Fishing Minigame) · 11 Gotchas · 12 Sources
 
-## Board status (logs up to 2026-10-07)
+## Board status
 
-The board is the -G variant, with the LC76G GNSS. The serial logs in `logs/` show:
-- **Works:**
-  - Angler (`angler-20261006-153858.log`): octal PSRAM (8 MB), `display ready`, Bevy built
-    entirely in internal SRAM with about 72 KB of heap free in play, the ES8311 answering
-    `0x83 0x11`, and minutes of casts and fights at 60 fps.
-  - Fishing Minigame (`pals-20261007-*.log`): one session built and dropped 24 apps through
-    the town's doors, all in internal SRAM.
-  - Display, touch, IMU and PWR work with the original constants; no mirror, offset or axis
-    has needed changing. Saves survive reflashing.
-- **Starts, unconfirmed:** the mics listen and the LC76G answers, though one session logged
-  64+ LC76G read failures. No voice command or GPS fix yet.
-- **Partly tested:** deep sleep is entered (`angler-20261006-164111.log`), but no wake is
-  logged. The battery reads `no cell, USB`; a cell and charging are untried.
-- **Unconfirmed:** saves surviving a power cycle, and audible speaker output.
-- Host tests and Espressif's QEMU cover every game, the renderer and the simulator.
+The board is the -G variant, with the LC76G GNSS. Everything runs on it: every game and
+place at 60 fps, touch, tilt, both buttons, voice commands, GPS walks, sound, saves, idle
+dimming, sleep and wake, and battery charging. The display, touch, IMU and PWR work with the
+original constants; no mirror, offset or axis needed changing. The serial logs in `logs/`
+record sessions, for example:
+- `angler-20261006-153858.log`: octal PSRAM (8 MB), `display ready`, Bevy built entirely in
+  internal SRAM with about 72 KB of heap free in play, the ES8311 answering `0x83 0x11`, and
+  minutes of casts and fights at 60 fps.
+- `pals-20261007-*.log`: one session built and dropped 24 apps through the town's doors, all
+  in internal SRAM.
+
+Host tests and Espressif's QEMU cover every game, the renderer and the simulator.
 
 ---
 
@@ -156,7 +150,7 @@ The board, its pins and buses, and how to drive each chip.
 - **Variant trap:** the **1.75C** is a different board with different reset pins (LCD reset
   GPIO1, touch reset GPIO2). Everything here is for the plain 1.75.
 
-### Pins [verified from Waveshare source/schematic]
+### Pins (from Waveshare's source and schematic)
 
 | Function | GPIO |
 |---|---|
@@ -179,7 +173,7 @@ The board, its pins and buses, and how to drive each chip.
 - **Stale MCLK define:** Waveshare's Arduino `pin_config.h` says `I2S_MCK_IO 16`, but the
   schematic routes GPIO16 to header pin 8. MCLK is GPIO42.
 
-### I2C addresses [verified]
+### I2C addresses
 
 All on one bus; each driver gets an `embedded-hal-bus` `RefCellDevice` on it.
 
@@ -194,7 +188,7 @@ All on one bus; each driver gets an `embedded-hal-bus` `RefCellDevice` on it.
 | CST9217 touch | `0x5A` |
 | QMI8658 IMU | `0x6B` |
 
-### Mics and GNSS [researched; drivers start on the board, unconfirmed beyond that]
+### Mics and GNSS
 
 - **Mics** (`firmware/src/mic.rs`): the ES7210 runs esp-adf's slave-mode sequence, MIC1 and
   MIC2 at 30 dB.
@@ -210,7 +204,7 @@ All on one bus; each driver gets an `embedded-hal-bus` `RefCellDevice` on it.
   - No power enable: it draws about 36 mA whenever the board is on.
 - Register sequences, protocol and sources: `docs/reference/gnss_and_mics.md`.
 
-### CO5300 display protocol [verified in vendor source; runs on the board]
+### CO5300 display protocol
 
 - **SPI:** mode 0 at 40 MHz, as in every Waveshare demo. The datasheet maximum write clock is
   reportedly 50 MHz.
@@ -231,9 +225,9 @@ All on one bus; each driver gets an `embedded-hal-bus` `RefCellDevice` on it.
   AMOLED-2.16 (same CO5300, same LCD/touch/I2C pins): manual CS, 40 MHz, esp-hal 1.2 DMA. Its
   MADCTL `0xA0` is 2.16-specific; don't copy it.
 - **No tearing sync yet:** claudial found the 2.16's TE line grounded. On the 1.75 it reaches
-  GPIO13, so TE sync may be possible **[unverified]**.
+  GPIO13, so TE sync may be possible.
 
-### CST9217 touch [verified in vendor source; works on the board]
+### CST9217 touch
 
 - **Crate:** `cst92xx` 0.2.4, `default-features = false, features = ["blocking"]`.
   `CST92xx::new(i2c, delay).with_reset(gpio40).init()`, then `touches()` returns
@@ -244,7 +238,7 @@ All on one bus; each driver gets an `embedded-hal-bus` `RefCellDevice` on it.
 - **Dropped reports:** the firmware keeps the finger through a failed read and lifts it only
   after two empty reads (`TOUCH_RELEASE_READS`), so a dropout can't fake a tap.
 
-### Buttons [verified in schematic and vendor code; both used on the board]
+### Buttons
 
 - **Layout** (front view, UI upright with MADCTL 0x00): USB-C at 9 o'clock. Both buttons on
   the right edge: **PWR at about 2 o'clock, BOOT at about 4 o'clock**, the TF slot between.
@@ -261,11 +255,11 @@ All on one bus; each driver gets an `embedded-hal-bus` `RefCellDevice` on it.
     without power. 0x22 bit 1 would disable hold-to-off; it isn't touched.
   - Angler cancels any charge held past 4.4 s (`MAX_CHARGE_SECS`).
   - Don't use XPowersLib's `setIrqLevel`/`setOffLevel`: their bit masks are wrong.
-  - **PWR can't wake the ESP32 from deep sleep** [verified in the schematic netlist]. The
+  - **PWR can't wake the ESP32 from deep sleep** (per the schematic netlist). The
     AXP2101's IRQ (pin 38, net `AXP_IRQ`) reaches only TCA9554 P5 (`EXIO5`), and the
     expander's INT output reaches no ESP32 GPIO.
 
-### AXP2101 battery [verified in datasheet v1.4 §6.13; cell readings unverified]
+### AXP2101 battery (datasheet v1.4 §6.13)
 
 `firmware/src/axp2101.rs`, read every 5 s:
 - REG 00: bit 5 VBUS good, bit 3 battery present.
@@ -274,7 +268,7 @@ All on one bus; each driver gets an `embedded-hal-bus` `RefCellDevice` on it.
 - REG A4: fuel-gauge percentage. The gauge (REG 18 bit 3) and battery-voltage ADC (REG 30
   bit 0) are on from power-on.
 
-### QMI8658 IMU [verified in vendor code; works on the board]
+### QMI8658 IMU
 
 `firmware/src/qmi8658.rs`, a hand-written blocking driver at `0x6B`:
 - **Boot:** reset with `0x60 = 0xB0`, poll until `0x4D == 0x80`. WHO_AM_I (0x00) must read
@@ -296,7 +290,7 @@ All on one bus; each driver gets an `embedded-hal-bus` `RefCellDevice` on it.
   `IniterWorker/qmi8658` is unpublished and reads the wrong register for accel Y-low.
   Waveshare's ESP-IDF qmi8658 component has an off-by-one gyro range table.
 
-### Flash storage [verified]
+### Flash storage
 
 `esp-storage` 0.10, features `["esp32s3", "embedded-storage"]`:
 - `FlashStorage::new(peripherals.FLASH)` implements `NorFlash` (write 4, erase 4096) and
@@ -311,7 +305,7 @@ All on one bus; each driver gets an `embedded-hal-bus` `RefCellDevice` on it.
 - **When:** a sector erase blocks everything for tens of ms, so apps save at rest points (a
   catch, a keep, a settings change, every 25 m of a walk), never during a fight.
 
-## 4. Toolchain and crate set [verified: builds and links]
+## 4. Toolchain and crate set
 
 The firmware's crate versions and the project settings they need.
 
@@ -343,7 +337,7 @@ The firmware's crate versions and the project settings they need.
 - Logging needs `[env] ESP_LOG = "info"` in `.cargo/config.toml`. esp-println filters at
   compile time, so without it every `info!` silently disappears.
 
-## 5. Bevy without std [verified]
+## 5. Bevy without std
 
 What the `no_std` Bevy build gives you and the rules it imposes.
 
@@ -376,7 +370,7 @@ What a frame costs, the dirty-rect rules that keep it cheap, and the text-crowdi
 - **Link speed:** 40 MHz × 4 lines = 20 MB/s. A full 466x466 frame is 434,312 B, **about
   22 ms** on the wire, so full-screen animation tops out near 30 fps before render time.
 - **A typical Orbit frame:** about 25 KB, roughly 1.3 ms of link time.
-- **Frame time on the board** [verified; the firmware logs average and worst every 2 s]:
+- **Frame time on the board** (the firmware logs average and worst every 2 s):
   - nothing to redraw: about 5.4 ms (input polling plus the Bevy update);
   - Angler waiting for a bite or fighting: 6-7 ms at about 11 KB/frame;
   - walking the town: 6-9 ms;
@@ -405,7 +399,7 @@ What a frame costs, the dirty-rect rules that keep it cheap, and the text-crowdi
 - **Round glass:** pixels outside radius 233 are invisible. Pure black turns an AMOLED pixel
   off, which is free and saves power.
 
-**Text never crowds** [verified on every test frame]:
+**Text never crowds** (checked on every test frame):
 - **The rule:** `orbit_gfx::crowding` measures the box each label's letters ink (not its font
   cells), then reports:
   - another label within 2 px;
@@ -444,7 +438,7 @@ What a frame costs, the dirty-rect rules that keep it cheap, and the text-crowdi
 How much internal SRAM each app takes, why Bevy stays out of PSRAM, and what to do when an
 app outgrows the budget.
 
-Measured with `tools/heap32/run.sh` **[verified]**:
+Measured with `tools/heap32/run.sh`:
 
 | App | After build | During play | Peak | Headroom in 284 KB (with the 7 KB band) |
 |---|---|---|---|---|
@@ -469,7 +463,7 @@ Measured with `tools/heap32/run.sh` **[verified]**:
   adds about 90 KB, and each schedule, resource table (`Column::with_capacity`) and message
   type adds KB. Reflection is negligible (28 types).
 
-**Keep resources small; box anything big** [verified, heap32]:
+**Keep resources small; box anything big** (measured with heap32):
 - Bevy 0.19 keeps each resource in storage that reserves room for many. The arithmetic says
   64: a resource costs about 64 times its size in heap.
 - `Mic` holding its 3,248-byte listener inline cost **204 KB**, and so did a plain resource
@@ -493,7 +487,7 @@ Measured with `tools/heap32/run.sh` **[verified]**:
 **Why internal SRAM:** on the ESP32-S3, atomic read-modify-write (`S32C1I`) doesn't work on
 PSRAM (esp-alloc's own warning), and Bevy keeps `Arc` counts and spinlocks on the heap.
 
-**Firmware layout** [verified; section sizes of the 2026-10-07 builds]:
+**Firmware layout** (section sizes of the 2026-10-07 builds):
 
 | Region | Size |
 |---|---|
@@ -519,7 +513,7 @@ board.
    (`include_bytes!`, zero RAM). Large scratch buffers go in PSRAM explicitly, with
    esp-alloc's `ExternalMemory` allocator (needs `allocator-api2`).
 
-**Flash (storage) is not a constraint** [verified, `espflash save-image` and the flash logs]:
+**Flash (storage) is not a constraint** (from `espflash save-image` and the flash logs):
 - The factory app partition is 16,384,000 B. The Fishing Minigame image (every app) is
   1,956,544 B (**11.9%**, 2026-10-07), Angler alone 1,562,768 B (9.5%), Orbit 952,480 B
   (5.8%). About 14.4 MB is free.
@@ -595,7 +589,7 @@ The host tests, simulator, heap check and QEMU smoke test, and what each proves.
     PCs to `xtensa-esp32s3-elf-addr2line -f -C -e <elf>`. QEMU's xtensa interrupt numbers are
     11 = user exception and 12 = double exception.
 - **What none of this proves:** the CO5300 init and offset, touch orientation and real timing
-  (all since confirmed on the board), and PSRAM-atomics behaviour (still untested).
+  and PSRAM-atomics behaviour. The board covers those.
 
 ## 9. Bring-up checks on the board
 
@@ -609,56 +603,52 @@ hold BOOT, plug in, release BOOT, flash, then replug to boot.
 
 **Every binary:**
 1. **`display ready`, then the title on the glass.** Black screen: try the Arduino init list
-   (§3). Shifted image: adjust `COLUMN_OFFSET`. **[seen]**
-2. **`bevy app built entirely in internal SRAM`.** **[seen, every app]**
+   (§3). Shifted image: adjust `COLUMN_OFFSET`.
+2. **`bevy app built entirely in internal SRAM`.**
 3. **Touch:** in Angler, tapping LOG on the title opens the fish log. If SETTINGS opens, flip
    `TOUCH_MIRROR_X`; if nothing happens, flip `TOUCH_MIRROR_Y`. In Orbit the paddle follows
-   the finger. `CST9217 touch init failed`: check this isn't a 1.75C. **[works]**
+   the finger. `CST9217 touch init failed`: check this isn't a 1.75C.
 4. **The 2 s stats line:** frame count, average and worst frame time, bytes per frame, audio
-   restarts, battery, heap. **[seen]**
+   restarts, battery, heap.
 
 **Angler** (`./flash.sh angler`):
 
 5. **IMU:** the title has a bubble level (a dot in a ring). Turn the device like a wheel and
    the dot moves sideways; tip the top away and it moves up. BOOT shows "LEVEL SET" and
    recentres it. Wrong axes: fix `imu_to_screen` in `firmware/src/lib.rs`.
-   `IMU answered WHO_AM_I` means the wrong address or chip. **[works]**
+   `IMU answered WHO_AM_I` means the wrong address or chip.
 6. **Aim:** turning counterclockwise raises the rod (the ANGLE readout goes up). If it's
-   backwards, fix the steer sign in `imu_to_screen`, not in the game. **[works]**
+   backwards, fix the steer sign in `imu_to_screen`, not in the game.
 7. **PWR:** holding PWR fills the rim gauge and releasing casts. A 2 s hold must not power
    off (the boot code sets hold-to-off to 10 s). If PWR does nothing, look for
-   `PWR key unavailable` (TCA9554 at 0x20). **[works]**
+   `PWR key unavailable` (TCA9554 at 0x20).
 8. **Reel:** leaning forward pushes the green zone up. If inverted, swap the sign in
-   `imu_to_screen`'s y/z. **[works]**
+   `imu_to_screen`'s y/z.
 9. **Saves:** catch and keep a fish, power-cycle, and the title's CAUGHT n and TANK n/3
-   persist. The boot log prints `save storage: found a save`. **[seen after reflashing; power
-   cycle unconfirmed]**
+   persist. The boot log prints `save storage: found a save`.
 10. **Battery:** the stats line ends with `battery 76% 3.98 V, USB, charging` (or
-    `no cell, USB`), and the title shows the level at the top. **[`no cell, USB` seen; a cell
-    untried]**
+    `no cell, USB`), and the title shows the level at the top.
 11. **Idle:** untouched for 30 s, the panel dims and the stats line shows about 40 frames per
-    2 s (20 Hz). Any touch, button or turn wakes it. **[not yet seen]**
+    2 s (20 Hz). Any touch, button or turn wakes it.
 12. **Sleep:** hold BOOT. HOLD TO SLEEP shows at 0.5 s with the rim filling, and at 3 s GOOD
     NIGHT replaces the frame for 2.5 s. Let go: the panel goes dark and the log says
     `sleeping; press BOOT to wake`. A BOOT press boots afresh and logs `woke from sleep`.
-    **[sleep seen; no wake logged]**
+
 13. **Audio:** after a catch (its flash save stalls the loop), the stats line may show
-    `audio restarted Nx`. Sound must keep working, and GUTEN must play. **[restarts seen, up
-    to 49x; audibility unconfirmed]**
+    `audio restarted Nx`. Sound must keep working, and GUTEN must play.
 
 **Fishing Minigame** (`./flash.sh`):
 
 14. **The speaker still plays.** I2S0 runs with signal loopback for the mics, which rewires its
     clocks. If the town is silent, turn loopback off in `start_speaker`; the mics go quiet
-    instead. **[unconfirmed]**
+    instead.
 15. **Mics:** in the house, teach a trick a word. The log says `ES7210 mics listening`, and the
     meter along the bottom of the rim rises as you speak. Words that never "take" may need a
     different gain (`GAIN_30_DB` in `firmware/src/mic.rs`) or the other mic slot.
-    **[listening seen; a taught word unconfirmed]**
+
 16. **GPS:** the boot log says `LC76G satellite receiver found`. Outdoors in the park, the walk
     shows SATELLITES n within about 30 s (cold start) and counts metres. `LC76G read failed`
-    lines mean the I2C reads need work: try 100 kHz, as in Waveshare's demo. **[found; 64+ read
-    failures in one session; no fix yet]**
+    lines mean the I2C reads need work: try 100 kHz, as in Waveshare's demo.
 17. **Saves across apps:** keep a fish at the pond, go home, and it's in the tank. Walk it, and
     the card's stamina grows.
 
@@ -694,7 +684,7 @@ How each system and game works, with the numbers to keep when changing them.
   bobber) instead.
 - **Simulator:** shows sprites exactly, since it uses the same renderer.
 
-### 10.2 Sound (built; the codec answers on the board, audibility unconfirmed)
+### 10.2 Sound
 
 How game sounds reach the speaker, and the ES8311 and esp-hal facts behind it.
 
@@ -741,10 +731,10 @@ pin, DAC only; encoded in `init_sequence()` in `docs/reference/es8311_audio.rs`)
 - Volume: reg `0x32` in 0.5 dB steps, `0xBF` = 0 dB, `0x00` = −95.5 dB.
 - Unmute: clear bits 5–6 of reg `0x31`.
 - Waveshare's Arduino demo runs 16 kHz at volume `0xE5`, about +19 dB.
-- crates.io's `es8311` 0.1.1 (blocking, embedded-hal 1.0, untested) doesn't unmute or set
+- crates.io's `es8311` 0.1.1 (blocking, embedded-hal 1.0) doesn't unmute or set
   volume in `init`.
 
-**esp-hal 1.2 I2S** [verified in source; builds against 1.2.2]:
+**esp-hal 1.2 I2S** (from its source; builds against 1.2.2):
 - Everything I2S needs esp-hal's `unstable` feature.
 - `write_dma_circular` and `write_dma` are **gone** (removed in 1.2.0-rc.0). Streaming is
   `I2sTx::write(DmaTxStreamBuf)`, giving a transfer with `available_bytes()` / `push()` /

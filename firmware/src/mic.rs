@@ -3,8 +3,7 @@
 //! (`TdmConfig::with_signal_loopback`), so it hears only while the speaker
 //! stream runs, which it does from the first app with sound. The register
 //! sequence follows esp-adf's `es7210.c` in slave mode with MIC1 and MIC2;
-//! see `docs/reference/gnss_and_mics.md`. On the board it starts listening,
-//! but a recognized word isn't confirmed yet.
+//! see `docs/reference/gnss_and_mics.md`.
 
 use alloc::{boxed::Box, vec};
 

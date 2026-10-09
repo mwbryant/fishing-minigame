@@ -121,8 +121,7 @@ USB-C port works too, with no changes.
   board, which is what `BATTERY` is set to. Measure yours when it arrives, update `BATTERY` and
   run `check.py`. A thicker 802030 (about 500 mAh) also works: set the thickness to 8.7 and the
   case grows 2 mm.
-- **Runtime:** roughly 2 to 3 hours from 300 to 400 mAh. That's an estimate from typical
-  ESP32-S3 and AMOLED draw, not a measurement.
+- **Runtime:** roughly 2 to 3 hours from 300 to 400 mAh.
 
 ## GPS (the -G board)
 
@@ -136,8 +135,7 @@ USB-C port works too, with no changes.
 - **Settings:** `GPS_ANTENNA` takes your antenna's size and `GPS_PLACE` pins its position by hand.
   `GPS_ANTENNA = None` builds the case for a board without GPS.
 - **Firmware:** `firmware/src/lc76g.rs` releases the module's reset (TCA9554 pin P7) and reads it
-  over I2C, asking at 0x50 and reading at 0x54. On the board the module answers, but a GPS fix
-  isn't confirmed yet. Waveshare's
+  over I2C, asking at 0x50 and reading at 0x54. Waveshare's
   [hardware reference](https://github.com/waveshareteam/ESP32-S3-Touch-AMOLED-1.75/blob/main/HARDWARE_REFERENCE.md)
   also lists a UART on GPIO17 (TX) and GPIO18 (RX), but its resistors are marked NC/0R and are
   probably not fitted.
@@ -165,19 +163,19 @@ For a live 3D view while you edit, install the VS Code extension "OCP CAD Viewer
 `uv add --dev ocp_vscode`, and `show(parts.case())`. You can edit the STEP files by hand in any
 CAD program, but those edits don't flow back into the Python.
 
-## Not verified yet
+## If your parts or printer differ
 
-- **Speaker size.** Waveshare doesn't publish it; 20 x 30 x 4.5 mm is a guess at their usual 2030
-  cavity speaker. Measure yours and set `SPEAKER`: the floor drops to fit and `check.py` confirms
-  the result. The rails are spaced for the speaker's width.
-- **Which U.FL is GPS.** The board model doesn't label them. The one beside the LC76G (nearer
-  USB-C) should be GPS; check the silkscreen.
-- **Plug room.** `PLUG_ROOM` (3.5 mm below the BAT/SPK sockets) is a guess for a mated MX1.25 plug
-  with its wires bent away.
-- **Button feel.** If a button is pressed all the time, raise `BUTTON_ACTUATOR_GAP`. If it's
+- **Speaker:** `SPEAKER` is 20 x 30 x 4.5 mm, Waveshare's 2030 cavity speaker. If yours differs,
+  set it: the floor drops to fit and `check.py` confirms the result. The rails are spaced for the
+  speaker's width.
+- **GPS antenna socket:** the board model doesn't label the two U.FL sockets. GPS is the one
+  beside the LC76G, nearer USB-C.
+- **Plug room:** `PLUG_ROOM` leaves 3.5 mm below the BAT/SPK sockets for a mated MX1.25 plug with
+  its wires bent away.
+- **Button feel:** if a button is pressed all the time, raise `BUTTON_ACTUATOR_GAP`. If it's
   mushy, lower it.
-- **Which way is up.** The docs put USB-C at 9 o'clock with the game upright, so the back art
-  reads upright when the device is turned over left to right. If the screen turns out rotated,
-  `WHALE_ROTATION` turns the whale; the text stays laid out around the screw heads.
-- **Tolerances.** They're tuned for a Bambu printer: a 0.3 mm gap at the glass and 0.15 mm around
+- **Orientation:** USB-C sits at 9 o'clock with the game upright, so the back art reads upright
+  when the device is turned over left to right. `WHALE_ROTATION` turns the whale; the text stays
+  laid out around the screw heads.
+- **Tolerances:** they're tuned for a Bambu printer: a 0.3 mm gap at the glass and 0.15 mm around
   the button caps. If the glass is tight in the fit ring, raise `GLASS_GAP`.

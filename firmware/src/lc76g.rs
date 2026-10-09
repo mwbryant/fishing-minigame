@@ -6,8 +6,6 @@
 //! of blocking for 20 ms. The module's reset is TCA9554 P7, released on
 //! startup; boards without the module don't answer `0x50`. From Waveshare's
 //! `09_LC76G_I2C` demo and Quectel's I2C note (`docs/reference/gnss_and_mics.md`).
-//! On the board it answers, but one session logged read failures and no fix
-//! is confirmed yet.
 
 use embedded_hal::i2c::I2c;
 use esp_hal::time::Instant;
