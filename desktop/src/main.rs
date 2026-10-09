@@ -3,7 +3,7 @@
 //! CO5300, and the IMU is a virtual device driven from the keyboard.
 //!
 //! ```text
-//! cargo run -p orbit_desktop -- [GAME]   play (default town: Fish Pals)
+//! cargo run -p orbit_desktop -- [GAME]   play (default town: Fishing Minigame)
 //!   Holding Z (BOOT) sleeps the board like the firmware does; Z again wakes it.
 //! cargo run -p orbit_desktop -- GAME snapshot <dir>   scripted PNGs, headless
 //! cargo run -p orbit_desktop -- footage <dir> [TAKE...]   the trailer's takes,

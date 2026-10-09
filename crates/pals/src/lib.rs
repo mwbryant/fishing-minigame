@@ -1,4 +1,4 @@
-//! Fish Pals: the fish you keep. Catch them at the pond, name them, walk
+//! Fishing Minigame: the fish you keep. Catch them at the pond, name them, walk
 //! them to build stamina, teach them tricks with your voice and the glass,
 //! and enter them in contests for the gold that buys their hats.
 //!

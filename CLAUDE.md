@@ -2,7 +2,9 @@
 
 no_std Bevy 0.19 games for the Waveshare ESP32-S3-Touch-AMOLED-1.75 (466x466 round AMOLED,
 touch, IMU, two buttons; the user's is the -G variant with an LC76G GPS, and it has two
-ES7210 mics). The board boots **Fish Pals**, a Nintendogs-style loop:
+ES7210 mics). The board boots **Fishing Minigame**, a Nintendogs-style loop. It was called Fish Pals,
+and the code keeps that name (`pals`, `pals_game`, `--bin pals`, the `PALS` save key, so saves
+survive); only what people read says Fishing Minigame:
 - a **town** (`pals_game::town`) you walk around by touch (menus still turn);
 - the **pond** (Angler: catch, then KEEP and name by turning, up to three);
 - the **house** (the tank, cards, trick school by voice and touch strokes);
@@ -36,7 +38,7 @@ Rules that bite:
   for trig and sqrt, since `f32::sin` is std-only. No bevy_render, bevy_asset, bevy_log or threads.
 - `firmware/` and `tools/*` are excluded from the workspace. Build the firmware with
   `cd firmware && . ~/export-esp.sh && cargo build --release` (always release). Binaries:
-  `--bin pals` (Fish Pals: the town and every place) and one per game
+  `--bin pals` (Fishing Minigame: the town and every place) and one per game
   (`angler spider skate bees orbit`).
 - The user flashes with `./flash.sh [game]` (default `pals`), which saves every serial
   session to `logs/<game>-<timestamp>.log`. When they report a hardware problem, read the
@@ -55,7 +57,7 @@ Rules that bite:
   - **Saves:** use your own `SaveBlob` section (four-byte key). The fish, gold and hats are
     `pals::save` (`PALS`).
   - **Leaving:** a game offers OUT (send `AppExit`) when `orbit_core::Launcher` is present; a
-    Fish Pals place exits on its own way out.
+    Fishing Minigame place exits on its own way out.
   - **Wiring it in:**
     - a `pals_game::Place`, with a door in `town::map` and the app in `firmware/src/bin/pals.rs`;
     - `firmware/src/bin/<game>.rs` if it's also standalone;
@@ -66,11 +68,11 @@ Rules that bite:
   atomics are unreliable on the S3.
   - Peak headroom: Orbit 12 KB, Angler 67, the house 73, the contest 75, the park 80,
     Skate 82, Bees??? 84, the town 84, Spider Roulette 85, the shop 86.
-  - Fish Pals drops each app before building the next, so only one is ever in memory.
+  - Fishing Minigame drops each app before building the next, so only one is ever in memory.
   - **A resource costs about 64 times its size in heap**: a 3 KB resource cost 204 KB. Keep
     resources under about 100 bytes and box anything bigger, phase enums included.
   After adding plugins, systems, resources or states, run `tools/heap32/run.sh`.
-  `tools/qemu-smoke/run.sh` checks the full firmware runtime of every game and Fish Pals'
+  `tools/qemu-smoke/run.sh` checks the full firmware runtime of every game and Fishing Minigame's
   app switching (a leak check) in QEMU. QEMU scripts run on game time, never frame counts.
 - No text ever crowds: no other text within 2 px, nothing over or half under it, nothing
   past the glass.

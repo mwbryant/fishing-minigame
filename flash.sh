@@ -3,7 +3,7 @@
 # board's serial log. Only the bootloader, partition table and app are
 # written, so saves (0x9000/0xA000) survive. Every session's log is kept in logs/.
 #
-#   ./flash.sh [game]     build + flash (Fish Pals by default; or angler, spider, skate, bees, orbit), then the log
+#   ./flash.sh [game]     build + flash (Fishing Minigame by default; or angler, spider, skate, bees, orbit), then the log
 #   ./flash.sh monitor [game]     only reopen the log (Ctrl+R restarts the board)
 #
 # Several boards plugged in: ESPFLASH_PORT=/dev/cu.usbmodemXXXX ./flash.sh

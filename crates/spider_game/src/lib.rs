@@ -5,7 +5,7 @@
 //! pounce. Crack all eleven safe ones and the spider is trapped. The best run
 //! of safe eggs persists in the board's save record.
 //!
-//! In Fish Pals it's the den's gamble: with gold in the purse (`pals`), a
+//! In Fishing Minigame it's the den's gamble: with gold in the purse (`pals`), a
 //! round starts with a bet. Each safe egg raises what the bet is worth (fair
 //! odds, less the house's tenth); CASH OUT banks it, the spider takes it,
 //! and trapping the spider pays the whole run.

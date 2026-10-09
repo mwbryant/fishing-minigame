@@ -138,7 +138,7 @@ enum MicPort {
     Failed,
 }
 
-/// The board, brought up once. Apps run on it one after another: Fish Pals
+/// The board, brought up once. Apps run on it one after another: Fishing Minigame
 /// runs the town, then the place its door led to, then the town again.
 pub struct Board {
     delay: Delay,

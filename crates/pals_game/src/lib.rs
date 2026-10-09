@@ -1,4 +1,4 @@
-//! Fish Pals' places, each its own Bevy app so only one is ever in the
+//! Fishing Minigame's places, each its own Bevy app so only one is ever in the
 //! board's memory: the town you walk around (the hub, and where the platform
 //! starts), and the house, park, contest hall and hat shop you walk into.
 //! The pond, the den and the arcade's games are the other crates' apps. The

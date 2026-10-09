@@ -1,7 +1,7 @@
 # Bevy on the Waveshare ESP32-S3-Touch-AMOLED-1.75: platform handbook
 
 Everything learned bringing `no_std` Bevy games to this board, written so a
-fresh session can keep going without re-deriving it. The board boots **Fish Pals**
+fresh session can keep going without re-deriving it. The board boots **Fishing Minigame**
 (section 10.6), a Nintendogs-style loop: a town you walk around by touch,
 fish caught at the pond (**Angler**, section 10.4), kept, named, walked, taught tricks by
 voice and touch, and entered in contests for the gold that buys their hats. Spider Roulette,
@@ -11,7 +11,7 @@ Facts are marked
 **[unverified]** (from vendor sources or inference; not yet seen on hardware).
 
 Status as of 2026-10-07: the board (the -G variant, with the LC76G GNSS) has **arrived**.
-Fish Pals is built and tested on the host and in QEMU, but not yet run on the board. Its
+Fishing Minigame is built and tested on the host and in QEMU, but not yet run on the board. Its
 mic (ES7210) and GPS (LC76G) drivers are new, written from research
 (`docs/reference/gnss_and_mics.md`), and unverified on hardware. The first Angler session
 (`logs/angler-20261006-153858.log`) shows octal PSRAM (8 MB) up, `display ready`,
@@ -28,7 +28,7 @@ Both games, the renderer, and the simulator are tested on the host and in Espres
 ```sh
 # host workspace (game + renderer + simulator)
 cargo test --workspace && cargo clippy --workspace --all-targets && cargo fmt
-cargo run -p orbit_desktop                           # Fish Pals' town (the default) ...
+cargo run -p orbit_desktop                           # Fishing Minigame's town (the default) ...
 cargo run -p orbit_desktop -- home                   # ... or one app: town home park contest shop
                                                      #     angler spider skate bees orbit
 cargo run -p orbit_desktop -- skate snapshot screenshots   # headless PNGs of an app's screens
@@ -41,7 +41,7 @@ cargo run -p orbit_desktop -- skate snapshot screenshots   # headless PNGs of an
 #   microphone stands in for the board's (macOS asks once); there's no GPS, so turn on
 #   MOCK WALK in the town's settings for walks.
 
-# device firmware (separate crate, Xtensa toolchain; Fish Pals plus one binary per game)
+# device firmware (separate crate, Xtensa toolchain; Fishing Minigame plus one binary per game)
 ./flash.sh [pals|angler|spider|skate|bees|orbit]    # from the repo root (default pals)
 ./flash.sh monitor [game]                            # reopen the serial log only
 #   every session's log is saved in logs/<game>-<timestamp>.log
@@ -78,23 +78,23 @@ crates/orbit_core    #![no_std] shared Bevy plumbing. `CorePlugin`: Frame, Touch
                      (NMEA in, fixes out).
 crates/orbit_ui      #![no_std] shared drawing: Button, battery level, sleep overlay, the
                      rotation dial and list, typing by turning, the gold coin, CLICK/THUD.
-crates/pals          #![no_std] Fish Pals' state and rules, no systems: pets, tricks,
+crates/pals          #![no_std] Fishing Minigame's state and rules, no systems: pets, tricks,
                      gestures, walks (trail, mock walk), gold, the hat shelf, `PALS` save.
-crates/pals_game     #![no_std] Fish Pals' places, one app each: the town (boot), the house,
+crates/pals_game     #![no_std] Fishing Minigame's places, one app each: the town (boot), the house,
                      the park, the contest hall, the hat shop.
 crates/angler_game   #![no_std] Angler, the pond (fishing; keep and name; no Bevy states).
 crates/spider_game   #![no_std] Spider Roulette, the den (twelve eggs, one spider, bets).
 crates/skate_game    #![no_std] Skate, the arcade cabinet (ollies; halfpipe tricks).
 crates/bees_game     #![no_std] Bees???, the humming tree (bees wear the lead fish's hat).
 crates/orbit_game    #![no_std] Orbit (circular pong, touch only; uses Bevy states).
-desktop/             std simulator for Fish Pals or any one app (minifb window, RAM model
+desktop/             std simulator for Fishing Minigame or any one app (minifb window, RAM model
                      of the panel, virtual IMU, the laptop's mic, file-backed save flash,
                      PNG snapshots).
 firmware/            ESP32-S3: lib (`Board`: bring-up once, then `run` one app at a time,
                      + drivers), the pals binary and one binary per game. Excluded from
                      the workspace.
 tools/heap32/        wasm32 heap measurement of every app (excluded from workspace).
-tools/qemu-smoke/    QEMU runtime smoke test of every game and the Fish Pals tour (excluded).
+tools/qemu-smoke/    QEMU runtime smoke test of every game and the Fishing Minigame tour (excluded).
 docs/reference/      research: the ES8311 speaker driver, and the LC76G and ES7210 notes.
 ```
 
@@ -423,7 +423,7 @@ Measured **[verified]** with `tools/heap32/run.sh`:
 | Spider Roulette | 188 KB | 191 KB | 191 KB | **85 KB** |
 | Hat shop | 188 KB | 190 KB | 191 KB | **86 KB** |
 
-Fish Pals drops each app before building the next (`Board::run` returns the app, the
+Fishing Minigame drops each app before building the next (`Board::run` returns the app, the
 caller drops it), so its worst case is its biggest app. The QEMU tour checks the internal
 heap after every return to the town doesn't creep. Not counted above: the speaker's 8 KB
 stream buffer, taken from the heap the first time an app makes sound, and the mics' 4 KB,
@@ -490,10 +490,10 @@ If a game outgrows the budget, the options, in order of preference:
    `ExternalMemory` allocator (needs `allocator-api2`).
 
 **Flash (storage) is not a constraint** [verified, `espflash save-image`, 2026-10-06]:
-- The 16 MB chip's factory app partition is 16,384,000 B. The Fish Pals image (every app)
+- The 16 MB chip's factory app partition is 16,384,000 B. The Fishing Minigame image (every app)
   is 1,952,464 B (**11.9%**; measured 2026-10-07), Angler alone 1,562,768 B (9.5%),
   Orbit 952,480 B (5.8%), so about 14.4 MB is free.
-- The `.stack` is what DRAM is left: 67 KB for Fish Pals, about 70 KB for one game.
+- The `.stack` is what DRAM is left: 67 KB for Fishing Minigame, about 70 KB for one game.
 - Angler's image is about 800 KB of code (`.text`, mostly Bevy) and 696 KB of read-only
   data. That data is 485 KB for the GUTEN song, 117 KB of sound effects, and the rest
   fonts, sprites and strings.
@@ -531,9 +531,9 @@ Other memory facts:
 - **`tools/qemu-smoke/run.sh`:**
   - **Setup it handles:** downloads Espressif QEMU `esp-develop-9.2.2-20260417`
     (`-machine esp32s3`, needs `brew install libgcrypt`).
-  - **What it runs:** one binary per game plus the Fish Pals tour (`src/bin/*.rs`) over a
+  - **What it runs:** one binary per game plus the Fishing Minigame tour (`src/bin/*.rs`) over a
     shared `Smoke` harness (`src/lib.rs`): the firmware's heap layout, a byte-counting panel,
-    scripted input, `relaunch` (drop the app, build the next, as Fish Pals does) and
+    scripted input, `relaunch` (drop the app, build the next, as Fishing Minigame does) and
     `wait(secs)`. The two `.stack` sizes are printed; keep them within about 1 KB by
     adjusting the harness's `INTERNAL_HEAP_BYTES`: 237 KB since the CPU-halt handler moved
     about 5 KB into IRAM, and 238 KB since the mic and GPS drivers took another KB of the
@@ -552,7 +552,7 @@ Other memory facts:
       flash.
     - Bees???: a steady hand keeps 90%+ of the honey for 20 s, tipping empties the jar, and
       the BEES section reaches flash.
-    - Fish Pals: the town walks to each of the eight doors, PWR goes in, the place's way out
+    - Fishing Minigame: the town walks to each of the eight doors, PWR goes in, the place's way out
       ends it, and the town picks up at that door, twice round. The internal heap after each
       return to the town stays within 2 KB of the first (200 KB first, 202 KB worst over
       16 returns on 2026-10-07).
@@ -621,7 +621,7 @@ Then run these experiments, in this order:
   removes tearing.
 - **Audio bring-up** (§10.2).
 
-For Fish Pals (`./flash.sh`, the default), also check:
+For Fishing Minigame (`./flash.sh`, the default), also check:
 14. **The speaker still plays.** I2S0 now runs with signal loopback for the mics, which
     changes how its clocks are wired. If the town is silent, set the loopback off in
     `start_speaker` and the mics go quiet instead.
@@ -770,7 +770,7 @@ codec.init(22_050, &mut amp)?;   // after I2S so MCLK is already running; raises
 - Put the I2C bus behind a shared-bus wrapper (e.g. `embedded-hal-bus` `RefCellDevice`) once
   more than one driver needs it. Touch currently owns the bus outright.
 
-### 10.4 Angler, the fishing game and Fish Pals' pond (built)
+### 10.4 Angler, the fishing game and Fishing Minigame's pond (built)
 
 **Flow:** `crates/angler_game/src/session.rs` holds one `Phase` enum resource:
 - Title → Log | Settings (→ Guten) | Aim → Flight → Waiting → Bite → Reel.
@@ -846,7 +846,7 @@ input-driven steps; flight and reel physics run in `FixedUpdate` at 60 Hz.
 **Tuning knobs:** all constants are at the top of `cast.rs`, `reel.rs` and `species.rs`. The
 tests check behaviour, not values, so retune freely and rerun `cargo test -p angler_game`.
 
-**Keeping a catch** (Fish Pals, §10.6):
+**Keeping a catch** (Fishing Minigame, §10.6):
 - **The catch screen:** KEEP and RELEASE. Level points at KEEP and a turn right past 10
   degrees at RELEASE; PWR picks, or tap either. Below them it shows "TANK n/3", or
   "TANK FULL: KEEP SWAPS ONE OUT".
@@ -953,7 +953,7 @@ Not done yet, roughly by value:
 - AXP2101 soft power-off (REG 10 bit 0) as a deeper "off": PWR would power it back on, BOOT
   could not.
 
-### 10.6 Fish Pals: the town and its places (built; run in QEMU, not yet on the board)
+### 10.6 Fishing Minigame: the town and its places (built; run in QEMU, not yet on the board)
 
 A Nintendogs-style loop over the earlier games. Catch fish at the pond and keep up to three,
 named by turning. Walk them for stamina, teach them tricks with the mics and the glass, and

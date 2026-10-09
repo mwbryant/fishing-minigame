@@ -1,4 +1,4 @@
-//! Fish Pals on the Waveshare ESP32-S3-Touch-AMOLED-1.75: the town, then
+//! Fishing Minigame on the Waveshare ESP32-S3-Touch-AMOLED-1.75: the town, then
 //! whichever place its door led to, then the town again at that door. Each
 //! app is dropped (freeing its heap) before the next is built.
 

@@ -3,7 +3,7 @@
 //!
 //! Turn the device like a steering wheel to aim, hold the action button to
 //! charge the cast (release to throw), then lean the device forward and back
-//! to keep the fish inside the catch zone. In Fish Pals this is the pond: a
+//! to keep the fish inside the catch zone. In Fishing Minigame this is the pond: a
 //! catch can be kept, named by turning, and put in the tank (`pals`). The
 //! log and settings persist through `orbit_core::SaveBlob`. The zero button
 //! re-levels the IMU at any time.

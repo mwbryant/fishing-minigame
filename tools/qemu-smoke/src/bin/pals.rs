@@ -1,4 +1,4 @@
-//! Fish Pals in QEMU: the town walks to every door in turn, PWR goes in, the
+//! Fishing Minigame in QEMU: the town walks to every door in turn, PWR goes in, the
 //! place's app is built in the town's place, its way out (OUT, or PWR from
 //! an empty tank, park or hall) ends it, and the town comes back at that
 //! door, twice round. Internal heap after each return to the town must not

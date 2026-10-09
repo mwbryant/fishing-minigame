@@ -289,7 +289,7 @@ Images are in `img/`. Newest beats go at the bottom.
 - **The bees wear it too**, since Bees??? reads Angler's worn hat.
 - Images: `22-clown-hat-shop.png`, `22-clown-bees.png`.
 
-## 23. Fish Pals: the arcade becomes a town
+## 23. Fishing Minigame: the arcade becomes a town
 
 - **The ask:** "reconfigure into more of a game loop like Nintendogs":
   - catch fish and keep three, named;
@@ -463,7 +463,7 @@ Images are in `img/`. Newest beats go at the bottom.
   - Waveshare's demo reads the LC76G with 10 ms waits between I2C steps, and two of those
     would eat a whole frame;
   - the firmware runs it as a state machine, one I2C step per frame, about once a second.
-- **What QEMU checked:** the Fish Pals tour, every door twice round. The heap back in town
+- **What QEMU checked:** the Fishing Minigame tour, every door twice round. The heap back in town
   was 200 KB at the first return and 202 KB at the worst of 16, so dropping each app gives
   its memory back.
 - **What it can't check:** neither driver runs in QEMU; there's no ES7210 or LC76G in it.
@@ -750,3 +750,18 @@ Images are in `img/`. Newest beats go at the bottom.
   The width the simulator gave up went to bigger type. The desktop stand-ins are still on
   the overview slide.
 - Images: `41-orbit-core.png` (before), `42-orbit-core.png` (after).
+
+## 43. Fish Pals is now Fishing Minigame (2026-10-09)
+
+- **The ask:** "Instead of fish pals call it fishing minigame and update that branding
+  everywhere." The trailer already called it the FISHING MINIGAME.
+- **What changed:** 59 mentions across 17 files: the README, CLAUDE.md and AGENTS.md, the
+  platform handbook, code comments, `flash.sh` and the desktop's help, all five slides, and
+  the Design canvas (now "Fishing Minigame Architecture").
+- **What didn't:** the code's names. `pals`, `pals_game`, `--bin pals` and the `PALS` save
+  key stay, because renaming the save key would orphan the fish already saved on a board.
+  CLAUDE.md now says so, so nobody "finishes" the rename later.
+- **The slides:** FISHING MINIGAME is 7 letters longer than FISH PALS in a wide pixel font,
+  so the title went from 64 to 52 px. The longest header, orbit_core's, still clears its
+  chips by about 27 px.
+- Images: `41-architecture.png` (before), `43-architecture.png` (after).

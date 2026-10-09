@@ -256,7 +256,7 @@ def header(b, title, subtitle, chips):
     b.text(
         64,
         34,
-        span("FISH PALS", font_family=PIXEL, font_size="64px", color=rgb(YELLOW))
+        span("FISHING MINIGAME", font_family=PIXEL, font_size="52px", color=rgb(YELLOW))
         + span(title, font_size="38px", font_weight=500, margin_left="24px"),
         line=76,
     )
@@ -311,7 +311,7 @@ def crate_label(b, x, w, crate, label_w):
 
 
 def overview():
-    b = Board("Fish Pals: how it's built")
+    b = Board("Fishing Minigame: how it's built")
     header(
         b,
         "how it's built",
@@ -481,7 +481,7 @@ STAGES = [
 
 
 def pipeline():
-    b = Board("Fish Pals: how a frame gets to the glass")
+    b = Board("Fishing Minigame: how a frame gets to the glass")
     header(
         b,
         "how a frame gets to the glass",
@@ -625,7 +625,7 @@ LOOP = [
 
 
 def core():
-    b = Board("Fish Pals: orbit_core meets the hardware")
+    b = Board("Fishing Minigame: orbit_core meets the hardware")
     header(
         b,
         "orbit_core meets the hardware",
@@ -732,7 +732,7 @@ def at(t):
 
 
 def trailer():
-    b = Board("Fish Pals: how the trailer was made")
+    b = Board("Fishing Minigame: how the trailer was made")
     header(
         b,
         "how the trailer was made",
@@ -912,7 +912,7 @@ TRICKS = [
 
 
 def case():
-    b = Board("Fish Pals: how the case was made")
+    b = Board("Fishing Minigame: how the case was made")
     header(
         b,
         "how the case was made",

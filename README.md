@@ -1,11 +1,11 @@
-# Orbit board games: Fish Pals
+# Orbit board games: Fishing Minigame
 
 `no_std` **Bevy 0.19** games for the Waveshare **ESP32-S3-Touch-AMOLED-1.75**
 (466x466 round AMOLED, CO5300 over QSPI, CST9217 touch, QMI8658 IMU, two buttons).
 Turning the device like a steering wheel is the main control everywhere; a press of the
 upper button confirms.
 
-**Fish Pals** is what the board boots into: a Nintendogs-style game about the fish you
+**Fishing Minigame** is what the board boots into: a Nintendogs-style game about the fish you
 catch.
 
 - **The town:** six little round clearings joined by paths. Tap where to go (or hold a
@@ -71,14 +71,14 @@ crates/orbit_core    shared Bevy plumbing: frame, touch, rng, save sections, mut
                      tilt, power (battery, sleep, idle), sound, mic, GPS
 crates/orbit_ui      shared drawing: buttons, battery, sleep overlay, the rotation dial and list,
                      typing by turning
-crates/pals          Fish Pals' state and rules: pets, tricks, gestures, walks, gold, hats
-crates/pals_game     Fish Pals' places: the town, the house, the park, the contest hall, the shop
+crates/pals          Fishing Minigame's state and rules: pets, tricks, gestures, walks, gold, hats
+crates/pals_game     Fishing Minigame's places: the town, house, park, contest hall and shop
 crates/angler_game   Angler (the pond)
 crates/spider_game   Spider Roulette (the den)
 crates/skate_game    Skate (the arcade cabinet)
 crates/bees_game     Bees??? (the humming tree)
 crates/orbit_game    Orbit
-desktop/             minifb simulator for Fish Pals or any one app + headless PNG snapshots (std)
+desktop/             minifb simulator (std) for Fishing Minigame or any one app + headless PNGs
 firmware/            ESP32-S3: board support lib, the pals binary, and one binary per game
 case/                3D-printable fly-reel case (Python/build123d), see case/README.md
 trailer/             the 46 s FISHING MINIGAME trailer, built from filmed takes, see trailer/README.md
@@ -103,7 +103,7 @@ dirty-rect path never leaves stale pixels.
 ## Desktop
 
 ```sh
-cargo run -p orbit_desktop                              # Fish Pals (the town -> a place -> OUT)
+cargo run -p orbit_desktop                              # Fishing Minigame (town -> a place -> OUT)
 cargo run -p orbit_desktop -- home                      # or one app: town home park contest shop
                                                         #   angler spider skate bees orbit
 cargo run -p orbit_desktop -- contest snapshot screenshots  # an app's screens as PNGs, headless
@@ -135,7 +135,7 @@ traffic would take on the real link.
 Plug the board into the Mac with a USB-C data cable, then from the repo root:
 
 ```sh
-./flash.sh            # Fish Pals: build, flash, then show the board's serial log
+./flash.sh            # Fishing Minigame: build, flash, then show the board's serial log
 ./flash.sh skate      # one game on its own (angler, spider, skate, bees, orbit)
 ./flash.sh monitor    # reopen the serial log without flashing
 ```
@@ -187,7 +187,7 @@ sources plus an emulator run. Run `./flash.sh` and watch the serial log:
    per frame, and heap use.
 
 Angler adds checks for the IMU direction, the upper button's hold, the lean direction, and
-saves; Fish Pals adds the mics, the GPS, and that the speaker still plays now that the
+saves; Fishing Minigame adds the mics, the GPS, and that the speaker still plays now that the
 mics share its clocks. See section 9 of `docs/ESP32_PLATFORM.md`. The mic and GPS
 drivers were written from research and are unverified on the board. Most fixes are
 one-line constants or a mapping function in `firmware/src/lib.rs`.
@@ -199,10 +199,10 @@ GPIO40). The 1.75C variant uses GPIO1 and GPIO2 for those two resets.
 
 Bevy's own bookkeeping (schedules, per-resource tables) dominates. Measured
 with a counting allocator on a 32-bit target, peak heap is 265 KB for Orbit and 191 to 208 KB
-for every Fish Pals app (Angler's pond is the biggest). The newer apps are leaner because they use
-one phase resource instead of Bevy states. Fish Pals drops each app before building the next,
-so only one is ever in memory. A Bevy resource costs about 64 times its size in heap, so big
-state is boxed.
+for every Fishing Minigame app (Angler's pond is the biggest). The newer apps are leaner
+because they use one phase resource instead of Bevy states. Fishing Minigame drops each app
+before building the next, so only one is ever in memory. A Bevy resource costs about 64
+times its size in heap, so big state is boxed.
 The firmware gives Bevy about 284 KB of internal SRAM (`INTERNAL_HEAP_BYTES` plus
 the 72 KB reclaimed region) and keeps about 74 KB of stack. PSRAM is
 registered last, only as a safety net. On the ESP32-S3, atomic
@@ -221,7 +221,7 @@ buffers (sprites, framebuffers) in PSRAM explicitly with `esp_alloc::ExternalMem
   systems or resources.
 - `tools/qemu-smoke/run.sh` boots each game's firmware runtime in Espressif's QEMU
   with scripted input and prints `SMOKE PASS`/`SMOKE FAIL`. Each game is played by a
-  scripted player and its save round-trips through emulated flash; the Fish Pals run walks
+  scripted player and its save round-trips through emulated flash; the Fishing Minigame run walks
   through every door and back out twice, and fails if the heap creeps between apps.
 
 The full platform handbook is `docs/ESP32_PLATFORM.md`.
