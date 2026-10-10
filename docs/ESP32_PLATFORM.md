@@ -19,9 +19,8 @@ board · 9 Bring-up checks on the board · 10 Systems and games (10.1 sprites, 1
 
 The board is the -G variant, with the LC76G GNSS. Everything runs on it: every game and
 place at 60 fps, touch, tilt, both buttons, voice commands, GPS walks, sound, saves, idle
-dimming and battery charging. Switching off (the hold-BOOT goodbye, 10.5) replaced deep sleep on
-2026-10-10 and hasn't run on the board yet. The display, touch, IMU and PWR work with the
-original constants; no mirror, offset or axis needed changing. The serial logs in `logs/`
+dimming, switching off and on (10.5), and battery charging. The display, touch, IMU and PWR
+work with the original constants; no mirror, offset or axis needed changing. The serial logs in `logs/`
 record sessions, for example:
 - `angler-20261006-153858.log`: octal PSRAM (8 MB), `display ready`, Bevy built entirely in
   internal SRAM with about 72 KB of heap free in play, the ES8311 answering `0x83 0x11`, and
@@ -252,9 +251,8 @@ All on one bus; each driver gets an `embedded-hal-bus` `RefCellDevice` on it.
     `GPIO_STRAP` (0x60004038) at 0x23, bit 3 clear ("GPIO0 low"), while `GPIO_IN` bit 0 reads
     BOOT high and `RTC_CNTL_OPTION1` (0x6000812C) is 0. A USB reset (`rst:0x15
     USB_UART_CHIP_RESET`, espflash's default after flashing and Ctrl+R) keeps the latch, so
-    the ROM starts download mode again ("waiting for download"). Measured 2026-10-10; every
-    flash since 2026-10-07 12:43 had ended that way, and earlier ones booted with 0x2b. Only
-    a power cycle or an RTC watchdog reset reads the pin again. `espflash monitor
+    the ROM starts download mode again ("waiting for download"); a normal boot reads 0x2b.
+    Only a power cycle or an RTC watchdog reset reads the pin again. `espflash monitor
     --non-interactive` (which `flash.sh` runs) checks bit 3 and uses the watchdog reset; it
     reopens the port after 1.5 s, so that boot's first lines are missing from the log.
 - **PWR:**
@@ -650,10 +648,8 @@ boots.
     NIGHT and PRESS TO WAKE replace the frame for 2.5 s. Let go: the log says `switching off;
     press PWR to turn on`, the panel goes dark and the USB serial port disappears. A PWR press
     boots afresh. If the log instead says `still powered a second after switching off` or
-    `switching off failed`, the board fell back to deep sleep (`press BOOT to wake`).
-    Deep-sleep sleep was seen on the board (2026-10-06) but left every peripheral powered and
-    ran the battery down to 1%; switching off replaced it on 2026-10-10 and hasn't been seen on
-    the board yet.
+    `switching off failed`, the board fell back to deep sleep (`press BOOT to wake`). With
+    USB plugged in it stays off and charges.
 
 13. **Audio:** after a catch (its flash save stalls the loop), the stats line may show
     `audio restarted Nx`. Sound must keep working.
@@ -928,7 +924,7 @@ tests check behaviour, not values, so retune freely and rerun `cargo test -p ang
 
 **Not built yet:** a reel crank by circling a finger on the rim.
 
-### 10.5 Power: battery, sleep, idle (built; switching off not yet seen on the board)
+### 10.5 Power: battery, sleep, idle (built; runs on the board)
 
 How every game gets the battery level, idle dimming and hold-BOOT sleep, and what's left for
 saving power. Section 9 (checks 10-12) has what the board has shown.
@@ -953,8 +949,8 @@ The contract is `orbit_core::Power`, added by `ControlsPlugin` (so Orbit doesn't
   - a PWR press powers it on, so it boots afresh into the town (saves are already in flash);
   - **fallback:** if the AXP2101 doesn't answer, or the board is still running a second
     later, it arms GPIO0 on its low-power wake path and enters ESP32 deep sleep, which BOOT
-    wakes. Deep sleep alone keeps DCDC1 up, so the codec, mics, panel and GPS keep drawing;
-    it was the only sleep until 2026-10-10 and ran a battery down to 1%.
+    wakes. Deep sleep alone keeps DCDC1 up, so the codec, mics, panel and GPS keep drawing
+    and the battery runs down.
 - **Idle:** 30 s (`IDLE_SECS`) without a touch, a button or a 3-degree turn sets `idle`. The
   firmware dims the panel to 0x40 and paces the loop at 20 Hz; the desktop dims and drops to
   20 fps.

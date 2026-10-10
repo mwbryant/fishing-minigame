@@ -13,8 +13,8 @@
 # path restarts the board with a watchdog reset when needed. On this board,
 # entering download mode over USB leaves the ESP32-S3's boot latch reading
 # BOOT (GPIO0) as held (GPIO_STRAP 0x23 with GPIO0 high), and espflash's normal
-# reset keeps the latch, so every flash ended in "waiting for download" until
-# the board lost power, which the battery prevents. The watchdog reset reads
+# reset keeps the latch, so a flash would end in "waiting for download" until
+# the board loses power, which the battery prevents. The watchdog reset reads
 # BOOT again. It drops the first 1.5 s of log; Ctrl+R then shows a full boot.
 set -euo pipefail
 

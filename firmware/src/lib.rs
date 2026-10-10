@@ -510,9 +510,8 @@ impl Board {
     /// The game's goodbye frame is on the glass: wait for BOOT to come up,
     /// quiet the peripherals, then switch every rail off through the AXP2101,
     /// so nothing draws until PWR turns the board back on. ESP32 deep sleep
-    /// alone left the codec, mics, display and GPS powered from the same 3.3 V
-    /// rail and ran a battery down to 1%; it is only the fallback here, woken
-    /// by BOOT.
+    /// alone leaves the codec, mics, display and GPS powered from the same
+    /// 3.3 V rail; it is only the fallback here, woken by BOOT.
     fn sleep(&mut self) -> ! {
         info!("switching off; press PWR to turn on");
         // A BOOT still held at the next power-on would start the ROM's

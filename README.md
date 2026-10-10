@@ -265,10 +265,8 @@ Most fixes are one-line constants or a mapping function in `firmware/src/lib.rs`
 ### On the board
 
 Everything in this README runs on the board: every game and place at 60 fps, touch, tilt, both
-buttons, voice commands, GPS walks, sound, saves and battery charging. The one exception is
-switching off: the hold-BOOT goodbye used to put only the ESP32 to sleep, which left the rest of
-the board running down the battery, and the power-off that replaced it hasn't run on the board
-yet. The serial logs of real sessions are in `logs/`.
+buttons, voice commands, GPS walks, sound, saves, switching off and on, and battery charging.
+The serial logs of real sessions are in `logs/`.
 
 ## How it's built
 

@@ -884,6 +884,10 @@ Images are in `img/`. Newest beats go at the bottom.
   Space turns it on.
 - **The numbers:** after the recovery, on USB, the gauge climbed 1% -> 10% in about 4 minutes
   while the game ran.
+- **On the board:** the log said `switching off; press PWR to turn on` at 12:03:23, the USB
+  serial port vanished, and it stayed gone for the whole 3-minute watch with USB plugged in
+  (no `still powered` line, so the deep-sleep fallback never ran). A PWR press brought the
+  game back.
 - **Hook:** "Sleep mode is pointless if the GPS doesn't know the rest of the board went to bed."
 - **Media:** `img/48-before-good-night.png`, `img/48-after-good-night.png`.
   - TODO(user): a phone clip of holding BOOT through GOOD NIGHT to a dark screen, then PWR
