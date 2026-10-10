@@ -332,6 +332,59 @@ fn ignoring_the_fight_lets_the_fish_escape_and_play_resumes() {
 }
 
 #[test]
+fn a_tap_off_the_buttons_starts_fishing_too() {
+    let mut app = headless_app();
+    tap(&mut app, Vec2::new(233.0, 260.0));
+    assert!(
+        matches!(phase(&app), Phase::Aim { .. }),
+        "{:?}",
+        phase(&app)
+    );
+}
+
+#[test]
+fn a_finger_held_down_charges_the_cast_and_lifting_it_casts() {
+    let mut app = headless_app();
+    start_aiming(&mut app);
+    set_tilt(&mut app, -15.0, 0.0);
+    let finger = Vec2::new(233.0, 300.0);
+    for _ in 0..frames_for(0.5) {
+        app.world_mut()
+            .resource_mut::<orbit_core::Touch>()
+            .set(Some(finger));
+        update(&mut app);
+    }
+    assert!(matches!(
+        phase(&app),
+        Phase::Aim {
+            charging_secs: Some(_)
+        }
+    ));
+    app.world_mut()
+        .resource_mut::<orbit_core::Touch>()
+        .set(None);
+    update(&mut app);
+    let Phase::Flight { flight, .. } = phase(&app) else {
+        panic!("expected a cast, got {:?}", phase(&app));
+    };
+    let expected = Flight::launch(55.0, 0.5).vel;
+    assert!(flight.vel.distance(expected) < 25.0, "{:?}", flight.vel);
+}
+
+#[test]
+fn a_tap_while_waiting_reels_the_line_back_in() {
+    let mut app = headless_app();
+    start_aiming(&mut app);
+    cast_onto_spot(&mut app, 0.0, 0.7);
+    assert!(run_until(&mut app, 600, |p| matches!(
+        p,
+        Phase::Waiting { .. }
+    )));
+    tap(&mut app, Vec2::new(233.0, 300.0));
+    assert_eq!(phase(&app), Phase::Notice("REELED IN"));
+}
+
+#[test]
 fn pressing_while_waiting_reels_the_line_back_in() {
     let mut app = headless_app();
     start_aiming(&mut app);
@@ -401,11 +454,9 @@ fn sounds(app: &App) -> Vec<SoundCommand> {
 }
 
 #[test]
-fn the_title_has_log_and_settings_buttons_and_stray_taps_do_nothing() {
+fn the_title_has_log_and_settings_buttons() {
     let mut app = headless_app();
     assert!(shows(&app, "LOG") && shows(&app, "SETTINGS"));
-    tap(&mut app, Vec2::new(233.0, 300.0));
-    assert_eq!(phase(&app), Phase::Title);
     open_settings(&mut app);
     assert!(shows(&app, "DIFFICULTY") && shows(&app, "NORMAL"));
 }

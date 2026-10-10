@@ -53,7 +53,8 @@ fn main() -> ! {
     'tour: for round in 0..2 {
         for place in DOORS {
             at_town.push(internal_heap_used());
-            smoke.wait(0.3);
+            // Back from a place, the town won't go in again for a moment.
+            smoke.wait(pals_game::town::ENTRY_LOCK_SECS + 0.3);
             smoke.app.world_mut().resource_mut::<Town>().stand_at(place);
             smoke.frame();
             click_action(&mut smoke.app);

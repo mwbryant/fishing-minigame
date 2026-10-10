@@ -18,4 +18,8 @@ pub const TRICK_ROWS: [Button; 6] = [
     Button::new(173, 330, 120, 38, "BACK"),
 ];
 /// In practice: teach the trick a different word or stroke.
-pub const NEW_WORD: Button = Button::new(163, 412, 140, 30, "NEW COMMAND");
+pub const NEW_WORD: Button = Button::new(203, 404, 146, 30, "NEW COMMAND");
+/// In practice, beside NEW COMMAND: back to the tricks, like PWR.
+pub const PRACTICE_BACK: Button = Button::new(117, 404, 80, 30, "BACK");
+/// While teaching: DONE once a word or stroke is sure, else BACK; like PWR.
+pub const TEACH_DONE: Button = Button::new(183, 396, 100, 32, "DONE");

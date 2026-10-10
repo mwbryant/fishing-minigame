@@ -979,3 +979,24 @@ Images are in `img/`. Newest beats go at the bottom.
   `img/53-before-splash.png`, `img/53-after-splash.png` (the "before" shots are the same
   moments rendered with the effects switched off).
   - TODO(user): a phone clip of a fish doing BUBBLE RING in the tank.
+
+## 54. Nothing needs the button (2026-10-10)
+
+- **The ask:** "the fishing game should also treat a tap and hold as a valid way to cast.
+  Generally nothing should require the button as it may become jank to press. Just sleep is the
+  only real button only thing I think"
+- **What got in the way:** an audit of every place a game reads PWR found six with no touch
+  way in: Angler's title (a stray tap did nothing, on purpose), the cast itself, reeling in
+  early, stopping a walk ("PRESS TO STOP"), finishing a word while teaching, leaving practice,
+  and picking a contest tier.
+- **The fix:**
+  - Angler: a tap off the buttons starts; a finger held anywhere charges the cast exactly like
+    holding PWR, and lifting it casts; a tap reels in. The title says PRESS OR TAP TO FISH.
+  - Buttons where a stray tap could mean something else: STOP on a walk, DONE/BACK while
+    teaching, BACK beside NEW COMMAND in practice. The contest's tier rows and BACK are tap
+    targets, drawn from the same rectangles.
+  - CLAUDE.md now says nothing may need PWR; only sleep (holding BOOT) is button-only.
+- **The numbers:** 8 new tests; 367 tests pass; the tier screen re-renders pixel-identical.
+- **Media:** `img/54-before-angler_title.png` / `img/54-after-angler_title.png`,
+  `img/54-before-home_practice.png` / `img/54-after-home_practice.png`,
+  `img/54-before-park_walking.png` / `img/54-after-park_walking.png`.

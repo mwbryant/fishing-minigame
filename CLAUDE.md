@@ -48,9 +48,11 @@ pong) is a separate binary. A desktop simulator shares the renderer and the moti
 - **Hardware problems:** the user flashes with `./flash.sh [game]` (default `pals`), which saves
   every serial session to `logs/<game>-<timestamp>.log`. When they report a problem, read the
   newest log.
-- **Controls:** turning the device (`Tilt::steer_deg`) is the main control. The upper button (PWR
-  on the board) confirms; touch is secondary. Selections are `orbit_ui` dials (3x gain, so ±60
-  degrees reaches everything).
+- **Controls:** turning the device (`Tilt::steer_deg`) is the main control, and selections are
+  `orbit_ui` dials (3x gain, so ±60 degrees reaches everything). The upper button (PWR on the
+  board) confirms, but **nothing may need it**: every PWR action also works by touch (a tap, a
+  button, or a held finger for a held PWR), because a worn button gets unreliable. Only sleep
+  (holding BOOT) is button-only.
 - **New games and places:**
   - **Plugins:** `CorePlugin` and `ControlsPlugin` (buttons, tilt, and `Power`: battery, idle and
     hold-BOOT sleep, all handled in core), plus `SoundPlugin` for sound, `MicPlugin` to listen and

@@ -80,7 +80,7 @@ fn draw_frame(
         Phase::Title => {
             lake(shapes, &session, cast::BASE_ELEVATION_DEG, false);
             shapes.push(label(110, "GONE FISHIN", 3, TEXT));
-            shapes.push(label(160, "PRESS BUTTON TO FISH", 1, HINT));
+            shapes.push(label(160, "PRESS OR TAP TO FISH", 1, HINT));
             level(shapes, &tilt);
             if launcher.is_some() {
                 button(shapes, &ui::HOME);

@@ -229,3 +229,27 @@ fn back_from_choosing_a_fish_leaves_the_hall() {
     click_action(&mut app);
     assert_eq!(app.should_exit(), Some(AppExit::Success));
 }
+
+#[test]
+fn tapping_a_tier_enters_it_and_tapping_back_goes_back() {
+    let mut app = hall(vec![performer(400.0, 50)], 0);
+    click_action(&mut app);
+    assert_eq!(phase(&app), ContestPhase::ChooseTier { pet: 0 });
+    tap(&mut app, pals_game::contest::ui::TIER_BUTTONS[1].center());
+    assert!(
+        matches!(phase(&app), ContestPhase::Show { tier: 1, .. }),
+        "{:?}",
+        phase(&app)
+    );
+
+    let mut app = hall(vec![performer(0.0, 50)], 0);
+    click_action(&mut app);
+    tap(&mut app, pals_game::contest::ui::TIER_BUTTONS[1].center());
+    assert_eq!(
+        phase(&app),
+        ContestPhase::ChooseTier { pet: 0 },
+        "OPEN is locked"
+    );
+    tap(&mut app, pals_game::contest::ui::TIER_BUTTONS[4].center());
+    assert_eq!(phase(&app), ContestPhase::ChoosePet);
+}

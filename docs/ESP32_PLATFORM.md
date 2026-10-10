@@ -1019,7 +1019,12 @@ pet*`.
 - Version 1 held an older 145-byte print that can't be compared with today's. It loads the
   fish, strokes and progress, but those tricks need their words again.
 
-**Controls:** turning selects and steers, PWR confirms, and touch works everywhere too.
+**Controls:** turning selects and steers and PWR confirms, but every PWR action also works by
+touch, so a worn button never blocks play; only sleep (holding BOOT) needs a button.
+- **Touch for PWR:** a tap where PWR would start (Angler's title, Spider Roulette, Skate,
+  Bees???), a finger held down for a held PWR (Angler charges a cast while the finger is down
+  and casts when it lifts), and buttons where a tap could mean something else: STOP on a walk,
+  DONE/BACK while teaching, BACK beside NEW COMMAND in practice, the contest's tier rows.
 - **Taps** (`orbit_ui`):
   - A `Button` takes taps up to `TAP_SLOP` (28 px, about 2.7 mm of glass) outside its box.
   - With more than one button, `tapped(at, buttons)` picks the one the tap lands on, else the
@@ -1040,8 +1045,8 @@ pet*`.
   `orbit_ui::list_choice(steer, n, start)` walks a list, one item per 12 degrees.
 - **Two-way choices:** the pond's KEEP/RELEASE and the reset's KEEP/ERASE are "level or turned
   right".
-- **Exceptions:** Spider Roulette spins with PWR, and walking the town is touch. Rotation
-  picks; it doesn't move you around a map.
+- **Exceptions:** walking the town is touch. Rotation picks; it doesn't move you around a
+  map.
 
 **Typing by turning** (`orbit_ui::keys`):
 - A to Z, SPACE, DEL and OK ring the glass, and the turn points at a key (29 keys at 3x gain

@@ -196,6 +196,8 @@ fn play(
     let action = buttons.action;
 
     let tap = touch.just_pressed();
+    // A finger on the glass works the cast like holding PWR.
+    let holding = action.held() || touch.position().is_some();
     let on_screen: &[ui::Button] = match session.phase {
         Phase::Title => &[ui::HOME, ui::LOG, ui::SETTINGS],
         Phase::Settings => &[ui::EASIER, ui::HARDER, ui::GUTEN, ui::BACK],
@@ -234,6 +236,7 @@ fn play(
         Phase::Title if action.pressed() => Some(aim()),
         Phase::Title if tapped(&ui::LOG) => Some(Phase::Log),
         Phase::Title if tapped(&ui::SETTINGS) => Some(Phase::Settings),
+        Phase::Title if tap => Some(aim()),
         Phase::Log if action.pressed() || tap => Some(Phase::Title),
         Phase::Settings if tapped(&ui::HARDER) => {
             difficulty_change = Some(settings.difficulty.next());
@@ -259,15 +262,15 @@ fn play(
             charging_secs: None,
         } if tapped(&ui::MENU) => Some(Phase::Title),
         Phase::Aim { charging_secs } => match *charging_secs {
-            None if action.pressed() => {
+            None if action.pressed() || tap => {
                 *charging_secs = Some(0.0);
                 None
             }
-            Some(secs) if action.held() && secs + dt > cast::MAX_CHARGE_SECS => {
+            Some(secs) if holding && secs + dt > cast::MAX_CHARGE_SECS => {
                 *charging_secs = None;
                 Some(Phase::Notice("LET GO!"))
             }
-            Some(secs) if action.held() => {
+            Some(secs) if holding => {
                 *charging_secs = Some(secs + dt);
                 None
             }
@@ -289,7 +292,7 @@ fn play(
             }
             None => None,
         },
-        Phase::Waiting { .. } if action.pressed() => Some(Phase::Notice("REELED IN")),
+        Phase::Waiting { .. } if action.pressed() || tap => Some(Phase::Notice("REELED IN")),
         Phase::Waiting {
             bobber_x,
             bite_in,

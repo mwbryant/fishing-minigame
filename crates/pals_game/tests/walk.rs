@@ -204,3 +204,16 @@ fn a_real_walk_has_no_pace_buttons() {
     start_walking(&mut app);
     assert!(!shows(&app, "+") && !shows(&app, "-"));
 }
+
+#[test]
+fn tapping_stop_ends_a_walk() {
+    let mut app = park(&[("GILLY", 0.0)], true);
+    start_walking(&mut app);
+    tick(&mut app, 60);
+    tap(&mut app, pals_game::walk::ui::STOP.center());
+    assert!(
+        matches!(phase(&app), WalkPhase::Done { .. }),
+        "{:?}",
+        phase(&app)
+    );
+}

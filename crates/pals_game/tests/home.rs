@@ -355,3 +355,40 @@ fn a_second_take_of_a_different_word_isnt_taken() {
     assert!(shows(&app, "THAT SOUNDED DIFFERENT"));
     assert!(shows(&app, "SAY IT AGAIN"));
 }
+
+#[test]
+fn tapping_back_ends_practice() {
+    let mut app = practicing(10);
+    tap(&mut app, pals_game::home::ui::PRACTICE_BACK.center());
+    assert_eq!(phase(&app), HomePhase::Tricks { pet: 0 });
+}
+
+#[test]
+fn tapping_done_finishes_teaching_and_back_leaves_untaught() {
+    let mut app = home_with(vec![pet("GILLY", None)]);
+    open_trick(&mut app, 2);
+    tick(&mut app, 60 * 4);
+    assert!(matches!(
+        phase(&app),
+        HomePhase::Teach {
+            step: TeachStep::Listen { .. },
+            ..
+        }
+    ));
+    assert!(shows(&app, "BACK"));
+    tap(&mut app, pals_game::home::ui::TEACH_DONE.center());
+    assert_eq!(phase(&app), HomePhase::Tricks { pet: 0 });
+
+    let mut app = home_with(vec![pet("GILLY", None)]);
+    open_trick(&mut app, 2);
+    tick(&mut app, 60 * 4);
+    swipe_up(&mut app);
+    swipe_up(&mut app);
+    assert!(shows(&app, "DONE"));
+    tap(&mut app, pals_game::home::ui::TEACH_DONE.center());
+    assert!(
+        matches!(phase(&app), HomePhase::Practice { slot: 2, .. }),
+        "{:?}",
+        phase(&app)
+    );
+}

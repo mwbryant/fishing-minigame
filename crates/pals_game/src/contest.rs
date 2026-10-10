@@ -98,6 +98,19 @@ pub const RIVALS: [&str; 3] = ["SPLASHY", "FINLEY", "OLD BOOTS"];
 /// The tier list: the four, then BACK.
 const TIER_CHOICES: usize = TIERS.len() + 1;
 
+pub mod ui {
+    pub use orbit_ui::Button;
+
+    /// The tier list's rows (drawn by `choose_tier`), then BACK under them.
+    pub const TIER_BUTTONS: [Button; 5] = [
+        Button::new(83, 106, 300, 44, ""),
+        Button::new(83, 158, 300, 44, ""),
+        Button::new(83, 210, 300, 44, ""),
+        Button::new(83, 262, 300, 44, ""),
+        Button::new(183, 330, 100, 32, ""),
+    ];
+}
+
 /// A show in progress.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Show {
@@ -280,8 +293,12 @@ fn perform(
         }
         ContestPhase::ChooseTier { pet } => {
             let pet = *pet;
-            if pressed {
-                let pointed = list_choice(tilt.steer_deg, TIER_CHOICES, 0);
+            let tapped = tap.and_then(|at| {
+                let row = orbit_ui::tapped(at, &ui::TIER_BUTTONS)?;
+                ui::TIER_BUTTONS.iter().position(|button| button == row)
+            });
+            let picked = tapped.or(pressed.then(|| list_choice(tilt.steer_deg, TIER_CHOICES, 0)));
+            if let Some(pointed) = picked {
                 let level = pals.pets[pet].stamina_level();
                 next = match TIERS.get(pointed) {
                     Some(tier) if level >= tier.min_level => {
@@ -542,11 +559,19 @@ fn choose_tier(shapes: &mut Vec<Shape>, pals: &Pals, pet: &Pet, pointed: usize) 
     );
     let level = pet.stamina_level();
     for (i, tier) in TIERS.iter().enumerate() {
-        let y = 128 + i as i32 * 52;
+        let row = ui::TIER_BUTTONS[i].area;
+        let (left, top) = (row.top_left.x, row.top_left.y);
+        let y = top + row.size.height as i32 / 2;
         let open = level >= tier.min_level;
         let frame = if i == pointed { GOLD } else { CURTAIN };
-        shapes.push(rect(83, y - 22, 300, 44, frame));
-        shapes.push(rect(85, y - 20, 296, 40, DEEP));
+        shapes.push(rect(left, top, row.size.width, row.size.height, frame));
+        shapes.push(rect(
+            left + 2,
+            top + 2,
+            row.size.width - 4,
+            row.size.height - 4,
+            DEEP,
+        ));
         shapes.push(label_at(
             Point::new(170, y),
             tier.name,

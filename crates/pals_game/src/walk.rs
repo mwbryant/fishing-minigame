@@ -38,6 +38,8 @@ pub mod ui {
     /// On a mock walk: slow it down, or fast-forward it.
     pub const SLOWER: Button = Button::new(52, 306, 56, 44, "-");
     pub const FASTER: Button = Button::new(358, 306, 56, 44, "+");
+    /// Ends the walk, like PWR.
+    pub const STOP: Button = Button::new(188, 410, 90, 30, "STOP");
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -204,11 +206,12 @@ fn stroll(
                 *levelled_at = Some(*secs);
                 sound.play(&angler_game::audio::CATCH);
             }
-            save |= *unsaved_m >= SAVE_EVERY_M || pressed;
+            let stop = pressed || tap.is_some_and(|at| ui::STOP.hit(at));
+            save |= *unsaved_m >= SAVE_EVERY_M || stop;
             if save {
                 *unsaved_m = 0.0;
             }
-            if pressed {
+            if stop {
                 next = Some(WalkPhase::Done {
                     pet: *pet,
                     meters: trail.meters as u32,
@@ -274,12 +277,9 @@ fn draw_frame(
                 (None, None) if *secs >= NO_SKY_SECS => "NO SKY? TRY MOCK WALK".into(),
                 (None, None) => "LOOKING FOR THE SKY".into(),
             };
-            let lines = [
-                label(368, &level, 1, GOLD),
-                label(392, &status, 1, HINT),
-                label(420, "PRESS TO STOP", 1, HINT),
-            ];
+            let lines = [label(368, &level, 1, GOLD), label(392, &status, 1, HINT)];
             plated_lines(shapes, lines, GRASS);
+            button(shapes, &ui::STOP);
             if levelled_at.is_some_and(|at| secs - at < LEVEL_UP_SECS) {
                 text(shapes, label(104, "LEVEL UP!", 2, GOLD));
             }

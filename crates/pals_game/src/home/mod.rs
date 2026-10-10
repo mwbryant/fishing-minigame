@@ -279,7 +279,11 @@ fn play(
         HomePhase::Tank => &[ui::OUT],
         HomePhase::Card { .. } => &ui::CARD_BUTTONS,
         HomePhase::Tricks { .. } => &ui::TRICK_ROWS,
-        HomePhase::Practice { .. } => &[ui::NEW_WORD],
+        HomePhase::Practice { .. } => &[ui::NEW_WORD, ui::PRACTICE_BACK],
+        HomePhase::Teach {
+            step: TeachStep::Listen { .. },
+            ..
+        } => &[ui::TEACH_DONE],
         _ => &[],
     };
     let pressed_button = tap.and_then(|at| orbit_ui::tapped(at, on_screen));
@@ -458,7 +462,7 @@ fn play(
                     (None, _) => (Heard::Once(gesture), None),
                 };
             }
-            if pressed {
+            if pressed || tapped(&ui::TEACH_DONE) {
                 let (voice, gesture) = (word.sure(), drawn.sure());
                 if voice.is_none() && gesture.is_none() {
                     next = Some(HomePhase::Tricks { pet });
@@ -505,7 +509,7 @@ fn play(
                     slot,
                     step: listening(),
                 });
-            } else if pressed {
+            } else if pressed || tapped(&ui::PRACTICE_BACK) {
                 next = Some(HomePhase::Tricks { pet });
             } else if let Some(meant) = command {
                 match meant {

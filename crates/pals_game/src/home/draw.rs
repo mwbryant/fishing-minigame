@@ -91,12 +91,8 @@ pub(crate) fn draw_frame(
                     shapes.push(label(70, &word_text, 1, TEXT));
                     shapes.push(label(92, &stroke_text, 1, TEXT));
                     let done = matches!(word, Heard::Sure(_)) || matches!(stroke, Heard::Sure(_));
-                    let hint = if done {
-                        "PRESS WHEN DONE"
-                    } else {
-                        "PRESS TO GO BACK"
-                    };
-                    shapes.push(label(404, hint, 1, HINT));
+                    let text = if done { "DONE" } else { "BACK" };
+                    labelled_button(shapes, &ui::TEACH_DONE, text, HINT);
                     listening(shapes, &mic);
                 }
             }
@@ -125,6 +121,7 @@ pub(crate) fn draw_frame(
             toast(shapes, &home);
             shapes.push(label(394, &command_text(trick), 1, HINT));
             labelled_button(shapes, &ui::NEW_WORD, ui::NEW_WORD.text, HINT);
+            labelled_button(shapes, &ui::PRACTICE_BACK, ui::PRACTICE_BACK.text, HINT);
             listening(shapes, &mic);
         }
     }
