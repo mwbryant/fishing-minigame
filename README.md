@@ -143,6 +143,8 @@ Plug the board in with a USB-C data cable, then from the repo root:
   `logs/`.
 - **Saves:** reflashing keeps the board's saves (your fish, gold, hats and scores).
 - **A harmless warning:** the build prints "LOAD segment with RWX permissions".
+- **If the board is off:** it doesn't show up on USB at all (sleep turns it fully off). The
+  script says so and waits up to 60 s for you to press PWR.
 - **If flashing fails:** the script lists fixes. The usual causes are a charge-only cable, or a
   board that won't enter download mode by itself. To force download mode, turn the board off
   (unplug USB and hold PWR, the upper button, for 10 s), plug USB back in, then hold BOOT (the

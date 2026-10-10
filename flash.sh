@@ -67,6 +67,26 @@ EOF
     exit 1
 }
 
+# The board shows up as a USB serial port only while it's on. Switched off
+# (its sleep), it's invisible until PWR turns it on, so wait for that.
+board_seen() {
+    [ -n "${ESPFLASH_PORT:-}" ] || compgen -G "/dev/cu.usbmodem*" > /dev/null
+}
+if ! board_seen; then
+    echo "The Mac doesn't see the board on USB. It's probably switched off (sleep turns it"
+    echo "fully off): press PWR, the upper button. Waiting up to ${BOARD_WAIT_SECS:=60} s..."
+    for _ in $(seq "$BOARD_WAIT_SECS"); do
+        sleep 1
+        board_seen && break
+    done
+    if ! board_seen; then
+        echo "Still no board. Check that the USB-C cable carries data, then run this again." >&2
+        exit 1
+    fi
+    echo "found it"
+    sleep 1
+fi
+
 if [ "$mode" = flash ]; then
     echo "flashing $game; saves on the board are kept"
     # espflash warns that the ELF it passes itself is an unused monitor option.
