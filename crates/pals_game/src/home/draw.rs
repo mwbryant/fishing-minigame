@@ -8,15 +8,15 @@ use bevy::prelude::*;
 use orbit_core::{Frame, Mic, Power, Tilt};
 use orbit_gfx::{Point, Rgb565, SCREEN_CENTER, Shape};
 use orbit_ui::{
-    DEEP, GOLD, HINT, TEXT, TOAST, battery_level, clear_text_of, dial_choice, dial_point, disc,
-    framed_button, framed_label, key_ring, label, label_at, labelled_button, list_choice,
-    power_overlay, rect, rgb,
+    DEEP, GOLD, HINT, TEXT, TOAST, battery_level, clear_text_of, dial_choice, disc, framed_button,
+    framed_label, key_ring, label, label_at, labelled_button, list_choice, power_overlay, rect,
+    rgb,
 };
 use pals::{Pals, Pet, Rarity, TrickSlot};
 
 use super::{
     CARD_CHOICES, Heard, Home, HomePhase, PracticeStep, STAGE, STAGE_MOTION, TRICK_CHOICES,
-    TeachStep, performance, performing, ui,
+    TeachStep, name_spot, performance, performing, ui,
 };
 use crate::fish;
 
@@ -26,7 +26,6 @@ const WEED: Rgb565 = rgb(60, 150, 80);
 const BUBBLE: Rgb565 = rgb(170, 220, 245);
 const TANK_SCALE: u32 = 3;
 const STAGE_SCALE: u32 = 6;
-const NAME_RING: f32 = 176.0;
 
 pub fn rarity_color(rarity: Rarity) -> Rgb565 {
     match rarity {
@@ -174,10 +173,10 @@ fn tank(shapes: &mut Vec<Shape>, home: &Home, pals: &Pals, steer: f32) {
     }
     let count = pals.pets.len() + 1;
     let pointed = dial_choice(steer, count);
-    let step = 360.0 / count as f32;
     for i in 0..count {
         let text = pals.pets.get(i).map_or("EXIT", |pet| pet.name.as_str());
-        let at = dial_point(i as f32 * step, NAME_RING);
+        let spot = name_spot(i, count);
+        let at = Point::new(spot.x as i32, spot.y as i32);
         if i == pointed {
             framed_label(shapes, label_at(at, text, 1, GOLD), GOLD, DEEP);
         } else {

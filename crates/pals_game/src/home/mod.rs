@@ -14,7 +14,7 @@ use orbit_core::{
     Buttons, Clip, ControlsPlugin, CorePlugin, Mic, MicPlugin, Power, Rng, SaveBlob, SoundPlugin,
     SoundQueue, Tilt, Touch, VoicePrint,
 };
-use orbit_ui::{CLICK, Key, KeyRing, THUD, dial_choice, list_choice};
+use orbit_ui::{CLICK, Key, KeyRing, THUD, dial_choice, dial_point, list_choice};
 use pals::{Gesture, Name, Pals, Strokes, TRICKS_PER_PET, Trigger, tricks::Motion};
 
 use crate::fish::{TRICK_SECS, pose};
@@ -31,6 +31,17 @@ const ECHO_SECS: f32 = 1.0;
 pub const STAGE: Vec2 = Vec2::new(233.0, 230.0);
 /// A tap this close to a swimming fish picks it.
 const FISH_REACH: f32 = 48.0;
+/// The ring round the tank that the names (and EXIT) sit on, px from the
+/// center, and how close a tap must be to one to pick it.
+const NAME_RING: f32 = 176.0;
+const NAME_REACH: f32 = 40.0;
+
+/// Where name `index` of `count` (the fish, then EXIT) sits on the tank's
+/// ring, clockwise from 12 o'clock as on its dial.
+pub fn name_spot(index: usize, count: usize) -> Vec2 {
+    let at = dial_point(index as f32 * 360.0 / count as f32, NAME_RING);
+    Vec2::new(at.x as f32, at.y as f32)
+}
 /// Tricks move this much of their full size here, so the highest leap stays
 /// under the lesson's text and the deepest dive over the mic's.
 pub(crate) const STAGE_MOTION: f32 = 0.65;
@@ -276,7 +287,6 @@ fn play(
     let pressed = buttons.action.pressed();
     let tap = touch.just_pressed().then(|| touch.position()).flatten();
     let on_screen: &[ui::Button] = match home.phase.as_ref() {
-        HomePhase::Tank => &[ui::OUT],
         HomePhase::Card { .. } => &ui::CARD_BUTTONS,
         HomePhase::Tricks { .. } => &ui::TRICK_ROWS,
         HomePhase::Practice { .. } => &[ui::NEW_WORD, ui::PRACTICE_BACK],
@@ -317,12 +327,14 @@ fn play(
         HomePhase::Tank => {
             let count = pals.pets.len();
             let pointed = dial_choice(tilt.steer_deg, count + 1);
-            let touched = tap.and_then(|at| {
+            let on_ring = tap.and_then(|at| {
+                let spots = (0..=count).map(|i| name_spot(i, count + 1));
+                orbit_ui::nearest(at, spots, NAME_REACH)
+            });
+            let swimming = tap.and_then(|at| {
                 orbit_ui::nearest(at, (0..count).map(|pet| home.swimmer(pet)), FISH_REACH)
             });
-            let picked = touched
-                .or(tapped(&ui::OUT).then_some(count))
-                .or(pressed.then_some(pointed));
+            let picked = on_ring.or(swimming).or(pressed.then_some(pointed));
             match picked {
                 Some(pet) if pet < count => next = Some(HomePhase::Card { pet }),
                 Some(_) => {

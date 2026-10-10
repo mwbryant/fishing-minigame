@@ -2,7 +2,6 @@
 
 pub use orbit_ui::Button;
 
-pub const OUT: Button = Button::new(183, 404, 100, 32, "EXIT");
 pub const RENAME: Button = Button::new(75, 356, 104, 36, "RENAME");
 pub const TRICKS: Button = Button::new(181, 356, 104, 36, "TRICKS");
 pub const BACK: Button = Button::new(287, 356, 104, 36, "BACK");

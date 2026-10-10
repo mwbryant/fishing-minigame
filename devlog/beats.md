@@ -1145,3 +1145,14 @@ Images are in `img/`. Newest beats go at the bottom.
 - **Hook:** "One button, one post, 0.7 millimetres apart. On a printer, that's touching."
 - **Media:** `img/48-before-boot-post.png`, `img/48-after-boot-post.png`.
   - TODO(user): a photo of the fourth print's buttons.
+
+## 60. EXIT you could see but not tap (2026-10-10)
+
+- **The ask:** "in the tank it seems you can't tap exit to leave"
+- **What got in the way:** the tank draws its fish names and EXIT on a ring round the rim, and
+  EXIT moves with the number of fish (9 o'clock with three). Its tap target was a fixed box at
+  the bottom middle that was never drawn, so tapping the EXIT you could see did nothing, and
+  tapping a name on the ring didn't open that fish either.
+- **The fix:** every label on the ring is a tap target where it's drawn (one `name_spot` for
+  drawing and tapping), and ring labels win over a fish swimming nearby.
+- **The numbers:** 2 new tests (EXIT with one, two and three fish; a name opens its card).

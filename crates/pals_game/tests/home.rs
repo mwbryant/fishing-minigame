@@ -392,3 +392,24 @@ fn tapping_done_finishes_teaching_and_back_leaves_untaught() {
         phase(&app)
     );
 }
+
+#[test]
+fn tapping_exit_on_the_ring_leaves_wherever_it_sits() {
+    let names = ["GILLY", "BUBBA", "KOI"];
+    for fish in 1..=names.len() {
+        let mut app = home_with(names[..fish].iter().map(|name| pet(name, None)).collect());
+        tap(&mut app, pals_game::home::name_spot(fish, fish + 1));
+        assert_eq!(
+            app.should_exit(),
+            Some(AppExit::Success),
+            "with {fish} fish"
+        );
+    }
+}
+
+#[test]
+fn tapping_a_name_on_the_ring_opens_that_fish() {
+    let mut app = home_with(vec![pet("GILLY", None), pet("BUBBA", None)]);
+    tap(&mut app, pals_game::home::name_spot(1, 3));
+    assert_eq!(phase(&app), HomePhase::Card { pet: 1 });
+}
