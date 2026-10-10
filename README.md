@@ -87,7 +87,7 @@ Everything runs from this repo. It was developed on an Apple Silicon Mac.
 ### The desktop simulator
 
 ```sh
-cargo run -p orbit_desktop                              # Fishing Minigame (town -> a place -> OUT)
+cargo run -p orbit_desktop                              # Fishing Minigame (town -> a place -> EXIT)
 cargo run -p orbit_desktop -- home                      # or one app: town home park contest shop
                                                         #   angler spider skate bees orbit
 cargo run -p orbit_desktop -- contest snapshot screenshots  # an app's screens as PNGs, headless

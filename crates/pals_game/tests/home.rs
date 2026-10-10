@@ -122,7 +122,7 @@ fn the_fish_swim_in_the_tank_in_their_hats() {
     let species = angler_game::SPECIES[3].sprite;
     assert_eq!(drawn(&app, species), 2);
     assert_eq!(drawn(&app, HATS[2].sprite), 1);
-    assert!(shows(&app, "GILLY") && shows(&app, "BUBBA") && shows(&app, "OUT"));
+    assert!(shows(&app, "GILLY") && shows(&app, "BUBBA") && shows(&app, "EXIT"));
     let before = app.world().resource::<Home>().swimmer(0);
     tick(&mut app, 60);
     assert_ne!(

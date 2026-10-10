@@ -241,14 +241,14 @@ fn a_tap_spins_too() {
 #[test]
 fn launched_from_the_town_the_title_offers_a_way_out() {
     let app = game(None);
-    assert!(!shows(&app, "OUT"));
+    assert!(!shows(&app, "EXIT"));
     let mut app = headless(
         |app| {
             app.add_plugins(SpiderPlugin).insert_resource(Launcher);
         },
         None,
     );
-    assert!(shows(&app, "OUT"));
+    assert!(shows(&app, "EXIT"));
     tap(&mut app, ui::HOME.center());
     assert_eq!(app.should_exit(), Some(AppExit::Success));
 }
@@ -323,7 +323,7 @@ fn with_gold_the_den_takes_a_bet_before_the_first_spin() {
 #[test]
 fn launched_from_the_town_the_bet_dial_has_a_way_out() {
     let mut app = betting_from_the_town(60);
-    assert!(shows(&app, "OUT"));
+    assert!(shows(&app, "EXIT"));
     let spots = spider_game::stakes(60).len() + 1;
     let last = 360.0 / spots as f32;
     set_tilt(&mut app, -last / orbit_ui::DIAL_GAIN, 0.0);
@@ -347,7 +347,7 @@ fn played_on_its_own_the_bet_dial_has_no_way_out() {
     let mut app = with_gold(60);
     click_action(&mut app);
     assert_eq!(table(&app).phase, Phase::Bet);
-    assert!(!shows(&app, "OUT"));
+    assert!(!shows(&app, "EXIT"));
 }
 
 #[test]

@@ -62,7 +62,7 @@ pong) is a separate binary. A desktop simulator shares the renderer and the moti
     `Power::saying_good_night()`.
   - **Saves:** your own `SaveBlob` section (four-byte key). The fish, gold and hats are
     `pals::save` (`PALS`).
-  - **Leaving:** offer OUT (send `AppExit`) when `orbit_core::Launcher` is present. A Fishing
+  - **Leaving:** offer EXIT (send `AppExit`) when `orbit_core::Launcher` is present. A Fishing
     Minigame place exits on its own way out.
   - **Wiring it in:**
     - a `pals_game::Place`, with a door in `town::map` and the app in `firmware/src/bin/pals.rs`;

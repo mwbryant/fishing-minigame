@@ -1087,3 +1087,12 @@ Images are in `img/`. Newest beats go at the bottom.
 - **The numbers:** a full-screen AMOLED's draw scales with brightness, so 50% should roughly
   halve the panel's share of the battery.
 - **Media:** `img/57-before-settings.png`, `img/57-after-settings.png`.
+
+## 58. OUT is EXIT (2026-10-10)
+
+- **The ask:** "make the out buttons say exit instead"
+- **The fix:** every way back to the town that said OUT says EXIT: the house's tank dial and
+  button, the hat shop's ring, the den's bet dial, and the top button on the pond, the den, the
+  arcade and the humming tree. The park's and contest's BACK spots, which also leave, are
+  unchanged.
+- **Media:** `img/58-before-home-tank.png`, `img/58-after-home-tank.png`.

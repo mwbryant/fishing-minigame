@@ -169,7 +169,7 @@ fn bet(shapes: &mut Vec<Shape>, pals: &Pals, steer: f32, launched: bool) {
         let at = ui::stake_center(i, spots);
         let at = Point::new(at.x as i32, at.y as i32);
         let (amount, scale) = match offered.get(i) {
-            None => ("OUT".into(), 1),
+            None => ("EXIT".into(), 1),
             Some(0) => ("FREE".into(), 1),
             Some(stake) => (format!("{stake}"), 2),
         };

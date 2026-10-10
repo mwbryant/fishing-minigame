@@ -11,7 +11,7 @@ use crate::EGG_DEG;
 pub const EGG_RING: f32 = 160.0;
 
 /// On the menus when the town launched the game: back out to the street.
-pub const HOME: Button = Button::new(193, 40, 80, 30, "OUT");
+pub const HOME: Button = Button::new(193, 40, 80, 30, "EXIT");
 /// Between spins, with a bet down and a safe egg cracked.
 pub const CASH_OUT: Button = Button::new(173, 300, 120, 32, "CASH OUT");
 /// Radius of the bet dial's ring of stakes, px.

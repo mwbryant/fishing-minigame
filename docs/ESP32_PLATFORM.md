@@ -891,7 +891,7 @@ tests check behaviour, not values, so retune freely and rerun `cargo test -p ang
 
 **Home screen and settings:**
 - **Title:** LOG and SETTINGS are touch buttons (`ui.rs` holds the rectangles shared by drawing
-  and hit tests), plus OUT when the town launched it. Other taps do nothing; PWR starts
+  and hit tests), plus EXIT when the town launched it. Other taps do nothing; PWR starts
   fishing. It shows "CAUGHT n" and "TANK n/3".
 - **Difficulty** (`settings.rs`): EASY / NORMAL / HARD, stepped with < >, each with a
   `Tuning`:
@@ -990,7 +990,7 @@ The town, its places, and the rules they share (the loop itself is in the introd
 1. Build the town (`pals_game::town`) and run it until PWR at a door sends `AppExit`.
 2. Read `Town::destination()`, drop the town, and build that place's app with
    `orbit_core::Launcher` inserted.
-3. When the app sends `AppExit` (OUT, or leaving an empty room), rebuild the town with
+3. When the app sends `AppExit` (EXIT, or leaving an empty room), rebuild the town with
    `pals_game::Arrival(place)`, so you stand at the door you went in by.
 
 One app exists at a time. The desktop's `play` does the same, with `town` the default mode.
@@ -1082,7 +1082,7 @@ touch, so a worn button never blocks play; only sleep (holding BOOT) needs a but
   keeps the clearing's plate, so nothing flashes on the way in.
 - **Coming out:** back from a place, or out of the settings, nothing goes in for
   `ENTRY_LOCK_SECS` (2 s), and a finger still down from the press that came out doesn't walk
-  you until it lifts. So OUT (whose spot is inside the lake's tap zone) and BACK can't send you
+  you until it lifts. So EXIT (whose spot is inside the lake's tap zone) and BACK can't send you
   straight back in.
 - **Landmarks:** a tap on a place's landmark (`town::map::landmark`: the house, signpost,
   bench, hall, shop, den, bee tree or cabinet, and the pond's water and dock), give or take
@@ -1143,7 +1143,7 @@ or lets the new catch go.
     it).
 
 **The house** (`pals_game::home`, with `MicPlugin`):
-- **Tank:** fish swim in their hats; the dial points at one, or OUT.
+- **Tank:** fish swim in their hats; the dial points at one, or EXIT.
 - **Cards:** species, size, stamina, appeal and the five tricks by rarity, with RENAME, TRICKS
   and BACK on a row.
 - **Teaching:** WATCH (the trick, twice), then say a word twice and/or draw a stroke twice. A
@@ -1194,7 +1194,7 @@ or lets the new catch go.
 - Three rivals (SPLASHY, FINLEY, OLD BOOTS) decide the place; the top three pay.
 
 **The hat shop** (`pals_game::shop`):
-- NO HAT, the 12 hats and OUT ring the glass; the mirror shows the fish in the pointed one.
+- NO HAT, the 12 hats and EXIT ring the glass; the mirror shows the fish in the pointed one.
 - PWR buys (it goes straight on) or wears an owned hat. Tap the mirror for the next fish.
 - `pals_game::fish::HAT_SEATS` seats hats on each species' head column and top row, at 3/4 of
   the fish's scale.
@@ -1206,7 +1206,7 @@ or lets the new catch go.
   purple spider dances in the middle, bobbing and swaying to the heartbeat and turning round
   every four beats.
 - **The bet:** with gold in the purse, a round starts with a bet of 5, 10, 25, 50 or 100 (what
-  the purse covers) or FREE, on a dial. Opened from the town, the dial's last spot is OUT,
+  the purse covers) or FREE, on a dial. Opened from the town, the dial's last spot is EXIT,
   back to the street.
 - **The spin:** PWR or a tap spins a pointer `SPIN_TURNS` (3) turns plus the way to an egg
   picked uniformly among the whole ones, with a cubic ease-out over `SPIN_SECS` (2.4 s). A tick

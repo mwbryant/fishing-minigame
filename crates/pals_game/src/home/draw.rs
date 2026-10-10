@@ -176,7 +176,7 @@ fn tank(shapes: &mut Vec<Shape>, home: &Home, pals: &Pals, steer: f32) {
     let pointed = dial_choice(steer, count);
     let step = 360.0 / count as f32;
     for i in 0..count {
-        let text = pals.pets.get(i).map_or("OUT", |pet| pet.name.as_str());
+        let text = pals.pets.get(i).map_or("EXIT", |pet| pet.name.as_str());
         let at = dial_point(i as f32 * step, NAME_RING);
         if i == pointed {
             framed_label(shapes, label_at(at, text, 1, GOLD), GOLD, DEEP);

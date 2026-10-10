@@ -193,7 +193,7 @@ fn draw_frame(
         .and_then(|pet| pet.hat)
         .map(usize::from);
     let (name, status, hint): (&str, alloc::string::String, alloc::string::String) = match pointed {
-        OUT => ("OUT", "".into(), "PRESS TO LEAVE".into()),
+        OUT => ("EXIT", "".into(), "PRESS TO LEAVE".into()),
         0 => (
             "NO HAT",
             "".into(),
@@ -252,7 +252,7 @@ fn ring(shapes: &mut Vec<Shape>, pointed: usize) {
                 });
             }
             None => {
-                let text = if choice == OUT { "OUT" } else { "NONE" };
+                let text = if choice == OUT { "EXIT" } else { "NONE" };
                 shapes.push(label_at(at, text, 1, TEXT));
             }
         }
