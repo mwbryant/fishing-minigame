@@ -1,5 +1,6 @@
 //! The town: six round clearings on a 3 x 2 grid, joined by paths at the
-//! compass points. Each has its scenery, what's solid, and its doors.
+//! compass points. Each has its scenery, what's solid, its doors, and the
+//! landmark you tap to go in.
 
 use bevy::math::Vec2;
 use orbit_gfx::{Point, Rectangle, Size, Sprite};
@@ -126,6 +127,36 @@ pub fn door(place: Place) -> (Screen, Vec2) {
 
 /// The pond's water, which you can't walk on: center and radius.
 pub const LAKE: (Vec2, f32) = (Vec2::new(170.0, 170.0), 110.0);
+
+/// The building, sign or dock you tap to go into `place`.
+pub fn landmark(place: Place) -> Rectangle {
+    let (screen, index) = match place {
+        Place::Home => (Screen::Home, 0),
+        Place::Settings => (Screen::Home, 1),
+        Place::Pond => (Screen::Pond, 0),
+        Place::Park => (Screen::Park, 0),
+        Place::Contest => (Screen::Hall, 0),
+        Place::Shop => (Screen::MainStreet, 0),
+        Place::Den => (Screen::MainStreet, 1),
+        Place::BeeTree => (Screen::Grove, 0),
+        Place::Arcade => (Screen::Grove, 1),
+    };
+    props(screen)[index].area()
+}
+
+/// A tap at `at` is on `place`'s landmark, or within `slop` of it. The pond's
+/// water counts as its landmark too.
+pub fn on_landmark(place: Place, at: Vec2, slop: f32) -> bool {
+    let in_lake = place == Place::Pond && at.distance(LAKE.0) <= LAKE.1 + slop;
+    in_lake || miss(landmark(place), at) <= slop
+}
+
+/// How far `at` is from `area`: 0 inside it.
+pub fn miss(area: Rectangle, at: Vec2) -> f32 {
+    let low = Vec2::new(area.top_left.x as f32, area.top_left.y as f32);
+    let high = low + Vec2::new(area.size.width as f32, area.size.height as f32);
+    at.clamp(low, high).distance(at)
+}
 
 pub fn props(screen: Screen) -> &'static [Prop] {
     match screen {

@@ -892,3 +892,26 @@ Images are in `img/`. Newest beats go at the bottom.
 - **Media:** `img/48-before-good-night.png`, `img/48-after-good-night.png`.
   - TODO(user): a phone clip of holding BOOT through GOOD NIGHT to a dark screen, then PWR
     bringing it back.
+
+## 49. Tap the house to go in (2026-10-10)
+
+- **The ask:** "the buttons on the touch screen are a bit hard to click, can you give them a bit
+  more forgiveness. I was struggling to enter the house. also the pond starting hitbox is way
+  too small on the overworld map, it should be very easy to enter the points of interest"
+- **What got in the way:** going in took two steps. You had to end a walk within 22 px of an
+  invisible door spot (about 2 mm of glass) before the sign appeared, then tap the sign. Tapping
+  the house itself walked you into its wall, and tapping the lake walked you to the shore,
+  nowhere near the dock's door spot.
+- **The fix:**
+  - a tap on a place's landmark (the house, signpost, bench, hall, shop, den, bee tree, cabinet,
+    or the pond's water and dock), give or take 28 px, walks you to its door and goes in;
+  - the door counts from 40 px instead of 22, so a walk that stops close enough shows the sign;
+  - every touch button takes taps up to 28 px off its edge instead of 16 (about 2.7 mm);
+  - taps at the end of a path still walk down the path first.
+- **The numbers:** 6 new town and tap tests; 344 tests pass.
+- **Hook:** "My own house had a 4 mm door, and I was tapping the roof."
+- **Media:** `img/49-before-home-taps.png`, `img/49-after-home-taps.png`,
+  `img/49-before-pond-taps.png`, `img/49-after-pond-taps.png`. These are the real town
+  screenshots with the tap zones drawn over them in pink, so they're annotated, not footage.
+  - TODO(user): a phone clip of tapping the lake from across the clearing and walking straight
+    into the pond.

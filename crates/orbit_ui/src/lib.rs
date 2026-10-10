@@ -37,9 +37,9 @@ const BATTERY_LOW: Rgb565 = rgb(250, 210, 60);
 /// At or below this, games show the battery during play too (unless charging).
 pub const LOW_BATTERY_PERCENT: u8 = 15;
 
-/// How far outside its box a tap still presses a button (about 1.5 mm of
+/// How far outside its box a tap still presses a button (about 2.7 mm of
 /// glass), so a fingertip that lands just off one still counts.
-pub const TAP_SLOP: f32 = 16.0;
+pub const TAP_SLOP: f32 = 28.0;
 
 /// An on-screen touch button. Its rectangle is shared by drawing and hit
 /// testing, so what you see is what you tap, give or take [`TAP_SLOP`].

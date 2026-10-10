@@ -12,6 +12,12 @@ fn a_fingertip_landing_just_off_a_button_still_presses_it() {
 }
 
 #[test]
+fn a_fingertip_two_and_a_half_millimetres_off_a_button_still_presses_it() {
+    assert!(LEFT.hit(Vec2::new(120.0, 356.0 - 26.0)));
+    assert!(LEFT.hit(Vec2::new(75.0 - 26.0, 370.0)));
+}
+
+#[test]
 fn between_buttons_close_together_the_nearer_one_is_pressed() {
     let buttons = [LEFT, RIGHT];
     assert_eq!(tapped(Vec2::new(182.0, 370.0), &buttons), Some(&RIGHT));

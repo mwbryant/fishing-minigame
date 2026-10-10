@@ -1,9 +1,10 @@
 use bevy::{app::AppExit, prelude::*};
 use orbit_core::{SaveBlob, SoundQueue, Touch, preferences, testing::*};
+use orbit_gfx::Point;
 use pals::{Name, Pals, Pet};
 use pals_game::{
     Arrival, Place,
-    town::{Screen, Town, TownPhase, TownPlugin, ui},
+    town::{Screen, Town, TownPhase, TownPlugin, map::landmark, ui},
 };
 
 fn town(saved: Option<Vec<u8>>) -> App {
@@ -115,15 +116,81 @@ fn turning_or_leaning_the_device_doesnt_walk() {
 }
 
 #[test]
-fn the_house_is_solid() {
+fn the_house_is_solid_when_you_walk_past_it() {
+    let mut app = town(None);
+    tap_and_walk(&mut app, Vec2::new(110.0, 120.0), 120);
+    let house = landmark(Place::Home);
+    tap(&mut app, Vec2::new(380.0, 120.0));
+    for _ in 0..180 {
+        update(&mut app);
+        let at = state(&app).at();
+        let inside = house.contains(Point::new(at.x as i32, at.y as i32));
+        assert!(!inside, "walked into the house to {at:?}");
+    }
+    assert_eq!(state(&app).destination(), None);
+}
+
+#[test]
+fn tapping_the_house_from_across_the_clearing_walks_you_in() {
+    let mut app = town(None);
+    tap_and_walk(&mut app, Vec2::new(330.0, 300.0), 120);
+    assert_eq!(state(&app).near(), None);
+    tap_and_walk(&mut app, Vec2::new(233.0, 100.0), 60 * 3);
+    assert_eq!(state(&app).destination(), Some(Place::Home));
+}
+
+#[test]
+fn a_tap_just_off_the_house_still_goes_in() {
+    let mut app = town(None);
+    tap_and_walk(&mut app, Vec2::new(330.0, 300.0), 120);
+    let house = landmark(Place::Home);
+    let beside = house.top_left.x as f32 + house.size.width as f32 + 20.0;
+    tap_and_walk(&mut app, Vec2::new(beside, 100.0), 60 * 3);
+    assert_eq!(state(&app).destination(), Some(Place::Home));
+}
+
+#[test]
+fn tapping_the_water_takes_you_fishing() {
+    let mut app = town(None);
+    app.world_mut().resource_mut::<Town>().stand_at(Place::Pond);
+    tap_and_walk(&mut app, Vec2::new(380.0, 330.0), 120);
+    assert_eq!(state(&app).near(), None);
+    tap_and_walk(&mut app, Vec2::new(150.0, 150.0), 60 * 3);
+    assert_eq!(state(&app).destination(), Some(Place::Pond));
+}
+
+#[test]
+fn every_place_is_one_tap_on_its_landmark_away() {
+    for place in Place::ALL {
+        let mut app = town(None);
+        app.world_mut().resource_mut::<Town>().stand_at(place);
+        let away = if place == Place::Pond {
+            Vec2::new(380.0, 330.0)
+        } else {
+            Vec2::splat(233.0)
+        };
+        tap_and_walk(&mut app, away, 120);
+        assert_ne!(state(&app).near(), Some(place), "{place:?}");
+        let center = landmark(place).center();
+        tap_and_walk(
+            &mut app,
+            Vec2::new(center.x as f32, center.y as f32),
+            60 * 4,
+        );
+        if place == Place::Settings {
+            assert_eq!(state(&app).phase, TownPhase::Settings);
+            continue;
+        }
+        assert_eq!(state(&app).destination(), Some(place), "{place:?}");
+    }
+}
+
+#[test]
+fn standing_near_a_door_is_enough_to_go_in() {
     let mut app = town(None);
     let door = state(&app).at();
-    hold(&mut app, door - Vec2::new(0.0, 100.0), 120);
-    assert!(
-        state(&app).at().y > door.y - 12.0,
-        "walked into the house to {:?}",
-        state(&app).at()
-    );
+    tap_and_walk(&mut app, door + Vec2::new(34.0, 12.0), 60);
+    assert_eq!(state(&app).near(), Some(Place::Home));
 }
 
 #[test]

@@ -1,7 +1,9 @@
 //! The town, where the board starts: six clearings you walk around by touch.
 //! Tap where to go, or hold a finger down and follow it; tap the end of a path
-//! to go down it. PWR (or GO IN) at a door ends the town app, and the platform
-//! builds that place's app. The signpost by the house opens settings instead:
+//! to go down it. Tap a place's landmark (its building, sign, or the pond's
+//! water and dock) and you walk to its door and go in. PWR (or GO IN) at a
+//! door goes in too. Going in ends the town app, and the platform builds that
+//! place's app. The signpost by the house opens settings instead:
 //! sound, mock walks and reset, picked by turning like every menu.
 
 mod draw;
@@ -19,7 +21,7 @@ use pals::Pals;
 pub use map::Screen;
 
 use crate::{Arrival, Place};
-use map::{CENTER, LAKE, Way, door, props};
+use map::{CENTER, LAKE, Way, door, on_landmark, props};
 
 pub const BACKGROUND: orbit_gfx::Rgb565 = draw::GRASS;
 /// Walking speed, px/s.
@@ -35,7 +37,7 @@ const ENTRY_RADIUS: f32 = 185.0;
 const PATH_HALF_DEG: f32 = 14.0;
 /// Your size, for bumping into things, and how near a door counts.
 const BODY: f32 = 8.0;
-const DOOR_REACH: f32 = 22.0;
+const DOOR_REACH: f32 = 40.0;
 /// Spots on the settings dial, clockwise from 12 o'clock: sound, mock walk,
 /// reset, back.
 pub const SETTINGS_CHOICES: usize = 4;
@@ -57,9 +59,11 @@ pub struct Town {
     facing_right: bool,
     /// Where a tap (or the finger still down) says to walk.
     target: Option<Vec2>,
-    /// The finger still down walked you down a path, so it won't steer until
-    /// lifted.
+    /// The finger still down walked you down a path or tapped a landmark, so
+    /// it won't steer until lifted.
     finger_spent: bool,
+    /// A landmark was tapped: walking to its door, then going in.
+    heading_in: Option<Place>,
     /// Seconds spent walking, for the step bob.
     stride: f32,
     destination: Option<Place>,
@@ -75,6 +79,7 @@ impl Default for Town {
             facing_right: true,
             target: None,
             finger_spent: false,
+            heading_in: None,
             stride: 0.0,
             destination: None,
         }
@@ -116,15 +121,26 @@ impl Town {
     pub fn stand_at(&mut self, place: Place) {
         (self.screen, self.at) = door(place);
         self.target = None;
+        self.heading_in = None;
     }
 
     fn blocked(&self, at: Vec2) -> bool {
         let lake = self.screen == Screen::Pond && at.distance(LAKE.0) < LAKE.1 + BODY;
-        lake || props(self.screen).iter().filter(|p| p.solid).any(|prop| {
-            let area = prop.area();
-            let low = Vec2::new(area.top_left.x as f32, area.top_left.y as f32);
-            let high = low + Vec2::new(area.size.width as f32, area.size.height as f32);
-            at.clamp(low, high).distance(at) < BODY
+        lake || props(self.screen)
+            .iter()
+            .filter(|p| p.solid)
+            .any(|prop| map::miss(prop.area(), at) < BODY)
+    }
+
+    /// The place whose landmark a tap at `at` is on, unless it's at the end of
+    /// a path.
+    fn landmark_at(&self, at: Vec2) -> Option<Place> {
+        let out = at - CENTER;
+        if self.path_toward(out).is_some() && out.length() > PATH_TOUCH_RADIUS {
+            return None;
+        }
+        Place::ALL.into_iter().find(|&place| {
+            door(place).0 == self.screen && on_landmark(place, at, orbit_ui::TAP_SLOP)
         })
     }
 
@@ -255,9 +271,17 @@ fn roam(
     let tapped = |button: &orbit_ui::Button| pressed_button == Some(button);
     match town.phase {
         TownPhase::Walking => {
+            if let Some(at) = tap {
+                town.heading_in = town.landmark_at(at);
+                if let Some(place) = town.heading_in {
+                    town.target = Some(door(place).1);
+                    town.finger_spent = true;
+                }
+            }
             let near = town.near();
             let on_sign = tap.is_some_and(|at| ui::SIGN.miss(at) == 0.0);
-            if let Some(place) = near.filter(|_| pressed || on_sign) {
+            let going_in = |place: &Place| pressed || on_sign || town.heading_in == Some(*place);
+            if let Some(place) = near.filter(going_in) {
                 sound.play(&CLICK);
                 if place == Place::Settings {
                     town.phase = TownPhase::Settings;
