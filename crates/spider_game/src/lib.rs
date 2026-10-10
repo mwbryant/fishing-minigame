@@ -59,6 +59,12 @@ pub fn stakes(gold: u32) -> alloc::vec::Vec<u32> {
     offered
 }
 
+/// Spots on the bet dial: the stakes `offered`, then OUT when the town
+/// launched the game.
+pub fn bet_spots(offered: &[u32], launched: bool) -> usize {
+    offered.len() + usize::from(launched)
+}
+
 /// What a bet of `stake` is worth after `safe` safe eggs: the odds of having
 /// come that far are (eggs - safe) in eggs, so fair pay is their inverse.
 pub fn cash_value(stake: u32, safe: u8) -> u32 {
@@ -272,19 +278,27 @@ fn play(
         }
         Phase::Bet => {
             let offered = stakes(pals.gold);
+            let spots = bet_spots(&offered, launcher.is_some());
             let tapped = tap.and_then(|at| {
-                let spots = (0..offered.len()).map(|i| ui::stake_center(i, offered.len()));
-                orbit_ui::nearest(at, spots, ui::STAKE_REACH)
+                let centers = (0..spots).map(|i| ui::stake_center(i, spots));
+                orbit_ui::nearest(at, centers, ui::STAKE_REACH)
             });
             let picked = tapped.or(buttons
                 .action
                 .pressed()
-                .then(|| dial_choice(tilt.steer_deg, offered.len())));
-            if let Some(stake) = picked.map(|i| offered[i]) {
-                pals.spend_up_to(stake);
-                pals::save::store(&mut blob, &pals);
-                table.deal(&mut rng, stake);
-                sfx = Some(&CLICK);
+                .then(|| dial_choice(tilt.steer_deg, spots)));
+            match picked.map(|i| offered.get(i).copied()) {
+                Some(Some(stake)) => {
+                    pals.spend_up_to(stake);
+                    pals::save::store(&mut blob, &pals);
+                    table.deal(&mut rng, stake);
+                    sfx = Some(&CLICK);
+                }
+                Some(None) => {
+                    sfx = Some(&CLICK);
+                    exit.write(AppExit::Success);
+                }
+                None => {}
             }
         }
         Phase::Ready if staked && table.safe > 0 && tap.is_some_and(|at| ui::CASH_OUT.hit(at)) => {

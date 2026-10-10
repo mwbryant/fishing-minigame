@@ -1021,7 +1021,7 @@ pet*`.
 
 **Controls:** turning selects and steers, PWR confirms, and touch works everywhere too.
 - **Taps** (`orbit_ui`):
-  - A `Button` takes taps up to `TAP_SLOP` (16 px, about 1.5 mm of glass) outside its box.
+  - A `Button` takes taps up to `TAP_SLOP` (28 px, about 2.7 mm of glass) outside its box.
   - With more than one button, `tapped(at, buttons)` picks the one the tap lands on, else the
     nearest within reach, so a padded neighbor can't steal it. RENAME, TRICKS and BACK on a
     fish's card are 2 px apart.
@@ -1065,7 +1065,11 @@ pet*`.
     out.
 - **Edges:** solid scenery slides you along it. The rim keeps you in, except down a path to
   the next clearing.
-- **Doors:** within 22 px of a door its name shows; PWR or GO IN enters.
+- **Doors:** within 40 px of a door its name shows; PWR or GO IN enters.
+- **Landmarks:** a tap on a place's landmark (`town::map::landmark`: the house, signpost,
+  bench, hall, shop, den, bee tree or cabinet, and the pond's water and dock), give or take
+  `TAP_SLOP`, walks you to its door and goes in. A tap at the end of a path still means the
+  path.
 - **Settings** (the signpost by the house): SOUND, MOCK WALK, RESET and BACK on a dial. MOCK
   WALK steps OFF, x1, x2, x5, x10, x25 and back to OFF. RESET asks first; ERASE drops every
   section but `PREF` and keeps the mock-walk setting.
@@ -1169,7 +1173,8 @@ or lets the new catch go.
   purple spider dances in the middle, bobbing and swaying to the heartbeat and turning round
   every four beats.
 - **The bet:** with gold in the purse, a round starts with a bet of 5, 10, 25, 50 or 100 (what
-  the purse covers) or FREE, on a dial.
+  the purse covers) or FREE, on a dial. Opened from the town, the dial's last spot is OUT,
+  back to the street.
 - **The spin:** PWR or a tap spins a pointer `SPIN_TURNS` (3) turns plus the way to an egg
   picked uniformly among the whole ones, with a cubic ease-out over `SPIN_SECS` (2.4 s). A tick
   sounds at each egg it passes; the egg it stops on cracks.

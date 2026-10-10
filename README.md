@@ -14,7 +14,8 @@ and tested it on the board.
 ### What you do
 
 - **Walk the town.** Six round clearings joined by paths, with a door at every place. Tap where
-  to go, or hold a finger down and you follow it.
+  to go, or hold a finger down and you follow it. Tap a building or the pond and you walk
+  straight in.
 - **Fish at the pond.** Turn to aim, hold the upper button and let go at the top of the meter to
   land the cast, then lean forward and back to keep the fish in the catch zone. KEEP a catch
   (or RELEASE it) and name it by turning on a ring of letters.

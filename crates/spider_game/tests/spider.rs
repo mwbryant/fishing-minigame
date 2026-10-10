@@ -253,12 +253,29 @@ fn launched_from_the_town_the_title_offers_a_way_out() {
     assert_eq!(app.should_exit(), Some(AppExit::Success));
 }
 
-fn with_gold(gold: u32) -> App {
+fn purse_of(gold: u32) -> Option<Vec<u8>> {
     let mut tank = pals::Pals::default();
     tank.earn(gold);
     let mut blob = SaveBlob::from_storage(None);
     pals::save::store(&mut blob, &tank);
-    game(blob.take_pending())
+    blob.take_pending()
+}
+
+fn with_gold(gold: u32) -> App {
+    game(purse_of(gold))
+}
+
+/// The den as the town opens it, with `gold` in the purse, on the bet dial.
+fn betting_from_the_town(gold: u32) -> App {
+    let mut app = headless(
+        |app| {
+            app.add_plugins(SpiderPlugin).insert_resource(Launcher);
+        },
+        purse_of(gold),
+    );
+    click_action(&mut app);
+    assert_eq!(table(&app).phase, Phase::Bet);
+    app
 }
 
 fn purse(app: &App) -> u32 {
@@ -301,6 +318,36 @@ fn with_gold_the_den_takes_a_bet_before_the_first_spin() {
     assert_eq!(table(&app).stake, 25);
     assert_eq!(purse(&app), 35);
     assert_eq!(saved_purse(&mut app), 35);
+}
+
+#[test]
+fn launched_from_the_town_the_bet_dial_has_a_way_out() {
+    let mut app = betting_from_the_town(60);
+    assert!(shows(&app, "OUT"));
+    let spots = spider_game::stakes(60).len() + 1;
+    let last = 360.0 / spots as f32;
+    set_tilt(&mut app, -last / orbit_ui::DIAL_GAIN, 0.0);
+    update(&mut app);
+    click_action(&mut app);
+    assert_eq!(app.should_exit(), Some(AppExit::Success));
+    assert_eq!(purse(&app), 60, "leaving costs nothing");
+}
+
+#[test]
+fn tapping_out_on_the_bet_dial_leaves_too() {
+    let mut app = betting_from_the_town(60);
+    let spots = spider_game::stakes(60).len() + 1;
+    tap(&mut app, ui::stake_center(spots - 1, spots));
+    assert_eq!(app.should_exit(), Some(AppExit::Success));
+    assert_eq!(purse(&app), 60);
+}
+
+#[test]
+fn played_on_its_own_the_bet_dial_has_no_way_out() {
+    let mut app = with_gold(60);
+    click_action(&mut app);
+    assert_eq!(table(&app).phase, Phase::Bet);
+    assert!(!shows(&app, "OUT"));
 }
 
 #[test]

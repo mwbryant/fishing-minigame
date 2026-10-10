@@ -10,7 +10,7 @@ use angler_game::{
 };
 use bevy::prelude::*;
 use orbit_core::testing as core_testing;
-use orbit_core::{Battery, Buttons, Frame, Power, SaveBlob};
+use orbit_core::{Battery, Buttons, Frame, Launcher, Power, SaveBlob};
 use orbit_game::{
     Screen,
     arena::SCREEN_CENTER,
@@ -349,6 +349,21 @@ fn spider(camera: &mut Camera) {
     camera.shoot(&app, "spider_worth");
     core_testing::tap(&mut app, spider_game::ui::CASH_OUT.center());
     camera.shoot(&app, "spider_cashed_out");
+
+    let mut blob = SaveBlob::from_storage(None);
+    pals::save::store(&mut blob, &tank);
+    let mut app = core_testing::headless(
+        |app| {
+            app.add_plugins(spider_game::SpiderPlugin)
+                .insert_resource(Launcher);
+        },
+        blob.take_pending(),
+    );
+    battery(&mut app, 76);
+    core_testing::click_action(&mut app);
+    core_testing::set_tilt(&mut app, -360.0 / 7.0 / orbit_ui::DIAL_GAIN, 0.0);
+    core_testing::tick(&mut app, 2);
+    camera.shoot(&app, "spider_bet_from_town");
 }
 
 /// Skate: an ollie, a grind and a bail, then the halfpipe and a 360.

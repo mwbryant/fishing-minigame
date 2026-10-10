@@ -12,7 +12,9 @@ use orbit_ui::{
 };
 use pals::Pals;
 
-use crate::{EGG_DEG, EGGS, Phase, RESULT_GUARD_SECS, Table, cash_value, sprites, stakes, ui};
+use crate::{
+    EGG_DEG, EGGS, Phase, RESULT_GUARD_SECS, Table, bet_spots, cash_value, sprites, stakes, ui,
+};
 
 const WEB: Rgb565 = rgb(58, 58, 70);
 const FLASH: Rgb565 = rgb(170, 10, 10);
@@ -53,7 +55,7 @@ pub(crate) fn draw_frame(
                 );
             }
         }
-        Phase::Bet => bet(shapes, &pals, tilt.steer_deg),
+        Phase::Bet => bet(shapes, &pals, tilt.steer_deg, launcher.is_some()),
         Phase::Ready | Phase::Spinning | Phase::Reveal => {
             web(shapes);
             for egg in 0..EGGS {
@@ -141,11 +143,13 @@ pub(crate) fn draw_frame(
     power_overlay(shapes, &power);
 }
 
-/// The stakes round a dial, the pointed one ringed in gold.
-fn bet(shapes: &mut Vec<Shape>, pals: &Pals, steer: f32) {
+/// The stakes round a dial (and OUT, when the town launched the game), the
+/// pointed one ringed in gold.
+fn bet(shapes: &mut Vec<Shape>, pals: &Pals, steer: f32, launched: bool) {
     web(shapes);
     let offered = stakes(pals.gold);
-    let pointed = dial_choice(steer, offered.len());
+    let spots = bet_spots(&offered, launched);
+    let pointed = dial_choice(steer, spots);
     text(shapes, label(196, "YOUR BET?", 2, TEXT));
     gold_label_on(
         shapes,
@@ -154,23 +158,21 @@ fn bet(shapes: &mut Vec<Shape>, pals: &Pals, steer: f32) {
         1,
         BLACK,
     );
-    let worth = cash_value(offered[pointed], (EGGS - 1) as u8);
-    let note = if offered[pointed] == 0 {
-        "JUST FOR FUN".into()
-    } else {
-        format!("TRAP IT FOR {worth}")
+    let note = match offered.get(pointed) {
+        None => "BACK TO TOWN".into(),
+        Some(0) => "JUST FOR FUN".into(),
+        Some(&stake) => format!("TRAP IT FOR {}", cash_value(stake, (EGGS - 1) as u8)),
     };
     text(shapes, label(262, &note, 1, HINT));
     text(shapes, label(420, "TURN TO PICK, PRESS", 1, HINT));
-    for (i, stake) in offered.iter().enumerate() {
-        let at = ui::stake_center(i, offered.len());
+    for i in 0..spots {
+        let at = ui::stake_center(i, spots);
         let at = Point::new(at.x as i32, at.y as i32);
-        let amount = if *stake == 0 {
-            "FREE".into()
-        } else {
-            format!("{stake}")
+        let (amount, scale) = match offered.get(i) {
+            None => ("OUT".into(), 1),
+            Some(0) => ("FREE".into(), 1),
+            Some(stake) => (format!("{stake}"), 2),
         };
-        let scale = if *stake == 0 { 1 } else { 2 };
         if i == pointed {
             framed_label(shapes, label_at(at, &amount, scale, GOLD), GOLD, BLACK);
         } else {

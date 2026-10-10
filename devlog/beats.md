@@ -915,3 +915,16 @@ Images are in `img/`. Newest beats go at the bottom.
   screenshots with the tap zones drawn over them in pink, so they're annotated, not footage.
   - TODO(user): a phone clip of tapping the lake from across the clearing and walking straight
     into the pond.
+
+## 50. A way out of the den's bet (2026-10-10)
+
+- **The ask:** "the spider game should also have an out option on the bet screen"
+- **What got in the way:** walk into the den with gold and the first screen was the bet dial.
+  OUT only showed on the title and results, so the only way back to the street was to bet,
+  play FREE, or lose.
+- **The fix:** opened from the town, the bet dial gets one more spot, OUT, at 11 o'clock.
+  Turn to it and press, or tap it; pointed at, it says BACK TO TOWN. Leaving costs nothing.
+  Spider Roulette on its own (`--bin spider`) has no town to go back to, so its dial is
+  unchanged.
+- **The numbers:** 3 new tests; spider's 60 s random-play crowding run covers the 7-spot dial.
+- **Media:** `img/50-before-spider-bet.png`, `img/50-after-spider-bet.png`.
