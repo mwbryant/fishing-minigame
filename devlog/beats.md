@@ -1073,3 +1073,17 @@ Images are in `img/`. Newest beats go at the bottom.
   through at 10:30: after, there's daylight between the glass and the ledge).
   - TODO(user): a photo of the stuck button, and of the third print with the board screwed
     down.
+
+## 57. A brightness setting (2026-10-10)
+
+- **The ask:** "add brightness to the settings menu"
+- **The fix:** the signpost's settings dial goes from four spots to five: SOUND, BRIGHT, MOCK
+  WALK, RESET, BACK, with the title in the middle. BRIGHT steps 25, 50, 75, 100% and is saved
+  with the other shared preferences, so every game shows at it. The board sets the panel's
+  brightness register from it, and idle still dims to a quarter of whatever you chose. Old saves
+  read as 100%.
+- **Why it's cheap:** no new Bevy resource or system (each costs heap, and Orbit has 12 KB to
+  spare). The platform reads the preference straight from the save data every frame.
+- **The numbers:** a full-screen AMOLED's draw scales with brightness, so 50% should roughly
+  halve the panel's share of the battery.
+- **Media:** `img/57-before-settings.png`, `img/57-after-settings.png`.

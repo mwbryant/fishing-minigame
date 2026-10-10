@@ -35,6 +35,7 @@ use bevy::prelude::*;
 use minifb::{Key, MouseButton, MouseMode, Window, WindowOptions};
 use orbit_core::{
     Battery, Buttons, Frame, ImuFeed, Launcher, Mic, Power, Rng, SaveBlob, SoundQueue, Touch,
+    preferences,
 };
 use orbit_game::OrbitPlugin;
 use orbit_gfx::Presenter;
@@ -294,10 +295,13 @@ fn run(
             .get_resource::<Power>()
             .copied()
             .unwrap_or_default();
-        if power.idle {
-            for px in pixels.iter_mut() {
-                *px = (*px >> 2) & 0x003F_3F3F;
-            }
+        let percent = app
+            .world()
+            .get_resource::<SaveBlob>()
+            .map_or(100, preferences::brightness);
+        let percent = if power.idle { percent / 4 } else { percent };
+        if percent < 100 {
+            dim(pixels, percent);
         }
         window.set_target_fps(if power.idle { 20 } else { 60 });
         window
@@ -318,6 +322,15 @@ fn run(
         }
     }
     Ended::Closed
+}
+
+/// Scales every channel to `percent` of itself, like the panel's brightness.
+fn dim(pixels: &mut [u32], percent: u8) {
+    let scale = u32::from(percent);
+    for px in pixels.iter_mut() {
+        let channel = |shift: u32| ((*px >> shift & 0xFF) * scale / 100) << shift;
+        *px = channel(16) | channel(8) | channel(0);
+    }
 }
 
 /// Keeps the last frame up until Z (BOOT) is released, then a dark panel

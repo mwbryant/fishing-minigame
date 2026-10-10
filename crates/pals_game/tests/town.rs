@@ -531,13 +531,32 @@ fn mock_walk_steps_through_its_paces_then_off() {
 #[test]
 fn the_settings_dial_turns_and_pwr_picks() {
     let mut app = open_settings();
-    set_tilt(&mut app, 30.0, 0.0);
+    set_tilt(&mut app, 24.0, 0.0);
+    update(&mut app);
+    click_action(&mut app);
+    assert_eq!(
+        preferences::brightness(&saved(&mut app)),
+        25,
+        "the first spot clockwise is BRIGHT"
+    );
+    set_tilt(&mut app, 48.0, 0.0);
     update(&mut app);
     click_action(&mut app);
     assert!(
         app.world().resource::<Pals>().mock_walk,
-        "3 o'clock is MOCK WALK"
+        "the next is MOCK WALK"
     );
+}
+
+#[test]
+fn settings_step_the_brightness_round_and_save_it() {
+    let mut app = open_settings();
+    assert!(shows(&app, "BRIGHT 100%"));
+    for level in [25, 50, 75, 100] {
+        tap(&mut app, ui::BRIGHTNESS.center());
+        assert!(shows(&app, &format!("BRIGHT {level}%")), "{level}");
+        assert_eq!(preferences::brightness(&saved(&mut app)), level);
+    }
 }
 
 #[test]

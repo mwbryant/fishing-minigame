@@ -52,7 +52,7 @@ use log::{info, warn};
 use orbit_audio::{Mixer, SAMPLE_RATE};
 use orbit_core::{
     Battery, Buttons, Frame, Gps, ImuFeed, ImuSample, Launcher, Mic, Power, Rng, SaveBlob,
-    SoundQueue, Touch,
+    SoundQueue, Touch, preferences,
 };
 use orbit_gfx::{Presenter, Rgb565, SCREEN_SIZE};
 use orbit_save::SlotStore;
@@ -97,7 +97,8 @@ const FRAME_BUDGET: Duration = Duration::from_micros(16_667);
 /// While the game reports itself idle: 20 Hz and a dimmed panel.
 const IDLE_FRAME_BUDGET: Duration = Duration::from_millis(50);
 const FULL_BRIGHTNESS: u8 = 0xFF;
-const IDLE_BRIGHTNESS: u8 = 0x40;
+/// Idle dims the panel to this fraction of the chosen brightness.
+const IDLE_DIVISOR: u16 = 4;
 const BATTERY_POLL_MS: u64 = 5000;
 /// The LC76G reports every second; this long without a byte while an app
 /// listens means it has stalled, and it's restarted.
@@ -358,13 +359,9 @@ impl Board {
         {
             start_mic(&mut speaker.mic, self.bus);
         }
-        if let Err(err) = self.display.set_brightness(FULL_BRIGHTNESS) {
-            warn!("brightness change failed: {err:?}");
-        }
-
         let mut presenter = Presenter::new(vec![0u8; BAND_BYTES], background);
         let mut stats = Stats::new();
-        let mut dimmed = false;
+        let mut brightness = None;
         loop {
             let frame_start = HalInstant::now();
             self.feed_inputs(app.world_mut());
@@ -391,14 +388,13 @@ impl Board {
             if app.should_exit().is_some() {
                 return app;
             }
-            let idle_now = power.is_some_and(|power| power.idle);
-            if idle_now != dimmed {
-                dimmed = idle_now;
-                let level = if dimmed {
-                    IDLE_BRIGHTNESS
-                } else {
-                    FULL_BRIGHTNESS
-                };
+            let dimmed = power.is_some_and(|power| power.idle);
+            let level = panel_brightness(
+                preferences::brightness(app.world().resource::<SaveBlob>()),
+                dimmed,
+            );
+            if brightness != Some(level) {
+                brightness = Some(level);
                 if let Err(err) = self.display.set_brightness(level) {
                     warn!("brightness change failed: {err:?}");
                 }
@@ -665,6 +661,14 @@ fn start_mic(port: &mut MicPort, bus: &'static Bus) {
         }
         Err(err) => warn!("ES7210 init failed ({err:?}); no voice commands"),
     }
+}
+
+/// The panel's brightness register for the chosen `percent`, a quarter of
+/// it while idle (never fully dark).
+fn panel_brightness(percent: u8, idle: bool) -> u8 {
+    let level = u16::from(FULL_BRIGHTNESS) * u16::from(percent) / 100;
+    let level = if idle { level / IDLE_DIVISOR } else { level };
+    level.clamp(1, u16::from(FULL_BRIGHTNESS)) as u8
 }
 
 fn audio_status(audio: &AudioOut) -> String {

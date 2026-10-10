@@ -356,6 +356,33 @@ fn muting_stops_the_current_sound_and_drops_new_ones() {
 }
 
 #[test]
+fn brightness_is_full_until_set_and_mute_and_brightness_keep_each_other() {
+    let mut blob = SaveBlob::from_storage(None);
+    let mut sound = SoundQueue::default();
+    assert_eq!(preferences::brightness(&blob), 100);
+    preferences::set_muted(&mut blob, &mut sound, true);
+    preferences::set_brightness(&mut blob, 50);
+    assert_eq!(preferences::brightness(&blob), 50);
+    assert!(preferences::muted(&blob));
+    preferences::set_muted(&mut blob, &mut sound, false);
+    assert_eq!(
+        preferences::brightness(&blob),
+        50,
+        "unmuting keeps the brightness"
+    );
+    let rebooted = SaveBlob::from_storage(blob.take_pending());
+    assert_eq!(preferences::brightness(&rebooted), 50);
+}
+
+#[test]
+fn preferences_saved_before_brightness_read_as_full() {
+    let mut blob = SaveBlob::from_storage(None);
+    blob.save_section(preferences::KEY, vec![1, 1]);
+    assert_eq!(preferences::brightness(&blob), 100);
+    assert!(preferences::muted(&blob));
+}
+
+#[test]
 fn the_mute_preference_is_saved_and_applies_at_the_next_boot() {
     let mut app = sound_app(None);
     assert!(!app.world().resource::<SoundQueue>().muted());

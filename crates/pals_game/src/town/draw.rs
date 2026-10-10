@@ -5,7 +5,7 @@ use alloc::{format, vec::Vec};
 
 use angler_game::sprites::ANGLER;
 use bevy::prelude::*;
-use orbit_core::{Frame, Power, SoundQueue, Tilt};
+use orbit_core::{Frame, Power, SaveBlob, SoundQueue, Tilt, preferences};
 use orbit_gfx::{Point, Rgb565, Shape, SpriteRef};
 use orbit_ui::{
     DANGER, DEEP, GOLD, HINT, TEXT, battery_level, battery_level_on, dial_choice, disc,
@@ -32,6 +32,7 @@ pub(crate) fn draw_frame(
     pals: Res<Pals>,
     tilt: Res<Tilt>,
     sound: Res<SoundQueue>,
+    blob: Res<SaveBlob>,
     power: Res<Power>,
     mut frame: ResMut<Frame>,
 ) {
@@ -47,6 +48,7 @@ pub(crate) fn draw_frame(
             shapes,
             &pals,
             &sound,
+            preferences::brightness(&blob),
             dial_choice(tilt.steer_deg, SETTINGS_CHOICES),
         ),
         TownPhase::ConfirmReset => confirm_reset(shapes, tilt.steer_deg >= ERASE_TURN_DEG),
@@ -136,10 +138,16 @@ fn hud(shapes: &mut Vec<Shape>, town: &Town, pals: &Pals) {
     plated_lines(shapes, lines, GRASS);
 }
 
-fn settings(shapes: &mut Vec<Shape>, pals: &Pals, sound: &SoundQueue, pointed: usize) {
+fn settings(
+    shapes: &mut Vec<Shape>,
+    pals: &Pals,
+    sound: &SoundQueue,
+    brightness: u8,
+    pointed: usize,
+) {
     shapes.push(rect(0, 0, 466, 466, DEEP));
-    shapes.push(label(170, "SETTINGS", 2, TEXT));
-    shapes.push(label(292, "TURN TO PICK, PRESS", 1, HINT));
+    shapes.push(label(232, "SETTINGS", 2, TEXT));
+    shapes.push(label(270, "TURN TO PICK, PRESS", 1, HINT));
     let mock = if pals.mock_walk {
         format!("MOCK WALK x{}", pals::MOCK_PACES[pals.mock_pace] as u32)
     } else {
@@ -150,7 +158,8 @@ fn settings(shapes: &mut Vec<Shape>, pals: &Pals, sound: &SoundQueue, pointed: u
     } else {
         "SOUND ON"
     };
-    let texts = [sound, mock.as_str(), "RESET", "BACK"];
+    let bright = format!("BRIGHT {brightness}%");
+    let texts = [sound, bright.as_str(), mock.as_str(), "RESET", "BACK"];
     for (i, (area, text)) in ui::SETTINGS_BUTTONS.iter().zip(texts).enumerate() {
         let frame = if i == pointed { GOLD } else { HINT };
         labelled_button(shapes, area, text, frame);

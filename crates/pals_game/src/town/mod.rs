@@ -45,9 +45,9 @@ const DOOR_REACH: f32 = 40.0;
 /// After coming out of a place or the settings, nothing goes in for this
 /// long, so the press that came out can't go straight back in.
 pub const ENTRY_LOCK_SECS: f32 = 2.0;
-/// Spots on the settings dial, clockwise from 12 o'clock: sound, mock walk,
-/// reset, back.
-pub const SETTINGS_CHOICES: usize = 4;
+/// Spots on the settings dial, clockwise from 12 o'clock: sound, brightness,
+/// mock walk, reset, back.
+pub const SETTINGS_CHOICES: usize = 5;
 /// On the reset question, turning right past this points at ERASE.
 const ERASE_TURN_DEG: f32 = 10.0;
 
@@ -393,6 +393,12 @@ fn roam(
                     preferences::set_muted(&mut blob, &mut sound, muted);
                 }
                 Some(1) => {
+                    let now = preferences::brightness(&blob);
+                    let levels = preferences::BRIGHTNESS_LEVELS;
+                    let next = levels.iter().copied().find(|&level| level > now);
+                    preferences::set_brightness(&mut blob, next.unwrap_or(levels[0]));
+                }
+                Some(2) => {
                     // Off, then each pace in turn, then off again.
                     match (pals.mock_walk, pals.mock_pace + 1 < pals::MOCK_PACES.len()) {
                         (false, _) => (pals.mock_walk, pals.mock_pace) = (true, 0),
@@ -401,7 +407,7 @@ fn roam(
                     }
                     pals::save::store(&mut blob, &pals);
                 }
-                Some(2) => town.phase = TownPhase::ConfirmReset,
+                Some(3) => town.phase = TownPhase::ConfirmReset,
                 Some(_) => {
                     town.phase = TownPhase::Walking;
                     town.came_out();
