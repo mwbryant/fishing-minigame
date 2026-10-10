@@ -31,12 +31,13 @@ model of the board (download it into `../docs/` first: see
 - **One cup.** The board drops in glass-up, and three M2 screws through the back go into its own
   threaded standoffs. No clips, no glue: three screws open it.
 - **Seat.** A chamfer round the rim guides the glass in, and a ledge under the glass rim (notched
-  for USB-C) keeps the board level and takes the load when you press the screen. The posts set
-  the height; the ledge sits 0.1 mm under the glass.
+  for USB-C) takes the load when you press the screen. The posts set the height; the ledge sits
+  0.4 mm under the glass, so a print that comes out a little off can't hold the board up off its
+  posts.
 - **Posts.** Each post flares into the floor and a rib ties it to the wall, so screwing the board
   down doesn't snap it off at the base.
 - **Buttons.** PWR and BOOT press through two printed caps, 8 x 4.6 mm rounded slots that stand
-  1 mm out of the rim. Inside, a flange stops each cap falling out and a nub presses the board's
+  1.4 mm out of the rim. Inside, a flange stops each cap falling out and a nub presses the board's
   side switch. The slot shape keys the cap so it can't turn.
 - **Under the board,** from the floor up: the speaker face down behind the grille, the GPS antenna
   on it, and in the battery case the LiPo cell on top. `stack.py` lifts each layer as high as the
@@ -189,6 +190,8 @@ CAD program, but those edits don't flow back into the Python.
 - **Screw holes:** printed holes come out small, and an M2 screw that has to cut its way in can
   crack a post. The shank hole is 2.7 mm (`SCREW_CLEARANCE_D`) and the head recess 4.4 mm
   (`SCREW_HEAD_D`). The screw should slide through the post and only bite in the board.
-- **USB-C:** the opening is 11.5 x 6.0 mm (`USB_OPENING`), raised 0.5 mm above the modelled port
-  (`USB_RAISE`) after the first test print. A cable's plug head has to fit through it to seat.
+- **USB-C:** the opening is 11.5 x 6.0 mm (`USB_OPENING`), raised 0.9 mm above the modelled port
+  (`USB_RAISE`) after two test prints. A cable's plug head has to fit through it to seat.
+- **Buttons:** the caps sit 0.3 mm below the keys' modelled centre (`BUTTON_DROP`) and stand
+  1.4 mm out of the rim (`BUTTON_PROUD`), both from test prints.
 - **Glass seat:** `SEAT_GAP` is the gap under the glass, `SEAT_LEDGE` how far the ledge reaches in.

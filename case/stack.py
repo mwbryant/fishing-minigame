@@ -45,9 +45,12 @@ def post_wide_top(x: float, y: float) -> float:
     return top
 
 
+BUTTON_Z = board.KEY_Z - p.BUTTON_DROP  # height of the button caps' centres
+
+
 def rib_top() -> float:
     """The ribs stop below the button flanges."""
-    return board.KEY_Z - p.BUTTON_SIZE[1] / 2 - p.BUTTON_FLANGE - 0.5
+    return BUTTON_Z - p.BUTTON_SIZE[1] / 2 - p.BUTTON_FLANGE - 0.5
 
 
 def footprint(w: float, length: float, x: float, y: float, angle: float) -> Poly:

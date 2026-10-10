@@ -1049,3 +1049,27 @@ Images are in `img/`. Newest beats go at the bottom.
 - **The numbers:** a test walks into every place's clearing down every path and taps its
   landmark (all 9 places), plus one from behind the house; 372 tests pass.
 - **Media:** `img/56-before-town-hall.png`, `img/56-after-town-hall.png`.
+
+## 47. Second print: the board floats until you screw it down (2026-10-10)
+
+- **The ask:** buttons "just slightly longer", one button "gets stuck at an angle" when the
+  screws are tight, and USB-C up "a little bit" more. Then: "maybe it's printer issues again.
+  should just move the button hole down very slightly".
+- **What the print showed:** the board sat high before the screws went in and only came down as
+  they tightened. Our suspect is the glass ledge from beat 46: at 0.1 mm under the glass, a print
+  a fraction off lets the glass land on the ledge before the standoffs reach their posts, so
+  tightening pulls the board down and drags the key under its cap.
+- **The fix:**
+  - the ledge sits 0.4 mm under the glass instead of 0.1, so the posts set the height again;
+  - the button holes and caps move 0.3 mm down (`BUTTON_DROP`), and the caps stand 1.4 mm out
+    of the rim instead of 1.0;
+  - the USB-C opening goes up 0.4 mm more, 0.9 mm above the modelled port in all.
+- **Checks:** `check.py` passes both cases. The lowered caps still land on both switches, and
+  the closest the glass comes to the case is now 0.26 mm (was 0.17).
+- **Hook:** "The board wouldn't sit down. The culprit was the ledge I'd added to help it sit
+  down."
+- **Media:** `img/47-before-button.png`, `img/47-after-button.png`, `img/47-before-usb.png`,
+  `img/47-after-usb.png`, `img/47-before-seat.png`, `img/47-after-seat.png` (the rim cut
+  through at 10:30: after, there's daylight between the glass and the ledge).
+  - TODO(user): a photo of the stuck button, and of the third print with the board screwed
+    down.

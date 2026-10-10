@@ -223,8 +223,8 @@ def port_cutouts() -> Part:
     hole = SlotOverall(w + 2 * g, h + 2 * g)
     seat = SlotOverall(w + 2 * f + 1, h + 2 * f + 1)
     for angle in (board.PWR_ANGLE, board.BOOT_ANGLE):
-        cuts += through_rim(angle, board.KEY_Z, hole)
-        cuts += extrude(radial_plane(angle, BORE_R - 2, board.KEY_Z) * seat, amount=2)
+        cuts += through_rim(angle, stack.BUTTON_Z, hole)
+        cuts += extrude(radial_plane(angle, BORE_R - 2, stack.BUTTON_Z) * seat, amount=2)
     if p.SD_SLOT:
         sw, sh = p.SD_SLOT_SIZE
         cuts += through_rim(
@@ -418,7 +418,7 @@ def button(pressed: float = 0.0) -> Part:
     axial = Pos(0, 0, -pressed) * button_axial()
     both = Part()
     for angle in (board.PWR_ANGLE, board.BOOT_ANGLE):
-        both += radial_plane(angle, 0, board.KEY_Z).location * axial
+        both += radial_plane(angle, 0, stack.BUTTON_Z).location * axial
     return both
 
 

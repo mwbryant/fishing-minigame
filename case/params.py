@@ -45,17 +45,19 @@ BUTTON_SIZE = (
 BUTTON_FLANGE = 0.9  # mm the flange inside overhangs the cap; a 45 deg cone, prints unsupported
 BUTTON_FLANGE_T = 0.4  # mm, thickness of the flat flange behind the cone
 BUTTON_NUB_D = 1.8  # mm, presses the switch actuator (2.0 x 1.0)
-BUTTON_PROUD = 1.0  # mm the cap stands out past the flanges; more is easier to find and press
+BUTTON_PROUD = 1.4  # mm the cap stands out past the flanges; more is easier to find and press
+BUTTON_DROP = 0.3  # mm the holes and caps sit below the keys' modelled centre (test print)
 BUTTON_TIP_CHAMFER = 0.4  # mm, 45 deg chamfer round the cap's outer edge
 
 # --- Glass seat ---------------------------------------------------------------------------
 SEAT_LEDGE = 1.25  # mm a ledge reaches in from the bore under the glass rim (notched for USB-C)
-SEAT_GAP = 0.10  # mm under the glass; the posts set the height, the ledge catches the glass when
-#                  you press the screen and keeps the board level as it goes in
+SEAT_GAP = 0.40  # mm under the glass. The posts set the height and the ledge only catches the
+#                  glass when you press the screen; at 0.1 a print can land the glass on the
+#                  ledge before the standoffs reach their posts, and the board sits high
 
 # --- Ports --------------------------------------------------------------------------------
 USB_OPENING = (11.5, 6.0)  # mm, along the rim x tall; a cable's plug head must fit through
-USB_RAISE = 0.5  # mm the opening sits above the port's modelled centre (from a test print)
+USB_RAISE = 0.9  # mm the opening sits above the port's modelled centre (two test prints)
 USB_OPENING_ROUND = 2.5  # mm, corner radius
 SD_SLOT = True  # cut the microSD slot; False closes it
 SD_SLOT_SIZE = (13.0, 2.0)  # mm, along the rim x tall
