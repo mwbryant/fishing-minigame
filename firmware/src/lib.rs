@@ -309,7 +309,8 @@ impl Board {
     /// Builds an app with `add_game` and runs it until it sends `AppExit`,
     /// then hands it back so the caller can see where the town's door led. A
     /// game `launched` from the town offers OUT. When a game asks to sleep
-    /// this never returns: the board sleeps, and waking it restarts the chip.
+    /// this never returns: the board switches off, and PWR turns it back on as
+    /// a fresh boot.
     pub fn run(
         &mut self,
         add_game: impl FnOnce(&mut App),
@@ -506,10 +507,16 @@ impl Board {
         }
     }
 
-    /// The game's goodbye frame is on the glass: wait for BOOT to come up
-    /// (it wakes the chip on a low level), switch everything off, and sleep.
+    /// The game's goodbye frame is on the glass: wait for BOOT to come up,
+    /// quiet the peripherals, then switch every rail off through the AXP2101,
+    /// so nothing draws until PWR turns the board back on. ESP32 deep sleep
+    /// alone left the codec, mics, display and GPS powered from the same 3.3 V
+    /// rail and ran a battery down to 1%; it is only the fallback here, woken
+    /// by BOOT.
     fn sleep(&mut self) -> ! {
-        info!("sleeping; press BOOT to wake");
+        info!("switching off; press PWR to turn on");
+        // A BOOT still held at the next power-on would start the ROM's
+        // download mode, and deep sleep wakes on its low level.
         while self.boot.is_low() {
             self.delay.delay_millis(10);
         }
@@ -530,6 +537,16 @@ impl Board {
         if let Err(err) = self.display.sleep(&mut self.delay) {
             warn!("display sleep failed: {err:?}");
         }
+        if let Some(pmic) = self.pmic.as_mut() {
+            match pmic.power_off() {
+                Ok(()) => {
+                    self.delay.delay_millis(1000);
+                    warn!("still powered a second after switching off");
+                }
+                Err(err) => warn!("switching off failed: {err:?}"),
+            }
+        }
+        info!("deep sleep instead; press BOOT to wake");
         self.boot.listen(Event::LowLevel);
         self.boot
             .apply_wakeup_config(&WakeupConfig::default().with_low_power_path(true))

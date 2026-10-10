@@ -545,6 +545,8 @@ fn angler(camera: &mut Camera) {
     app.world_mut().resource_mut::<Buttons>().zero.set(true);
     angler::tick(&mut app, 50);
     camera.shoot(&app, "angler_hold_to_sleep");
+    angler::tick(&mut app, 140);
+    camera.shoot(&app, "angler_good_night");
 
     let mut full = pals::Pals::default();
     for (name, species) in [("BUBBA", 1), ("GILLY", 3), ("KOI", 7)] {

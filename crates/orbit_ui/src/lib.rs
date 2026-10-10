@@ -382,7 +382,7 @@ pub fn power_overlay(shapes: &mut Vec<Shape>, power: &Power) {
     if power.saying_good_night() {
         shapes.clear();
         shapes.push(label(210, "GOOD NIGHT", 2, TEXT));
-        shapes.push(label(256, "PRESS BOOT TO WAKE", 1, HINT));
+        shapes.push(label(256, "PRESS TO WAKE", 1, HINT));
         return;
     }
     let Some(progress) = power.sleep_progress() else {

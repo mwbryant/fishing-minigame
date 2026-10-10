@@ -1,11 +1,15 @@
-//! The AXP2101 power chip (I2C 0x34): the PWR key's hold-to-off time, and
-//! the battery's presence, charge state, voltage and fuel-gauge percentage.
-//! Register meanings are from the AXP2101 datasheet v1.4 (section 6.13).
+//! The AXP2101 power chip (I2C 0x34): the PWR key's hold-to-off time, the
+//! battery's presence, charge state, voltage and fuel-gauge percentage, and
+//! switching the whole board off. Register meanings are from the AXP2101
+//! datasheet v1.4 (section 6.13).
 
 use embedded_hal::i2c::I2c;
 use orbit_core::Battery;
 
 const ADDRESS: u8 = 0x34;
+/// Bit 0 switches every output off, the ESP32's 3.3 V included.
+const COMMON_CONFIG: u8 = 0x10;
+const SOFT_POWER_OFF: u8 = 1 << 0;
 const STATUS1: u8 = 0x00;
 const VBUS_GOOD: u8 = 1 << 5;
 const BATTERY_PRESENT: u8 = 1 << 3;
@@ -57,6 +61,14 @@ impl<I2C: I2c> Axp2101<I2C> {
             charging: (status2 >> 5) & 0b11 == CHARGING,
         };
         Ok((battery, millivolts))
+    }
+
+    /// Switches the board off: every rail, so the display, codec, mics and
+    /// GPS draw nothing either. Only PWR turns it back on, as a fresh boot.
+    pub fn power_off(&mut self) -> Result<(), I2C::Error> {
+        let config = read(&mut self.i2c, COMMON_CONFIG)?;
+        self.i2c
+            .write(ADDRESS, &[COMMON_CONFIG, config | SOFT_POWER_OFF])
     }
 }
 

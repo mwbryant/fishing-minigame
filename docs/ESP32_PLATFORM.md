@@ -19,7 +19,8 @@ board · 9 Bring-up checks on the board · 10 Systems and games (10.1 sprites, 1
 
 The board is the -G variant, with the LC76G GNSS. Everything runs on it: every game and
 place at 60 fps, touch, tilt, both buttons, voice commands, GPS walks, sound, saves, idle
-dimming, sleep and wake, and battery charging. The display, touch, IMU and PWR work with the
+dimming and battery charging. Switching off (the hold-BOOT goodbye, 10.5) replaced deep sleep on
+2026-10-10 and hasn't run on the board yet. The display, touch, IMU and PWR work with the
 original constants; no mirror, offset or axis needed changing. The serial logs in `logs/`
 record sessions, for example:
 - `angler-20261006-153858.log`: octal PSRAM (8 MB), `display ready`, Bevy built entirely in
@@ -58,7 +59,7 @@ tools/qemu-smoke/run.sh [secs] ["orbit angler spider skate bees pals"]   # QEMU;
 ```
 
 - **Desktop keys:** mouse = finger, Space = action (PWR), Z = zero (BOOT). Hold Z 3 s to
-  sleep; press it to wake, and the app boots afresh. Left/right turns the virtual device (it
+  switch off; Space turns it back on, and the app boots afresh. Left/right turns the virtual device (it
   stays turned), held up/down leans it 15 degrees (it springs back), C straightens, Esc quits.
 - **Desktop saves:** `~/.logic-orbit/<mode>.flash`, in the device's flash format. The town and
   its places share `town.flash`, a section each, like the board.
@@ -246,7 +247,16 @@ All on one bus; each driver gets an `embedded-hal-bus` `RefCellDevice` on it.
   **PWR = action** (hold to charge a cast). `ACTION_BUTTON` / `ZERO_BUTTON` in
   `firmware/src/lib.rs` swap them.
 - **BOOT:** GPIO0, active low, external 10k pull-up and 100 nF debounce cap. A low-power (RTC)
-  pad, so it's the deep-sleep wake button (10.5).
+  pad, so it can wake deep sleep (the fallback in 10.5).
+  - It is also a strapping pin. On this board, entering download mode over USB leaves
+    `GPIO_STRAP` (0x60004038) at 0x23, bit 3 clear ("GPIO0 low"), while `GPIO_IN` bit 0 reads
+    BOOT high and `RTC_CNTL_OPTION1` (0x6000812C) is 0. A USB reset (`rst:0x15
+    USB_UART_CHIP_RESET`, espflash's default after flashing and Ctrl+R) keeps the latch, so
+    the ROM starts download mode again ("waiting for download"). Measured 2026-10-10; every
+    flash since 2026-10-07 12:43 had ended that way, and earlier ones booted with 0x2b. Only
+    a power cycle or an RTC watchdog reset reads the pin again. `espflash monitor
+    --non-interactive` (which `flash.sh` runs) checks bit 3 and uses the watchdog reset; it
+    reopens the port after 1.5 s, so that boot's first lines are missing from the log.
 - **PWR:**
   - Live level: TCA9554 (0x20) pin P4, `SYS_OUT`, **high while pressed**. Make P4 an input
     (set bit 4 of register 0x03), then read bit 4 of register 0x00.
@@ -257,7 +267,11 @@ All on one bus; each driver gets an `embedded-hal-bus` `RefCellDevice` on it.
   - Don't use XPowersLib's `setIrqLevel`/`setOffLevel`: their bit masks are wrong.
   - **PWR can't wake the ESP32 from deep sleep** (per the schematic netlist). The
     AXP2101's IRQ (pin 38, net `AXP_IRQ`) reaches only TCA9554 P5 (`EXIO5`), and the
-    expander's INT output reaches no ESP32 GPIO.
+    expander's INT output reaches no ESP32 GPIO. It does turn the AXP2101 back on after a
+    power-off, which is how the board wakes (10.5).
+  - **Power-off:** setting REG 0x10 bit 0 switches every AXP2101 output off. DCDC1 is the
+    board's one 3.3 V rail (ESP32, display, touch, codec, mics, IMU, GPS), so nothing draws
+    until PWR turns it back on as a power-on boot.
 
 ### AXP2101 battery (datasheet v1.4 §6.13)
 
@@ -596,10 +610,12 @@ The host tests, simulator, heap check and QEMU smoke test, and what each proves.
 What to watch in the serial log and on the glass after flashing each binary. Each check ends
 with what the logs up to 2026-10-07 show.
 
-**Flashing:** `./flash.sh` from the repo root builds and flashes Fishing Minigame, then shows
-the serial log (also saved in `logs/`). `./flash.sh angler` flashes Angler alone, and
-`./flash.sh orbit` the simplest game. If espflash can't connect, force download mode: unplug,
-hold BOOT, plug in, release BOOT, flash, then replug to boot.
+**Flashing:** `./flash.sh` from the repo root builds and flashes Fishing Minigame, restarts the
+board and shows the serial log (also saved in `logs/`). `./flash.sh angler` flashes Angler
+alone, and `./flash.sh orbit` the simplest game. If espflash can't connect, force download
+mode: unplug USB and hold PWR 10 s (off), plug USB in, hold BOOT while pressing PWR, flash. The
+restart is a watchdog reset whenever the boot latch reads BOOT as held (section 3), so the game
+boots.
 
 **Every binary:**
 1. **`display ready`, then the title on the glass.** Black screen: try the Arduino init list
@@ -631,8 +647,13 @@ hold BOOT, plug in, release BOOT, flash, then replug to boot.
 11. **Idle:** untouched for 30 s, the panel dims and the stats line shows about 40 frames per
     2 s (20 Hz). Any touch, button or turn wakes it.
 12. **Sleep:** hold BOOT. HOLD TO SLEEP shows at 0.5 s with the rim filling, and at 3 s GOOD
-    NIGHT replaces the frame for 2.5 s. Let go: the panel goes dark and the log says
-    `sleeping; press BOOT to wake`. A BOOT press boots afresh and logs `woke from sleep`.
+    NIGHT and PRESS TO WAKE replace the frame for 2.5 s. Let go: the log says `switching off;
+    press PWR to turn on`, the panel goes dark and the USB serial port disappears. A PWR press
+    boots afresh. If the log instead says `still powered a second after switching off` or
+    `switching off failed`, the board fell back to deep sleep (`press BOOT to wake`).
+    Deep-sleep sleep was seen on the board (2026-10-06) but left every peripheral powered and
+    ran the battery down to 1%; switching off replaced it on 2026-10-10 and hasn't been seen on
+    the board yet.
 
 13. **Audio:** after a catch (its flash save stalls the loop), the stats line may show
     `audio restarted Nx`. Sound must keep working.
@@ -907,7 +928,7 @@ tests check behaviour, not values, so retune freely and rerun `cargo test -p ang
 
 **Not built yet:** a reel crank by circling a finger on the rim.
 
-### 10.5 Power: battery, sleep, idle (built; sleep and a USB-only battery reading seen on the board)
+### 10.5 Power: battery, sleep, idle (built; switching off not yet seen on the board)
 
 How every game gets the battery level, idle dimming and hold-BOOT sleep, and what's left for
 saving power. Section 9 (checks 10-12) has what the board has shown.
@@ -924,13 +945,16 @@ The contract is `orbit_core::Power`, added by `ControlsPlugin` (so Orbit doesn't
   - at 3 s (`SLEEP_HOLD_SECS`) the speaker stops and GOOD NIGHT replaces the frame; games
     ignore input while `Power::saying_good_night()`;
   - after `GOOD_NIGHT_SECS` (2.5 s) `Power::sleep_requested()` is set, and the firmware
-    1. waits for BOOT to come up (it wakes on a low level),
+    1. waits for BOOT to come up (held at the next power-on, it would start download mode),
     2. drives the amp enable low,
     3. sends touch to sleep and the IMU's sensors off (CTRL7 = 0),
     4. darkens the panel and sends DISPLAY_OFF (0x28) and SLEEP_IN (0x10),
-    5. arms GPIO0 on its low-power wake path and enters deep sleep;
-  - a BOOT press resets the chip, so it boots afresh into the town (saves are already in
-    flash). PWR can't wake it (section 3).
+    5. switches the board off through the AXP2101 (REG 0x10 bit 0, section 3);
+  - a PWR press powers it on, so it boots afresh into the town (saves are already in flash);
+  - **fallback:** if the AXP2101 doesn't answer, or the board is still running a second
+    later, it arms GPIO0 on its low-power wake path and enters ESP32 deep sleep, which BOOT
+    wakes. Deep sleep alone keeps DCDC1 up, so the codec, mics, panel and GPS keep drawing;
+    it was the only sleep until 2026-10-10 and ran a battery down to 1%.
 - **Idle:** 30 s (`IDLE_SECS`) without a touch, a button or a 3-degree turn sets `idle`. The
   firmware dims the panel to 0x40 and paces the loop at 20 Hz; the desktop dims and drops to
   20 fps.
@@ -952,8 +976,6 @@ updates), part of the winit/render stack this build lacks, and nothing else in
 - Switching the NS4150B amp off after a second of silence: a few mA at idle, but waking it can
   clip a sound's start.
 - A 160 MHz CPU clock: some power saved, but every frame 1.5x longer.
-- AXP2101 soft power-off (REG 10 bit 0) as a deeper "off": PWR would power it back on, BOOT
-  could not.
 
 ### 10.6 Fishing Minigame: the town and its places (built; runs on the board)
 
@@ -1208,6 +1230,11 @@ generator helpers (standard library only, seeded): 61 KB for Spider Roulette, 21
 Traps hit or confirmed during bring-up, with where the detail lives.
 
 - **The touch crate's example uses the 1.75C reset pin** (GPIO2); this board uses GPIO40 (§3).
+- **"waiting for download" after every flash:** a USB download entry leaves the boot latch
+  reading BOOT held, and a plain USB reset keeps it. Restart with a watchdog reset
+  (`flash.sh` does); with the battery in, unplugging USB doesn't power-cycle the board (§3).
+- **ESP32 deep sleep doesn't make this board sleep:** everything runs off the AXP2101's one
+  3.3 V rail, so only the AXP2101 power-off stops the codec, mics, panel and GPS (§10.5).
 - **Old I2S answers are wrong for esp-hal 1.2:** `write_dma_circular` is gone (§10.2).
 - **esp-generate templates and older answers predate esp-hal 1.1–1.2.** The `psram` feature,
   `ESP_HAL_CONFIG_PSRAM_MODE` and `SpiDmaBus` are gone, and the buffer-taking SPI methods are

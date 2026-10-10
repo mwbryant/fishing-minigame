@@ -843,3 +843,48 @@ Images are in `img/`. Newest beats go at the bottom.
   `img/46-after-usb.png`.
   - TODO(user): a photo of the two snapped posts on the first print, and of the second print
     with the board screwed down.
+
+## 47. Every flash ended in "waiting for download" (2026-10-10)
+
+- **The ask:** "flash seems hung on waiting for download. The battery and pc are both
+  currently connected."
+- **What got in the way:** since 2026-10-07 12:43, every flash finished, verified, and then
+  rebooted straight into the ROM's download mode:
+  ```
+  rst:0x15 (USB_UART_CHIP_RESET),boot:0x23 (DOWNLOAD(USB/UART0))
+  waiting for download
+  ```
+  The workaround had been unplug and replug. With the battery in the case, unplugging USB no
+  longer cut the power, so the board just sat there with a black screen, and then stopped
+  answering at all until it was held off with PWR for 10 s.
+- **The numbers:** read straight off the chip in download mode with esptool:
+  `GPIO_STRAP` = 0x23 (bit 3 clear, "BOOT held"), `GPIO_IN` bit 0 = 1 (BOOT actually up),
+  `RTC_CNTL_OPTION1` = 0 (no forced download). After a watchdog reset the game booted; one
+  more USB download entry and `GPIO_STRAP` read 0x23 again. The last good flash, 12:35 on
+  Oct 7, booted with 0x2b.
+- **The fix:** a USB reset keeps the boot latch and a watchdog reset re-reads the pin.
+  `espflash monitor --non-interactive` already knows this (it checks bit 3 and logs
+  `Resetting with RTC WDT`), so `flash.sh` now flashes, then restarts the board through it.
+  The board was never broken and BOOT was never stuck.
+- **Hook:** "The screen was black, the flash had verified, and the chip insisted I was holding
+  a button I wasn't touching."
+- **Media:** the serial logs `logs/pals-20261010-113222.log` (stuck) and
+  `logs/pals-20261010-115653.log` (the fixed script: flashed, watchdog reset, game running).
+
+## 48. Sleep that wasn't: the battery hit 1% (2026-10-10)
+
+- **The ask:** "The low power sleep does not seem to work as the battery dropped to 1%."
+- **What got in the way:** hold-BOOT sleep put only the ESP32 into deep sleep. On this board
+  the AXP2101's DCDC1 is the one 3.3 V rail for everything, so the codec, both mics, the
+  panel's controller and the LC76G GPS stayed powered.
+- **The fix:** after the goodbye, the firmware quiets the peripherals as before, then sets
+  AXP2101 REG 0x10 bit 0, which switches every rail off. PWR, the upper button, turns it back
+  on as a fresh boot, so the goodbye now says PRESS TO WAKE. Deep sleep stays only as a
+  fallback if the power chip doesn't answer. The simulator matches: Z held switches off,
+  Space turns it on.
+- **The numbers:** after the recovery, on USB, the gauge climbed 1% -> 10% in about 4 minutes
+  while the game ran.
+- **Hook:** "Sleep mode is pointless if the GPS doesn't know the rest of the board went to bed."
+- **Media:** `img/48-before-good-night.png`, `img/48-after-good-night.png`.
+  - TODO(user): a phone clip of holding BOOT through GOOD NIGHT to a dark screen, then PWR
+    bringing it back.

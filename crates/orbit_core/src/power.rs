@@ -6,7 +6,7 @@ use crate::{Buttons, SoundQueue, Tilt, Touch};
 pub const SLEEP_HOLD_SECS: f32 = 3.0;
 /// Holds shorter than this only re-level. Longer ones show the sleep hint.
 pub const SLEEP_HINT_SECS: f32 = 0.5;
-/// How long the goodbye screen stays up before the platform sleeps.
+/// How long the goodbye screen stays up before the platform switches off.
 pub const GOOD_NIGHT_SECS: f32 = 2.5;
 /// This long without a touch, a button or a turn of the device is idle.
 pub const IDLE_SECS: f32 = 30.0;
@@ -32,8 +32,8 @@ pub struct Battery {
 /// The platform reports the battery and may dim the panel and slow its loop
 /// while idle. The core tracks idleness and the zero-button hold. Games draw
 /// the hint and goodbye with `orbit_ui::power_overlay` and ignore input while
-/// [`Power::saying_good_night`]. Then the platform sleeps until a button wakes
-/// it, which restarts the game.
+/// [`Power::saying_good_night`]. Then the platform switches the board off;
+/// turning it back on restarts the game.
 #[derive(Resource, Default, Debug, Clone, Copy, PartialEq)]
 pub struct Power {
     /// `None` until the platform reports a reading, and on platforms without a gauge.

@@ -4,7 +4,8 @@
 //!
 //! ```text
 //! cargo run -p orbit_desktop -- [GAME]   play (default town: Fishing Minigame)
-//!   Holding Z (BOOT) sleeps the board like the firmware does; Z again wakes it.
+//!   Holding Z (BOOT) switches the board off like the firmware does; Space (PWR)
+//!   turns it back on.
 //! cargo run -p orbit_desktop -- GAME snapshot [DIR]   scripted PNGs, headless
 //!   (DIR defaults to screenshots)
 //! cargo run -p orbit_desktop -- footage [DIR [TAKE...]]   the trailer's takes,
@@ -166,7 +167,7 @@ fn main() {
 
 fn play(boot: Game) {
     println!(
-        "{}: mouse = finger | Space = action (PWR) | Z = zero (BOOT; hold to sleep, press to wake) | \
+        "{}: mouse = finger | Space = action (PWR) | Z = zero (BOOT; hold to switch off, then Space turns it on) | \
          left/right = turn the device | hold up/down = lean | C = straighten | Esc = quit",
         boot.name()
     );
@@ -191,7 +192,7 @@ fn play(boot: Game) {
         ) {
             Ended::Closed => return,
             Ended::Slept => {
-                println!("asleep: press Z (BOOT) to wake");
+                println!("switched off: press Space (PWR) to turn on");
                 if !sleep_until_woken(&mut window, &pixels) {
                     return;
                 }
@@ -320,18 +321,17 @@ fn run(
 }
 
 /// Keeps the last frame up until Z (BOOT) is released, then a dark panel
-/// until it is pressed again; false if the window closes instead.
+/// until Space (PWR) turns the board on; false if the window closes instead.
 fn sleep_until_woken(window: &mut Window, last_frame: &[u32]) -> bool {
     let dark = vec![0u32; SIZE * SIZE];
     let mut released = false;
     window.set_target_fps(20);
     while window.is_open() && !window.is_key_down(Key::Escape) {
-        let held = window.is_key_down(Key::Z);
-        if released && held {
+        if released && window.is_key_down(Key::Space) {
             window.set_target_fps(60);
             return true;
         }
-        released |= !held;
+        released |= !window.is_key_down(Key::Z);
         let shown = if released { &dark } else { last_frame };
         window
             .update_with_buffer(shown, SIZE, SIZE)

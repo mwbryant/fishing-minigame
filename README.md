@@ -34,7 +34,8 @@ and tested it on the board.
   - Bees??? at the humming tree: the Moon is a jar of honey, and you turn to keep it from
     spilling.
 
-Hold BOOT for 3 seconds and it says GOOD NIGHT and sleeps. Everything you've done is saved.
+Hold BOOT for 3 seconds and it says GOOD NIGHT and switches off. Press the upper button to turn it
+back on. Everything you've done is saved.
 
 ### What makes it cool
 
@@ -94,7 +95,7 @@ cargo run --release -p orbit_desktop -- footage <dir>   # the trailer's takes, e
 
 - **Mouse:** finger.
 - **Space:** the upper button, which confirms.
-- **Z:** the zero button (BOOT).
+- **Z:** the zero button (BOOT). Hold it 3 s to switch off; Space turns the board back on.
 - **Arrow keys:** ←/→ turn the virtual device like a wheel; it stays turned. Hold ↑/↓ to lean
   it; it springs back level when you let go.
 - **C:** straighten the device.
@@ -132,7 +133,7 @@ Plug the board in with a USB-C data cable, then from the repo root:
 ```sh
 ./flash.sh            # Fishing Minigame: build, flash, then show the board's serial log
 ./flash.sh skate      # one game on its own (angler, spider, skate, bees, orbit)
-./flash.sh monitor    # reopen the serial log without flashing
+./flash.sh monitor    # restart the board and show its serial log, without flashing
 ```
 
 - **In the log:** Ctrl+C quits and Ctrl+R restarts the board. Every session's log is saved in
@@ -140,9 +141,15 @@ Plug the board in with a USB-C data cable, then from the repo root:
 - **Saves:** reflashing keeps the board's saves (your fish, gold, hats and scores).
 - **A harmless warning:** the build prints "LOAD segment with RWX permissions".
 - **If flashing fails:** the script lists fixes. The usual causes are a charge-only cable, or a
-  board that won't enter download mode by itself. To force download mode, unplug the board,
-  hold BOOT (the lower button), plug it back in, release BOOT, and run `./flash.sh` again. Then
-  unplug and replug the board so it boots the game.
+  board that won't enter download mode by itself. To force download mode, turn the board off
+  (unplug USB and hold PWR, the upper button, for 10 s), plug USB back in, then hold BOOT (the
+  lower button) while pressing PWR. With the battery connected, unplugging USB alone doesn't
+  turn the board off.
+- **"waiting for download" after flashing:** entering download mode over USB leaves this
+  board's ESP32-S3 reading BOOT as held until it loses power, so a plain reset after flashing
+  starts the bootloader again. The script restarts the board with a watchdog reset instead,
+  which reads BOOT again. That restart skips the first 1.5 s of the log; Ctrl+R shows a full
+  boot.
 
 To build by hand:
 
@@ -258,8 +265,10 @@ Most fixes are one-line constants or a mapping function in `firmware/src/lib.rs`
 ### On the board
 
 Everything in this README runs on the board: every game and place at 60 fps, touch, tilt, both
-buttons, voice commands, GPS walks, sound, saves, sleep and battery charging. The serial logs of
-real sessions are in `logs/`.
+buttons, voice commands, GPS walks, sound, saves and battery charging. The one exception is
+switching off: the hold-BOOT goodbye used to put only the ESP32 to sleep, which left the rest of
+the board running down the battery, and the power-off that replaced it hasn't run on the board
+yet. The serial logs of real sessions are in `logs/`.
 
 ## How it's built
 

@@ -964,7 +964,7 @@ fn holding_the_zero_button_says_good_night_then_sleeps() {
     hold_zero(&mut app, 100);
     assert!(!shows(&app, "GOOD NIGHT"), "3 s, not 1.5 s");
     hold_zero(&mut app, 45);
-    assert!(shows(&app, "GOOD NIGHT") && shows(&app, "PRESS BOOT TO WAKE"));
+    assert!(shows(&app, "GOOD NIGHT") && shows(&app, "PRESS TO WAKE"));
     assert!(!power(&app).sleep_requested());
     app.world_mut().resource_mut::<Buttons>().zero.set(false);
     click_action(&mut app);
