@@ -15,7 +15,7 @@ use orbit_core::{
     SoundQueue, Tilt, Touch, VoicePrint,
 };
 use orbit_ui::{CLICK, Key, KeyRing, THUD, dial_choice, list_choice};
-use pals::{Gesture, Name, Pals, Strokes, TRICKS_PER_PET, Trigger};
+use pals::{Gesture, Name, Pals, Strokes, TRICKS_PER_PET, Trigger, tricks::Motion};
 
 use crate::fish::{TRICK_SECS, pose};
 
@@ -33,7 +33,7 @@ pub const STAGE: Vec2 = Vec2::new(233.0, 230.0);
 const FISH_REACH: f32 = 48.0;
 /// Tricks move this much of their full size here, so the highest leap stays
 /// under the lesson's text and the deepest dive over the mic's.
-const STAGE_MOTION: f32 = 0.65;
+pub(crate) const STAGE_MOTION: f32 = 0.65;
 /// A tap this close to the stage pets the fish.
 const PET_REACH: f32 = 60.0;
 /// Where tank fish swim: clear of the names round the rim, however long.
@@ -600,8 +600,8 @@ fn listening() -> TeachStep {
     }
 }
 
-/// The fish's offset and turn for the trick it's showing or trying.
-pub(crate) fn performing(home: &Home, pals: &Pals) -> Option<(Vec2, bool)> {
+/// The trick the fish is showing or trying, and how far into it.
+pub(crate) fn performance(home: &Home, pals: &Pals) -> Option<(Motion, f32)> {
     let (pet, slot) = match *home.phase {
         HomePhase::Teach {
             pet,
@@ -616,6 +616,12 @@ pub(crate) fn performing(home: &Home, pals: &Pals) -> Option<(Vec2, bool)> {
         _ => return None,
     };
     let motion = pals.pets.get(pet)?.tricks[slot].info().motion;
-    let (offset, flipped) = pose(motion, home.secs % TRICK_SECS);
+    Some((motion, home.secs % TRICK_SECS))
+}
+
+/// The fish's offset and turn for the trick it's showing or trying.
+pub(crate) fn performing(home: &Home, pals: &Pals) -> Option<(Vec2, bool)> {
+    let (motion, t) = performance(home, pals)?;
+    let (offset, flipped) = pose(motion, t);
     Some((offset * STAGE_MOTION, flipped))
 }

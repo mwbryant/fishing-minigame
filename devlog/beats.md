@@ -961,3 +961,21 @@ Images are in `img/`. Newest beats go at the bottom.
   forgets the landmark you tapped.
 - **The numbers:** 5 new tests reproduce each case first; 355 tests pass.
 - **Hook:** "The OUT button was inside the pond."
+
+## 53. BUBBLE RING didn't blow a ring (2026-10-10)
+
+- **The ask:** "bubble ring has no visual effect", then "splash also has no visuals".
+- **What got in the way:** a trick was only ever a path for the fish sprite. BUBBLE RING's path
+  was "stay still", SPLASH was a 25 px hop scaled down to 16 px in the tank, BUBBLES bobbed 3 px
+  and FIN WAVE 5 px. There was no water at all.
+- **The fix:** `fish::effects` draws the water a trick throws about, in the house and the
+  contest. BUBBLE RING blows twelve bubbles that spread out round the fish; SPLASH throws nine
+  drops up and out with a ring of spray; BUBBLES rise and wobble from the mouth. FIN WAVE
+  bobs 10 px. A new test makes every one of the 15 tricks move at least 5 px on a stage, turn
+  the fish, or throw water, so none can be invisible again.
+- **The numbers:** 5 new tests; the contest's and house's random-play crowding runs keep the
+  spray off every label; 360 tests pass.
+- **Media:** `img/53-before-bubble-ring.png`, `img/53-after-bubble-ring.png`,
+  `img/53-before-splash.png`, `img/53-after-splash.png` (the "before" shots are the same
+  moments rendered with the effects switched off).
+  - TODO(user): a phone clip of a fish doing BUBBLE RING in the tank.

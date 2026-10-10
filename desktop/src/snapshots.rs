@@ -173,6 +173,30 @@ fn home(camera: &mut Camera) {
     camera.shoot(&app, "home_praise");
     core_testing::tap(&mut app, Vec2::new(233.0, 230.0));
     camera.shoot(&app, "home_good_fish");
+
+    for (trick, at_secs, name) in [
+        ("BUBBLE RING", 0.7, "home_bubble_ring"),
+        ("SPLASH", 0.3, "home_splash"),
+    ] {
+        let mut fish = pet("GILLY", 3);
+        fish.tricks[0].trick = pals::TRICKS.iter().position(|t| t.name == trick).unwrap() as u8;
+        let mut tank = pals::Pals::default();
+        tank.keep(fish).ok();
+        let mut blob = SaveBlob::from_storage(None);
+        pals::save::store(&mut blob, &tank);
+        let mut app = core_testing::headless(
+            |app| {
+                app.add_plugins(HomePlugin);
+            },
+            blob.take_pending(),
+        );
+        battery(&mut app, 76);
+        for _ in 0..3 {
+            core_testing::click_action(&mut app);
+        }
+        core_testing::tick(&mut app, (at_secs * 60.0) as u32);
+        camera.shoot(&app, name);
+    }
 }
 
 /// The park: picking a walker, a mock walk, levelling up, the summary.

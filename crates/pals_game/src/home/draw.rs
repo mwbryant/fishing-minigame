@@ -15,8 +15,8 @@ use orbit_ui::{
 use pals::{Pals, Pet, Rarity, TrickSlot};
 
 use super::{
-    CARD_CHOICES, Heard, Home, HomePhase, PracticeStep, STAGE, TRICK_CHOICES, TeachStep,
-    performing, ui,
+    CARD_CHOICES, Heard, Home, HomePhase, PracticeStep, STAGE, STAGE_MOTION, TRICK_CHOICES,
+    TeachStep, performance, performing, ui,
 };
 use crate::fish;
 
@@ -134,7 +134,7 @@ pub(crate) fn draw_frame(
     clear_text_of(
         shapes,
         2,
-        |shape| matches!(shape, Shape::Disc { color, .. } if *color == BUBBLE),
+        |shape| matches!(shape, Shape::Disc { color, .. } if *color == BUBBLE || *color == fish::SPRAY),
     );
     power_overlay(shapes, &power);
 }
@@ -200,6 +200,9 @@ fn stage(shapes: &mut Vec<Shape>, home: &Home, pals: &Pals, pet: usize) {
         STAGE_SCALE,
         !flipped,
     );
+    if let Some((motion, t)) = performance(home, pals) {
+        fish::effects(shapes, motion, t, STAGE, !flipped, STAGE_MOTION);
+    }
 }
 
 fn toast(shapes: &mut Vec<Shape>, home: &Home) {

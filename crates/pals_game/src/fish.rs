@@ -1,12 +1,12 @@
-//! Drawing a kept fish, hat and all, at any size and facing either way, and
-//! how each trick moves it.
+//! Drawing a kept fish, hat and all, at any size and facing either way, how
+//! each trick moves it, and the water the wet ones throw about.
 
 use alloc::vec::Vec;
 
 use angler_game::SPECIES;
 use bevy::math::{Vec2, ops};
 use orbit_gfx::{Point, Rgb565, Shape, Size, SpriteRef};
-use orbit_ui::{GOLD, TEXT, label_at, plated};
+use orbit_ui::{GOLD, TEXT, label_at, plated, rgb};
 use pals::{HATS, Pet, tricks::Motion};
 
 /// Where a hat sits on each species (by index into `SPECIES`): the column
@@ -23,6 +23,12 @@ const HAT_SEATS: [(f32, i32); 8] = [
 ];
 /// The middle of a hat sprite's face, which spans columns 4-8.
 const HAT_MIDDLE: f32 = 6.5;
+/// The drops and bubbles a trick throws about. Screens clear it away from
+/// their text (`orbit_ui::clear_text_of`).
+pub const SPRAY: Rgb565 = rgb(215, 240, 255);
+const SPLASH_DROPS: usize = 9;
+const RING_BUBBLES: usize = 12;
+const RISING_BUBBLES: usize = 7;
 
 /// The fish sprite's size at `scale`, body only.
 pub fn size(pet: &Pet, scale: u32) -> Size {
@@ -133,7 +139,7 @@ pub fn pose(motion: Motion, t: f32) -> (Vec2, bool) {
         Motion::Spin => (Vec2::ZERO, toggles(8.0)),
         Motion::Jump => (Vec2::new(0.0, arc(120.0)), false),
         Motion::Flip => (Vec2::new(0.0, arc(70.0)), toggles(2.0)),
-        Motion::FinWave => (Vec2::new(0.0, ops::sin(u * 25.0) * 5.0), false),
+        Motion::FinWave => (Vec2::new(0.0, ops::sin(u * 25.0) * 10.0), false),
         Motion::Loop => (circle(45.0, 1.0), false),
         Motion::BubbleRing => (Vec2::ZERO, false),
         Motion::TailWalk => (
@@ -147,5 +153,80 @@ pub fn pose(motion: Motion, t: f32) -> (Vec2, bool) {
         Motion::Moonwalk => (Vec2::new(-arc(-50.0) * 2.0, 0.0), false),
         Motion::RainbowLeap => (Vec2::new((u - 0.5) * 120.0, arc(140.0)), false),
         Motion::Waterspout => (Vec2::new(0.0, arc(110.0)), toggles(4.0)),
+    }
+}
+
+/// The water a trick throws about `t` seconds in, for a fish that started at
+/// `at`. `reach` scales distances the way a stage scales [`pose`]. SPLASH
+/// throws drops up and out, BUBBLES rise from the fish's mouth, and BUBBLE
+/// RING blows a ring that spreads round it; the other tricks throw nothing.
+pub fn effects(
+    shapes: &mut Vec<Shape>,
+    motion: Motion,
+    t: f32,
+    at: Vec2,
+    facing_right: bool,
+    reach: f32,
+) {
+    if !(0.0..TRICK_SECS).contains(&t) {
+        return;
+    }
+    let u = t / TRICK_SECS;
+    let drop = |shapes: &mut Vec<Shape>, center: Vec2, radius: f32| {
+        shapes.push(Shape::Disc {
+            center: Point::new(center.x as i32, center.y as i32),
+            radius: radius.max(2.0) as u32,
+            color: SPRAY,
+        });
+    };
+    match motion {
+        Motion::Splash => {
+            if t < 0.6 {
+                shapes.push(Shape::Ring {
+                    center: Point::new(at.x as i32, at.y as i32),
+                    radius: ((60.0 + 180.0 * t) * reach) as u32,
+                    width: 3,
+                    color: SPRAY,
+                });
+            }
+            let speed = 440.0 * reach;
+            let gravity = 800.0 * reach;
+            for i in 0..SPLASH_DROPS {
+                let along = i as f32 / (SPLASH_DROPS - 1) as f32;
+                let angle = (-155.0 + 130.0 * along).to_radians();
+                let (sin, cos) = ops::sin_cos(angle);
+                let pace = 1.0 - 0.2 * (i % 3) as f32;
+                let start = at + Vec2::new((along - 0.5) * 70.0 * reach, 10.0 * reach);
+                let center = start
+                    + Vec2::new(cos, sin) * speed * pace * t
+                    + Vec2::new(0.0, gravity * t * t / 2.0);
+                if center.y <= at.y + 30.0 * reach {
+                    drop(shapes, center, 8.0 * reach);
+                }
+            }
+        }
+        Motion::Bubbles => {
+            let side = if facing_right { 1.0 } else { -1.0 };
+            let mouth = at + Vec2::new(side * 40.0 * reach, -10.0 * reach);
+            for i in 0..RISING_BUBBLES {
+                let age = t - i as f32 * 0.18;
+                if !(0.0..1.0).contains(&age) {
+                    continue;
+                }
+                let wobble = ops::sin(age * 9.0 + i as f32) * 6.0 * reach;
+                let center = mouth + Vec2::new(wobble, -age * 140.0 * reach);
+                drop(shapes, center, (4.0 + (i % 3) as f32) * reach + 1.0);
+            }
+        }
+        Motion::BubbleRing => {
+            let radius = (50.0 + 120.0 * u) * reach;
+            let size = (7.0 - 4.0 * u) * reach + 1.0;
+            for i in 0..RING_BUBBLES {
+                let angle = (i as f32 / RING_BUBBLES as f32 + u * 0.15) * core::f32::consts::TAU;
+                let (sin, cos) = ops::sin_cos(angle);
+                drop(shapes, at + Vec2::new(cos, sin) * radius, size);
+            }
+        }
+        _ => {}
     }
 }

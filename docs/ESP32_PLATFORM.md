@@ -1093,6 +1093,11 @@ or lets the new catch go.
 
 - Each fish rolls five different tricks. The odds blend from (60, 28, 9, 2.5, 0.5) for a
   tier-0 fish to (25, 30, 24, 14, 7) for a trophy.
+- **How they look:** `fish::pose` moves and turns the fish over `TRICK_SECS` (1.6 s), and
+  `fish::effects` adds the water: SPLASH throws drops and a ring, BUBBLES rise from the mouth,
+  BUBBLE RING spreads a ring of bubbles. Both the house and the contest draw them, in the
+  `fish::SPRAY` colour, which `clear_text_of` keeps off text. Every trick moves at least 5 px
+  on a stage, turns, or throws water (`tests/tricks.rs`).
 - A trick is taught when it has a word and/or a stroke.
 - A try succeeds with chance 0.25 + 0.75 × learned, always once mastered. A praised success
   adds the lesson; an unpraised one half.

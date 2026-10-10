@@ -16,8 +16,9 @@ use orbit_core::{
 };
 use orbit_gfx::{Point, Rgb565, SCREEN_CENTER, Shape};
 use orbit_ui::{
-    CLICK, DANGER, DEEP, GOLD, HINT, TEXT, THUD, TOAST, battery_level_on, dial_choice, dial_point,
-    gold_label_on, label, label_at, list_choice, plated, power_overlay, rect, rgb,
+    CLICK, DANGER, DEEP, GOLD, HINT, TEXT, THUD, TOAST, battery_level_on, clear_text_of,
+    dial_choice, dial_point, gold_label_on, label, label_at, list_choice, plated, power_overlay,
+    rect, rgb,
 };
 use pals::{Gesture, Pals, Pet, Strokes, TRICKS_PER_PET};
 
@@ -470,6 +471,11 @@ fn draw_frame(
     if let Some(battery) = power.battery {
         battery_level_on(shapes, &battery, CURTAIN);
     }
+    clear_text_of(
+        shapes,
+        2,
+        |shape| matches!(shape, Shape::Disc { color, .. } if *color == fish::SPRAY),
+    );
     power_overlay(shapes, &power);
 }
 
@@ -576,19 +582,19 @@ fn stage(shapes: &mut Vec<Shape>, pet: &Pet, show: &Show, listening: bool) {
         radius: 80,
         color: SPOT,
     });
-    let (offset, flipped) = match show.trying {
-        Some((slot, success, since)) => {
-            let t = show.secs - since;
-            let motion = pet.tricks[slot].info().motion;
-            if success {
-                pose(motion, t)
-            } else {
-                pose(pals::tricks::Motion::Wiggle, t)
-            }
-        }
-        None => (Vec2::ZERO, false),
-    };
+    let shown = show.trying.map(|(slot, success, since)| {
+        let motion = if success {
+            pet.tricks[slot].info().motion
+        } else {
+            pals::tricks::Motion::Wiggle
+        };
+        (motion, show.secs - since)
+    });
+    let (offset, flipped) = shown.map_or((Vec2::ZERO, false), |(motion, t)| pose(motion, t));
     fish::draw(shapes, pet, STAGE + offset * STAGE_MOTION, 5, !flipped);
+    if let Some((motion, t)) = shown {
+        fish::effects(shapes, motion, t, STAGE, !flipped, STAGE_MOTION);
+    }
     text(shapes, label(54, &format!("SCORE {}", show.score), 2, GOLD));
     let (x, y, width, height) = BANNER;
     if let Some((slot, _)) = show.request {
