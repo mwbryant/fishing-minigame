@@ -25,6 +25,32 @@ fn returning_from(place: Place) -> App {
     )
 }
 
+/// Back out of `place` with the finger that pressed OUT still on the glass
+/// at `finger`, or PWR still down.
+fn coming_out_of(place: Place, finger: Option<Vec2>, pwr_down: bool) -> App {
+    headless(
+        |app| {
+            app.add_plugins(TownPlugin).insert_resource(Arrival(place));
+            app.world_mut().resource_mut::<Touch>().set(finger);
+            app.world_mut()
+                .resource_mut::<orbit_core::Buttons>()
+                .action
+                .set(pwr_down);
+        },
+        None,
+    )
+}
+
+/// Walks away from the signpost, then taps it, which opens the settings.
+fn settings_by_tapping_the_signpost() -> App {
+    let mut app = town(None);
+    tap_and_walk(&mut app, Vec2::new(330.0, 300.0), 120);
+    let sign = landmark(Place::Settings).center();
+    tap_and_walk(&mut app, Vec2::new(sign.x as f32, sign.y as f32), 60 * 4);
+    assert_eq!(state(&app).phase, TownPhase::Settings);
+    app
+}
+
 fn state(app: &App) -> &Town {
     app.world().resource::<Town>()
 }
@@ -225,6 +251,67 @@ fn walking_in_from_a_landmark_keeps_the_usual_plate() {
     }
     assert_eq!(state(&app).destination(), Some(Place::Home));
     assert!(!shows(&app, "PRESS TO GO IN"), "the door plate flashed");
+}
+
+#[test]
+fn the_finger_that_pressed_out_doesnt_walk_you_or_take_you_back_in() {
+    let out = Vec2::new(233.0, 55.0);
+    let mut app = coming_out_of(Place::Pond, Some(out), false);
+    let door = state(&app).at();
+    tick(&mut app, 30);
+    assert_eq!(state(&app).at(), door, "the finger still down walked you");
+    app.world_mut().resource_mut::<Touch>().set(None);
+    tick(&mut app, 60 * 3);
+    assert_eq!(state(&app).at(), door);
+    assert_eq!(state(&app).destination(), None);
+}
+
+#[test]
+fn pwr_still_down_from_out_doesnt_take_you_back_in() {
+    let mut app = coming_out_of(Place::Pond, None, true);
+    assert_eq!(state(&app).destination(), None);
+    release_action(&mut app);
+    tick(&mut app, 30);
+    assert_eq!(state(&app).destination(), None);
+}
+
+#[test]
+fn for_two_seconds_after_coming_out_nothing_goes_in() {
+    let mut app = returning_from(Place::Pond);
+    tick(&mut app, 60);
+    click_action(&mut app);
+    assert_eq!(state(&app).destination(), None, "PWR at 1 s");
+    tap_and_walk(&mut app, Vec2::new(150.0, 150.0), 30);
+    assert_eq!(state(&app).destination(), None, "the lake at 1.5 s");
+
+    let mut app = returning_from(Place::Pond);
+    tick(&mut app, 60 * 2 + 5);
+    click_action(&mut app);
+    assert_eq!(state(&app).destination(), Some(Place::Pond));
+}
+
+#[test]
+fn backing_out_of_settings_you_opened_by_tapping_doesnt_reopen_them() {
+    let mut app = settings_by_tapping_the_signpost();
+    tap(&mut app, ui::BACK.center());
+    tick(&mut app, 30);
+    assert_eq!(state(&app).phase, TownPhase::Walking);
+    tick(&mut app, 60 * 2);
+    click_action(&mut app);
+    assert_eq!(
+        state(&app).phase,
+        TownPhase::Settings,
+        "PWR opens them again later"
+    );
+}
+
+#[test]
+fn the_finger_that_pressed_back_doesnt_walk_you() {
+    let mut app = settings_by_tapping_the_signpost();
+    let at = state(&app).at();
+    hold(&mut app, ui::BACK.center(), 30);
+    assert_eq!(state(&app).phase, TownPhase::Walking);
+    assert_eq!(state(&app).at(), at);
 }
 
 #[test]

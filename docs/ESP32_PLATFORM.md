@@ -1066,6 +1066,10 @@ pet*`.
 - **Doors:** within 40 px of a door, the plate at the bottom names the place and says PRESS
   TO GO IN (PRESS TO OPEN at the signpost), and PWR enters. Walking in from a landmark tap
   keeps the clearing's plate, so nothing flashes on the way in.
+- **Coming out:** back from a place, or out of the settings, nothing goes in for
+  `ENTRY_LOCK_SECS` (2 s), and a finger still down from the press that came out doesn't walk
+  you until it lifts. So OUT (whose spot is inside the lake's tap zone) and BACK can't send you
+  straight back in.
 - **Landmarks:** a tap on a place's landmark (`town::map::landmark`: the house, signpost,
   bench, hall, shop, den, bee tree or cabinet, and the pond's water and dock), give or take
   `TAP_SLOP`, walks you to its door and goes in. A tap at the end of a path still means the

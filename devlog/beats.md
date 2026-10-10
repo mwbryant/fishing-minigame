@@ -943,3 +943,21 @@ Images are in `img/`. Newest beats go at the bottom.
 - **The numbers:** 3 new town tests, including one that watches every frame of a walk-in for
   the door plate.
 - **Media:** `img/51-before-town-door.png`, `img/51-after-town-door.png`.
+
+## 52. OUT, and straight back in (2026-10-10)
+
+- **The ask:** "pressing out on the pond also has a bit of flicker, maybe we should do a debounce
+  where once you press out you cannot re-enter anything for 2s. I've also seen an issue like
+  this on settings", then "after pressing an exit button my press shouldn't instantly be counted
+  as a movement command".
+- **What got in the way:** two bugs from beat 49's tap-to-enter.
+  - The pond: OUT sits at the top of the glass, and that spot is inside the lake's tap zone. The
+    town starts with the finger (or PWR) still down from OUT, sees a fresh press at the pond's
+    door, and goes straight back in.
+  - The settings: tapping the signpost remembered "heading in" and nothing cleared it, so BACK
+    landed you at the signpost still heading in, and the settings opened again a frame later.
+- **The fix:** coming out of a place or the settings starts a 2 s lock on going in, and the
+  finger still on the glass is spent until it lifts, so it doesn't walk you either. Going in
+  forgets the landmark you tapped.
+- **The numbers:** 5 new tests reproduce each case first; 355 tests pass.
+- **Hook:** "The OUT button was inside the pond."

@@ -38,6 +38,9 @@ const PATH_HALF_DEG: f32 = 14.0;
 /// Your size, for bumping into things, and how near a door counts.
 const BODY: f32 = 8.0;
 const DOOR_REACH: f32 = 40.0;
+/// After coming out of a place or the settings, nothing goes in for this
+/// long, so the press that came out can't go straight back in.
+pub const ENTRY_LOCK_SECS: f32 = 2.0;
 /// Spots on the settings dial, clockwise from 12 o'clock: sound, mock walk,
 /// reset, back.
 pub const SETTINGS_CHOICES: usize = 4;
@@ -64,6 +67,8 @@ pub struct Town {
     finger_spent: bool,
     /// A landmark was tapped: walking to its door, then going in.
     heading_in: Option<Place>,
+    /// Seconds until a door can be gone in again (`ENTRY_LOCK_SECS`).
+    entry_lock: f32,
     /// Seconds spent walking, for the step bob.
     stride: f32,
     destination: Option<Place>,
@@ -80,6 +85,7 @@ impl Default for Town {
             target: None,
             finger_spent: false,
             heading_in: None,
+            entry_lock: 0.0,
             stride: 0.0,
             destination: None,
         }
@@ -122,6 +128,15 @@ impl Town {
         (self.screen, self.at) = door(place);
         self.target = None;
         self.heading_in = None;
+    }
+
+    /// Just came out of somewhere: no going in for `ENTRY_LOCK_SECS`, and a
+    /// finger still down from the press that came out doesn't walk you.
+    fn came_out(&mut self) {
+        self.entry_lock = ENTRY_LOCK_SECS;
+        self.finger_spent = true;
+        self.heading_in = None;
+        self.target = None;
     }
 
     fn blocked(&self, at: Vec2) -> bool {
@@ -231,6 +246,7 @@ fn arrive(
 ) {
     if let Some(arrival) = arrival {
         town.stand_at(arrival.0);
+        town.came_out();
     }
     *pals = pals::save::load(&blob);
     let purse = blob
@@ -271,7 +287,9 @@ fn roam(
     let tapped = |button: &orbit_ui::Button| pressed_button == Some(button);
     match town.phase {
         TownPhase::Walking => {
-            if let Some(at) = tap {
+            town.entry_lock = (town.entry_lock - dt).max(0.0);
+            let locked = town.entry_lock > 0.0;
+            if let Some(at) = tap.filter(|_| !locked && !town.finger_spent) {
                 town.heading_in = town.landmark_at(at);
                 if let Some(place) = town.heading_in {
                     town.target = Some(door(place).1);
@@ -279,9 +297,10 @@ fn roam(
                 }
             }
             let going_in = |place: &Place| pressed || town.heading_in == Some(*place);
-            if let Some(place) = town.near().filter(going_in) {
+            if let Some(place) = town.near().filter(going_in).filter(|_| !locked) {
                 sound.play(&CLICK);
                 if place == Place::Settings {
+                    town.heading_in = None;
                     town.phase = TownPhase::Settings;
                     tilt.request_zero();
                     return;
@@ -335,7 +354,10 @@ fn roam(
                     pals::save::store(&mut blob, &pals);
                 }
                 Some(2) => town.phase = TownPhase::ConfirmReset,
-                Some(_) => town.phase = TownPhase::Walking,
+                Some(_) => {
+                    town.phase = TownPhase::Walking;
+                    town.came_out();
+                }
                 None => {}
             }
             if choice.is_some() {
