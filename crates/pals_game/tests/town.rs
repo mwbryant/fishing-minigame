@@ -4,7 +4,11 @@ use orbit_gfx::Point;
 use pals::{Name, Pals, Pet};
 use pals_game::{
     Arrival, Place,
-    town::{Screen, Town, TownPhase, TownPlugin, map::landmark, ui},
+    town::{
+        Screen, Town, TownPhase, TownPlugin,
+        map::{Way, landmark},
+        ui,
+    },
 };
 
 fn town(saved: Option<Vec<u8>>) -> App {
@@ -268,11 +272,97 @@ fn the_finger_that_pressed_out_doesnt_walk_you_or_take_you_back_in() {
 
 #[test]
 fn pwr_still_down_from_out_doesnt_take_you_back_in() {
-    let mut app = coming_out_of(Place::Pond, None, true);
-    assert_eq!(state(&app).destination(), None);
-    release_action(&mut app);
-    tick(&mut app, 30);
-    assert_eq!(state(&app).destination(), None);
+    for place in Place::ALL.into_iter().filter(|p| *p != Place::Settings) {
+        let mut app = coming_out_of(place, None, true);
+        assert_eq!(state(&app).destination(), None, "{place:?}");
+        release_action(&mut app);
+        tick(&mut app, 30);
+        assert_eq!(state(&app).destination(), None, "{place:?}");
+    }
+}
+
+/// The clearing a place's door is in.
+fn screen_of(place: Place) -> Screen {
+    let mut app = town(None);
+    app.world_mut().resource_mut::<Town>().stand_at(place);
+    state(&app).screen()
+}
+
+/// Walks into `screen` down the path from the clearing on its `side`, and
+/// returns where you came in. `None` if there's no path that way.
+fn come_into(app: &mut App, screen: Screen, side: Way) -> Option<Vec2> {
+    let neighbor = screen.toward(side)?;
+    let start = Place::ALL
+        .into_iter()
+        .find(|place| screen_of(*place) == neighbor)?;
+    app.world_mut().resource_mut::<Town>().stand_at(start);
+    update(app);
+    let back = Vec2::splat(233.0) - side.out() * 217.0;
+    tap_and_walk(app, back, 60 * 5);
+    assert_eq!(state(app).screen(), screen, "walking in from {side:?}");
+    Some(state(app).at())
+}
+
+#[test]
+fn every_place_can_be_tapped_into_from_every_path_into_its_clearing() {
+    for place in Place::ALL {
+        let screen = screen_of(place);
+        for side in Way::ALL {
+            let mut app = town(None);
+            let Some(arrived) = come_into(&mut app, screen, side) else {
+                continue;
+            };
+            tick(&mut app, 60 * 3);
+            let center = landmark(place).center();
+            tap_and_walk(
+                &mut app,
+                Vec2::new(center.x as f32, center.y as f32),
+                60 * 8,
+            );
+            let entered = if place == Place::Settings {
+                state(&app).phase == TownPhase::Settings
+            } else {
+                state(&app).destination() == Some(place)
+            };
+            assert!(
+                entered,
+                "{place:?} from the {side:?} path (came in at {arrived:?}), stuck at {:?}",
+                state(&app).at()
+            );
+        }
+    }
+}
+
+#[test]
+fn tapping_the_house_from_behind_walks_round_it_and_in() {
+    let mut app = town(None);
+    tap_and_walk(&mut app, Vec2::new(110.0, 70.0), 60 * 3);
+    tap_and_walk(&mut app, Vec2::new(233.0, 38.0), 60 * 3);
+    let house = landmark(Place::Home);
+    assert!(
+        state(&app).at().y < house.top_left.y as f32,
+        "not behind the house: {:?}",
+        state(&app).at()
+    );
+    tap_and_walk(&mut app, Vec2::new(233.0, 100.0), 60 * 8);
+    assert_eq!(
+        state(&app).destination(),
+        Some(Place::Home),
+        "stuck at {:?}",
+        state(&app).at()
+    );
+}
+
+#[test]
+fn the_contest_hall_stands_off_the_path_from_the_pond() {
+    let hall = landmark(Place::Contest);
+    let path = 233 - 20..233 + 20;
+    let right = hall.top_left.x + hall.size.width as i32;
+    assert!(
+        right < path.start || hall.top_left.x > path.end,
+        "the hall spans x {}..{right}, across the north path",
+        hall.top_left.x
+    );
 }
 
 #[test]

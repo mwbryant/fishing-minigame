@@ -26,6 +26,10 @@ use map::{CENTER, LAKE, Way, door, on_landmark, props};
 pub const BACKGROUND: orbit_gfx::Rgb565 = draw::GRASS;
 /// Walking speed, px/s.
 pub const WALK_SPEED: f32 = 150.0;
+/// Closing on a tapped spot at under this share of `WALK_SPEED` is stuck:
+/// pressed square against a wall. Sliding along one at a shallow angle still
+/// closes faster.
+const STUCK_PACE: f32 = 0.05;
 /// A touch this far from the center, in a path's gap, means go down the path.
 const PATH_TOUCH_RADIUS: f32 = 170.0;
 /// Distances from the center (px): the clearing's edge, how far down a path
@@ -67,6 +71,10 @@ pub struct Town {
     finger_spent: bool,
     /// A landmark was tapped: walking to its door, then going in.
     heading_in: Option<Place>,
+    /// The walk in already went round the landmark once.
+    detoured: bool,
+    /// The detour's second leg, down the landmark's side to below it.
+    detour_then: Option<Vec2>,
     /// Seconds until a door can be gone in again (`ENTRY_LOCK_SECS`).
     entry_lock: f32,
     /// Seconds spent walking, for the step bob.
@@ -85,6 +93,8 @@ impl Default for Town {
             target: None,
             finger_spent: false,
             heading_in: None,
+            detoured: false,
+            detour_then: None,
             entry_lock: 0.0,
             stride: 0.0,
             destination: None,
@@ -137,6 +147,29 @@ impl Town {
         self.finger_spent = true;
         self.heading_in = None;
         self.target = None;
+    }
+
+    /// Stuck walking in to `place` (behind its building, say): round the
+    /// landmark's nearer side, well clear of it. First straight out to beside
+    /// it, then down to below it, then the door. `None` once that's been
+    /// tried, so a door out of reach is given up on.
+    fn detour(&mut self, place: Place) -> Option<Vec2> {
+        if self.detoured {
+            return None;
+        }
+        self.detoured = true;
+        let area = map::landmark(place);
+        let clear = BODY + 14.0;
+        let left = area.top_left.x as f32 - clear;
+        let right = (area.top_left.x + area.size.width as i32) as f32 + clear;
+        let below = (area.top_left.y + area.size.height as i32) as f32 + clear;
+        let x = if (self.at.x - left).abs() < (self.at.x - right).abs() {
+            left
+        } else {
+            right
+        };
+        self.detour_then = Some(Vec2::new(x, below));
+        Some(Vec2::new(x, self.at.y))
     }
 
     fn blocked(&self, at: Vec2) -> bool {
@@ -291,6 +324,8 @@ fn roam(
             let locked = town.entry_lock > 0.0;
             if let Some(at) = tap.filter(|_| !locked && !town.finger_spent) {
                 town.heading_in = town.landmark_at(at);
+                town.detoured = false;
+                town.detour_then = None;
                 if let Some(place) = town.heading_in {
                     town.target = Some(door(place).1);
                     town.finger_spent = true;
@@ -309,11 +344,18 @@ fn roam(
                 exit.write(AppExit::Success);
                 return;
             }
+            let steering = touch.position().is_some() && !town.finger_spent;
             match touch.position() {
                 Some(at) if !town.finger_spent => town.target = Some(town.destination_of(at)),
                 Some(_) => {}
                 None => town.finger_spent = false,
             }
+            if town.target.is_none()
+                && let Some(place) = town.heading_in
+            {
+                town.target = Some(town.detour_then.take().unwrap_or(door(place).1));
+            }
+            let goal = town.target;
             let velocity = match town.target {
                 Some(target) => {
                     let to = target - town.at;
@@ -329,8 +371,14 @@ fn roam(
             let before = town.at;
             if town.walk(velocity, dt) {
                 town.finger_spent = touch.position().is_some();
-            } else if town.at == before && touch.position().is_none() {
-                town.target = None;
+            } else if let Some(goal) = goal.filter(|_| town.target.is_some() && !steering) {
+                let progress = before.distance(goal) - town.at.distance(goal);
+                if progress < WALK_SPEED * dt * STUCK_PACE {
+                    town.target = town.heading_in.and_then(|place| town.detour(place));
+                    if town.target.is_none() {
+                        town.heading_in = None;
+                    }
+                }
             }
         }
         TownPhase::Settings => {

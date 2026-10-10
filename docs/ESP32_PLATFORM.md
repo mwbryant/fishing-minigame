@@ -1087,7 +1087,9 @@ touch, so a worn button never blocks play; only sleep (holding BOOT) needs a but
 - **Landmarks:** a tap on a place's landmark (`town::map::landmark`: the house, signpost,
   bench, hall, shop, den, bee tree or cabinet, and the pond's water and dock), give or take
   `TAP_SLOP`, walks you to its door and goes in. A tap at the end of a path still means the
-  path.
+  path. Every door sits below its landmark. A walk in that gets stuck (behind the building,
+  say) goes round once: straight out past its nearer side, down that side, then to the door.
+  The contest hall stands left of its clearing, off the path from the pond.
 - **Settings** (the signpost by the house): SOUND, MOCK WALK, RESET and BACK on a dial. MOCK
   WALK steps OFF, x1, x2, x5, x10, x25 and back to OFF. RESET asks first; ERASE drops every
   section but `PREF` and keeps the mock-walk setting.

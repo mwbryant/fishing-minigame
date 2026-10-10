@@ -117,7 +117,7 @@ pub fn door(place: Place) -> (Screen, Vec2) {
         Place::Settings => (Screen::Home, Vec2::new(126.0, 314.0)),
         Place::Pond => (Screen::Pond, Vec2::new(300.0, 262.0)),
         Place::Park => (Screen::Park, Vec2::new(233.0, 166.0)),
-        Place::Contest => (Screen::Hall, Vec2::new(239.0, 166.0)),
+        Place::Contest => (Screen::Hall, Vec2::new(106.0, 226.0)),
         Place::Shop => (Screen::MainStreet, Vec2::new(120.0, 174.0)),
         Place::Den => (Screen::MainStreet, Vec2::new(356.0, 174.0)),
         Place::BeeTree => (Screen::Grove, Vec2::new(128.0, 182.0)),
@@ -195,7 +195,7 @@ static PARK: [Prop; 5] = [
 ];
 
 static HALL: [Prop; 3] = [
-    prop(&sprites::HALL, 167, 80, 6),
+    prop(&sprites::HALL, 40, 140, 6),
     prop(&sprites::TREE, 70, 300, 4),
     prop(&sprites::TREE, 330, 320, 4),
 ];

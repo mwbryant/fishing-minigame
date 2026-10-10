@@ -1025,3 +1025,27 @@ Images are in `img/`. Newest beats go at the bottom.
   pass.
 - **Hook:** "It wasn't broken. It was inside."
   - TODO(user): a photo of SATELLITES on the walk screen outdoors.
+
+## 56. Into the back of the contest hall (2026-10-10)
+
+- **The ask:** "i should be able to enter it from any side, when I enter from above currently
+  and tap I just walk into the back of the building. Maybe it shouldn't just be in the middle of
+  the path and be off to the left of the scene"
+- **What got in the way:** the hall stood at the top of its clearing, right where the path from
+  the pond comes in, so arriving from the pond put you behind it. Walking only slides along
+  walls: pressed straight down into the hall's back, the slide wobbled by a hair each frame, so
+  it never even counted as stuck. Going north from the hall's own door had the same problem in
+  reverse.
+- **The fix:**
+  - the hall moved to the left of its clearing, off the path;
+  - a walk in that stops closing on the door (under 5% of walking speed) goes round the
+    landmark once, well clear of it: out past its nearer side, down that side, then the door;
+  - "stuck" is now "not getting closer", which catches the wobble.
+- **Dead ends:** a detour to the building's lower corner slid along its roof too slowly and
+  tripped the stuck check; going sideways first then caught on the rounded corner (the walker is
+  a circle against a box). A route that never touches the building fixed both. A first stuck
+  threshold of 20% also stopped ordinary walks that slide along a shop at a shallow angle; 5%
+  doesn't.
+- **The numbers:** a test walks into every place's clearing down every path and taps its
+  landmark (all 9 places), plus one from behind the house; 372 tests pass.
+- **Media:** `img/56-before-town-hall.png`, `img/56-after-town-hall.png`.
