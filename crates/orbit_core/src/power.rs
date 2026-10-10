@@ -43,6 +43,7 @@ pub struct Power {
     zero_held_secs: f32,
     good_night_secs: Option<f32>,
     sleep_requested: bool,
+    dozing: bool,
     idle_secs: f32,
     idle_pose: Vec2,
 }
@@ -63,6 +64,16 @@ impl Power {
     /// Set once the goodbye has been on screen long enough.
     pub fn sleep_requested(&self) -> bool {
         self.sleep_requested
+    }
+
+    /// The game wants the board as quiet as it can be: the screen and touch
+    /// off, and the platform waking only to count steps and read the buttons.
+    pub fn dozing(&self) -> bool {
+        self.dozing
+    }
+
+    pub fn set_dozing(&mut self, dozing: bool) {
+        self.dozing = dozing;
     }
 }
 

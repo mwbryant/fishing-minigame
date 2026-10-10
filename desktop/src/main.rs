@@ -34,8 +34,8 @@ use bees_game::BeesPlugin;
 use bevy::prelude::*;
 use minifb::{Key, MouseButton, MouseMode, Window, WindowOptions};
 use orbit_core::{
-    Battery, Buttons, Frame, ImuFeed, Launcher, Mic, Power, Rng, SaveBlob, SoundQueue, Touch,
-    preferences,
+    Battery, Buttons, Frame, ImuFeed, Launcher, Mic, Power, Rng, SaveBlob, SoundQueue, Steps,
+    Touch, preferences,
 };
 use orbit_game::OrbitPlugin;
 use orbit_gfx::Presenter;
@@ -168,7 +168,7 @@ fn main() {
 
 fn play(boot: Game) {
     println!(
-        "{}: mouse = finger | Space = action (PWR) | Z = zero (BOOT; hold to switch off, then Space turns it on) | \
+        "{}: mouse = finger | Space = action (PWR) | Z = zero (BOOT; hold to switch off, then Space turns it on) | W = walk | \
          left/right = turn the device | hold up/down = lean | C = straighten | Esc = quit",
         boot.name()
     );
@@ -303,7 +303,11 @@ fn run(
         if percent < 100 {
             dim(pixels, percent);
         }
-        window.set_target_fps(if power.idle { 20 } else { 60 });
+        window.set_target_fps(match (power.dozing(), power.idle) {
+            (true, _) => 5,
+            (false, true) => 20,
+            (false, false) => 60,
+        });
         window
             .update_with_buffer(pixels, SIZE, SIZE)
             .expect("present window");
@@ -366,6 +370,9 @@ fn feed_inputs(window: &Window, world: &mut World, device: &mut VirtualDevice, d
     if let Some(mut buttons) = world.get_resource_mut::<Buttons>() {
         buttons.action.set(window.is_key_down(Key::Space));
         buttons.zero.set(window.is_key_down(Key::Z));
+    }
+    if let Some(mut steps) = world.get_resource_mut::<Steps>() {
+        steps.add(device.steps(window.is_key_down(Key::W), dt));
     }
     if let Some(mut feed) = world.get_resource_mut::<ImuFeed>() {
         if window.is_key_down(Key::C) {

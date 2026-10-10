@@ -1,7 +1,7 @@
 use bevy::{app::AppExit, prelude::*};
-use orbit_core::{Gps, SaveBlob, testing::*};
+use orbit_core::{Buttons, Power, SaveBlob, Steps, testing::*};
 use pals::{Name, Pals, Pet};
-use pals_game::walk::{Walk, WalkPhase, WalkPlugin};
+use pals_game::walk::{DOZE_AFTER_SECS, Walk, WalkPhase, WalkPlugin};
 
 fn name(text: &str) -> Name {
     let mut name = Name::default();
@@ -40,21 +40,14 @@ fn saved_walked(app: &mut App, pet: usize) -> u32 {
     pals::save::load(&SaveBlob::from_storage(pending)).pets[pet].walked_m
 }
 
-/// A sentence with its checksum, as the receiver sends it.
-fn nmea(body: &str) -> String {
-    let sum = body.bytes().fold(0u8, |sum, byte| sum ^ byte);
-    format!("${body}*{sum:02X}\r\n")
+/// The board's pedometer counting `count` steps, then a frame.
+fn take_steps(app: &mut App, count: u32) {
+    app.world_mut().resource_mut::<Steps>().add(count);
+    update(app);
 }
 
-/// The receiver's one-second report at `north_m` metres up the street.
-fn fix_at(north_m: f64) -> String {
-    let minutes = north_m / 1852.0;
-    let lat = format!("{:02}{:07.4}", 47, 36.0 + minutes);
-    nmea(&format!(
-        "GNGGA,120000.00,{lat},N,12220.0000,W,1,09,1.0,50.0,M,0.0,M,,"
-    )) + &nmea(&format!(
-        "GNRMC,120000.00,A,{lat},N,12220.0000,W,2.7,0.0,071026,,,A,V"
-    ))
+fn dozing(app: &App) -> bool {
+    app.world().resource::<Power>().dozing()
 }
 
 fn start_walking(app: &mut App) {
@@ -74,73 +67,90 @@ fn a_mock_walk_strolls_on_its_own_and_counts_for_the_fish() {
     assert!(shows(&app, &format!("{metres} M")), "{:?}", labels(&app));
     click_action(&mut app);
     assert!(matches!(phase(&app), WalkPhase::Done { .. }));
-    assert!(shows(&app, &format!("WALKED {metres} M")));
+    assert!(shows(&app, &format!("{metres} M")));
     assert_eq!(saved_walked(&mut app, 0), metres);
 }
 
 #[test]
-fn a_real_walk_counts_the_metres_the_receiver_reports() {
+fn a_real_walk_counts_the_steps_the_board_reports() {
     let mut app = park(&[("GILLY", 0.0)], false);
     start_walking(&mut app);
-    assert!(shows(&app, "LOOKING FOR THE SKY"));
-    for second in 0..=100 {
-        let text = fix_at(second as f64 * 1.4);
-        app.world_mut().resource_mut::<Gps>().push(text.as_bytes());
-        tick(&mut app, 60);
+    for _ in 0..10 {
+        take_steps(&mut app, 20);
+        tick(&mut app, 30);
     }
-    let metres = walked(&app, 0);
-    assert!((125..=145).contains(&metres), "walked {metres} m");
-    assert!(shows(&app, "SATELLITES 9"));
+    assert_eq!(walked(&app, 0), 150, "200 steps of 0.75 m");
+    click_action(&mut app);
+    assert!(matches!(phase(&app), WalkPhase::Done { .. }));
+    assert!(
+        shows(&app, "WALKED 200 STEPS") && shows(&app, "150 M"),
+        "{:?}",
+        labels(&app)
+    );
+    assert_eq!(saved_walked(&mut app, 0), 150);
 }
 
 #[test]
-fn with_no_sky_for_a_minute_it_keeps_looking_and_suggests_a_mock_walk() {
+fn steps_from_before_the_walk_starts_dont_count() {
     let mut app = park(&[("GILLY", 0.0)], false);
+    take_steps(&mut app, 500);
     start_walking(&mut app);
-    tick(&mut app, 60 * 65);
-    let (mut looking, mut mock) = (false, false);
-    for _ in 0..60 * 7 {
-        update(&mut app);
-        looking |= shows(&app, "NO SKY YET, STILL LOOKING");
-        mock |= shows(&app, "INDOORS? TRY MOCK WALK");
-    }
-    assert!(looking && mock, "{:?}", labels(&app));
+    tick(&mut app, 60);
     assert_eq!(walked(&app, 0), 0);
+    assert!(shows(&app, "0 STEPS"));
 }
 
 #[test]
-fn the_sky_found_after_a_long_wait_still_counts() {
+fn a_few_seconds_in_the_screen_goes_dark_and_steps_still_count() {
     let mut app = park(&[("GILLY", 0.0)], false);
     start_walking(&mut app);
-    tick(&mut app, 60 * 70);
-    for second in 0..=30 {
-        let text = fix_at(second as f64 * 1.4);
-        app.world_mut().resource_mut::<Gps>().push(text.as_bytes());
-        tick(&mut app, 60);
-    }
-    assert!(walked(&app, 0) > 30, "walked {} m", walked(&app, 0));
-    assert!(shows(&app, "SATELLITES 9"));
+    assert!(!dozing(&app));
+    assert!(
+        shows(&app, "SCREEN GOES OFF TO SAVE POWER"),
+        "{:?}",
+        labels(&app)
+    );
+    tick(&mut app, (DOZE_AFTER_SECS * 60.0) as u32 + 5);
+    assert!(dozing(&app));
+    assert!(!shows(&app, "STAMINA LV 1"), "the dozing screen is dark");
+    take_steps(&mut app, 400);
+    click_action(&mut app);
+    assert!(matches!(phase(&app), WalkPhase::Done { .. }));
+    assert!(!dozing(&app), "the screen comes back for the results");
+    assert!(shows(&app, "WALKED 400 STEPS"), "{:?}", labels(&app));
 }
 
 #[test]
-fn losing_the_sky_mid_walk_goes_back_to_looking() {
+fn the_boot_button_ends_a_dozing_walk_too() {
     let mut app = park(&[("GILLY", 0.0)], false);
     start_walking(&mut app);
-    for second in 0..=10 {
-        let text = fix_at(second as f64 * 1.4);
-        app.world_mut().resource_mut::<Gps>().push(text.as_bytes());
-        tick(&mut app, 60);
-    }
-    assert!(shows(&app, "SATELLITES 9"));
-    tick(&mut app, 60 * 8);
-    assert!(shows(&app, "LOOKING FOR THE SKY"), "{:?}", labels(&app));
+    tick(&mut app, (DOZE_AFTER_SECS * 60.0) as u32 + 5);
+    assert!(dozing(&app));
+    app.world_mut().resource_mut::<Buttons>().zero.set(true);
+    update(&mut app);
+    app.world_mut().resource_mut::<Buttons>().zero.set(false);
+    update(&mut app);
+    assert!(
+        matches!(phase(&app), WalkPhase::Done { .. }),
+        "{:?}",
+        phase(&app)
+    );
+}
+
+#[test]
+fn a_mock_walk_keeps_the_screen_on_for_its_pace_buttons() {
+    let mut app = park(&[("GILLY", 0.0)], true);
+    start_walking(&mut app);
+    tick(&mut app, (DOZE_AFTER_SECS * 60.0) as u32 * 3);
+    assert!(!dozing(&app));
+    assert!(shows(&app, "MOCK WALK x1"));
 }
 
 #[test]
 fn walking_far_enough_levels_up_stamina() {
     let mut app = park(&[("GILLY", 90.0)], true);
     start_walking(&mut app);
-    tick(&mut app, 60 * 20);
+    tick(&mut app, 60 * 10);
     assert!(shows(&app, "LEVEL UP!"), "{:?}", labels(&app));
     assert!(shows(&app, "STAMINA LV 2"));
 }

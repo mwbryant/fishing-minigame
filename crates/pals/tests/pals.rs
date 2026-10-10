@@ -1,7 +1,7 @@
 use bevy::math::Vec2;
-use orbit_core::{Fix, Rng, SaveBlob, VoicePrint, testing};
+use orbit_core::{Rng, SaveBlob, VoicePrint, testing};
 use pals::{
-    Gesture, HATS, MAX_PETS, Name, Pals, Pet, Rarity, Strokes, TRICKS, Trail, Trigger, save,
+    Gesture, HATS, MAX_PETS, Name, Pals, Pet, Rarity, STRIDE_M, Strokes, TRICKS, Trigger, save,
     walk::MockWalk,
 };
 
@@ -307,64 +307,26 @@ fn finger_strokes_read_as_taps_holds_swipes_and_circles() {
     );
 }
 
-fn fix_at(north_m: f64, east_m: f64, hdop: f32, speed_mps: f32) -> Fix {
-    let per_deg = 111_195.0;
-    Fix {
-        lat_deg: 45.0 + north_m / per_deg,
-        lon_deg: -122.0 + east_m / (per_deg * std::f64::consts::FRAC_1_SQRT_2),
-        hdop,
-        satellites: 9,
-        speed_mps,
-    }
-}
-
 #[test]
-fn a_walk_counts_metres_walked_but_not_standing_still_driving_or_bad_fixes() {
-    let mut rng = Rng::new(11);
-    let mut still = Trail::default();
-    for _ in 0..300 {
-        let jitter = |rng: &mut Rng| (rng.next_f32() as f64 - 0.5) * 6.0;
-        still.step(fix_at(jitter(&mut rng), jitter(&mut rng), 1.1, 0.2));
-    }
-    assert!(
-        still.meters < 1.0,
-        "jitter in place counted {}",
-        still.meters
-    );
-
-    let mut walk = Trail::default();
-    for second in 0..=100 {
-        walk.step(fix_at(second as f64 * 1.4, 0.0, 1.0, 1.4));
-    }
-    assert!((walk.meters - 140.0).abs() < 12.0, "walked {}", walk.meters);
-
-    let mut drive = Trail::default();
-    for second in 0..=60 {
-        drive.step(fix_at(second as f64 * 15.0, 0.0, 1.0, 15.0));
-    }
-    assert!(drive.meters < 1.0, "a car ride counted {}", drive.meters);
-
-    let mut poor = Trail::default();
-    for second in 0..=60 {
-        poor.step(fix_at(second as f64 * 1.4, 0.0, 12.0, 1.4));
-    }
-    assert!(poor.meters < 1.0, "poor fixes counted {}", poor.meters);
-}
-
-#[test]
-fn a_mock_walk_strolls_at_walking_pace() {
+fn a_mock_walk_steps_at_walking_cadence() {
     let mut mock = MockWalk::default();
-    let mut trail = Trail::default();
-    for _ in 0..60 * 120 {
-        if let Some(fix) = mock.step(1.0 / 60.0) {
-            trail.step(fix);
-        }
-    }
+    let steps: u32 = (0..60 * 120).map(|_| mock.step(1.0 / 60.0)).sum();
+    let metres = steps as f32 * STRIDE_M;
     assert!(
-        (140.0..200.0).contains(&trail.meters),
-        "two minutes made {} m",
-        trail.meters
+        (200..260).contains(&steps),
+        "two minutes made {steps} steps"
     );
+    assert!((150.0..195.0).contains(&metres), "and {metres} m");
+}
+
+#[test]
+fn a_faster_mock_walk_takes_more_steps_in_the_same_time() {
+    let mut slow = MockWalk::at_pace(1.0);
+    let mut fast = MockWalk::at_pace(5.0);
+    let (a, b): (u32, u32) = (0..600).fold((0, 0), |(a, b), _| {
+        (a + slow.step(1.0 / 60.0), b + fast.step(1.0 / 60.0))
+    });
+    assert!(b >= a * 4, "{a} steps vs {b}");
 }
 
 #[test]

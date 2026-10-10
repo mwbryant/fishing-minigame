@@ -22,7 +22,7 @@ pub use gesture::{Gesture, Strokes};
 pub use hats::{HATS, Hat};
 pub use pet::{MAX_STAMINA_LEVEL, Name, Pet, TrickSlot, Trigger};
 pub use tricks::{Rarity, TRICKS, TRICKS_PER_PET, TrickInfo};
-pub use walk::{MOCK_PACES, MockWalk, Trail};
+pub use walk::{MOCK_PACES, MockWalk, STRIDE_M};
 
 /// The tank holds this many.
 pub const MAX_PETS: usize = 3;

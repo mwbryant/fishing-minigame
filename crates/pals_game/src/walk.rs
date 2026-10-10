@@ -1,21 +1,23 @@
-//! The park: walk a fish to build its stamina. The -G board's GPS receiver
-//! counts the metres you really walk (not standing still or riding in a car).
-//! With MOCK WALK on in the settings, a pretend walker strolls instead. A walk
+//! The park: walk a fish to build its stamina. The board counts your steps
+//! (`orbit_core::Steps`), [`pals::STRIDE_M`] each. A few seconds into a walk
+//! the screen goes dark to save power (`Power::dozing`) and steps keep
+//! counting; PWR or BOOT ends it. With MOCK WALK on in the settings, a pretend
+//! walker steps instead and the screen stays on for its pace buttons. A walk
 //! saves as it goes.
 
 use alloc::{boxed::Box, format, vec::Vec};
 
 use bevy::{app::AppExit, prelude::*};
 use orbit_core::{
-    Buttons, ControlsPlugin, CorePlugin, Frame, Gps, GpsPlugin, Power, SaveBlob, SoundPlugin,
-    SoundQueue, Tilt, Touch,
+    Buttons, ControlsPlugin, CorePlugin, Frame, Power, SaveBlob, SoundPlugin, SoundQueue, Steps,
+    StepsPlugin, Tilt, Touch,
 };
 use orbit_gfx::{Point, Rgb565, SCREEN_CENTER, Shape};
 use orbit_ui::{
-    CLICK, DEEP, GOLD, HINT, TEXT, TOAST, battery_level, battery_level_on, button, dial_choice,
-    dial_point, disc, label, plated, plated_lines, power_overlay, rect, rgb,
+    BLACK, CLICK, DEEP, GOLD, HINT, TEXT, TOAST, battery_level, battery_level_on, button,
+    dial_choice, dial_point, disc, label, plated, plated_lines, power_overlay, rect, rgb,
 };
-use pals::{MOCK_PACES, MockWalk, Pals, Trail};
+use pals::{MOCK_PACES, MockWalk, Pals, STRIDE_M};
 
 use crate::fish;
 
@@ -28,12 +30,11 @@ const BOWL_WATER: Rgb565 = rgb(70, 140, 205);
 const SAVE_EVERY_M: f32 = 25.0;
 /// How long "LEVEL UP!" shows.
 const LEVEL_UP_SECS: f32 = 10.0;
-/// Without a fix this long, the walk says it's still looking and suggests a
-/// mock walk, taking turns every `HINT_SWAP_SECS`. It never stops looking.
-pub const NO_SKY_SECS: f32 = 60.0;
-const HINT_SWAP_SECS: f32 = 3.0;
-/// A fix older than this means the sky was lost.
-const SKY_LOST_SECS: f32 = 5.0;
+/// A real walk dozes (screen off) this long after it starts or the glass was
+/// last touched.
+pub const DOZE_AFTER_SECS: f32 = 5.0;
+/// The dozing screen's one line, dim on black.
+const DOZE_TEXT: Rgb565 = rgb(60, 70, 80);
 const NAME_RING: f32 = 160.0;
 
 pub mod ui {
@@ -52,21 +53,21 @@ pub enum WalkPhase {
     Choose,
     Walking {
         pet: usize,
-        trail: Trail,
+        steps: u32,
         mock: Option<MockWalk>,
         /// Metres walked but not yet credited to the fish (under one).
         fraction_m: f32,
         /// Whole metres credited since the last save.
         unsaved_m: f32,
         secs: f32,
-        /// `secs` at the receiver's last fix, if it has had one this walk.
-        last_fix: Option<f32>,
+        /// Seconds since the walk started or the glass was touched.
+        awake_secs: f32,
         levelled_at: Option<f32>,
         from_level: u32,
     },
     Done {
         pet: usize,
-        meters: u32,
+        steps: u32,
         from_level: u32,
     },
 }
@@ -101,7 +102,7 @@ impl Plugin for WalkPlugin {
         if !app.is_plugin_added::<SoundPlugin>() {
             app.add_plugins(SoundPlugin);
         }
-        app.add_plugins(GpsPlugin)
+        app.add_plugins(StepsPlugin)
             .init_resource::<Walk>()
             .init_resource::<Pals>()
             .add_systems(Startup, arrive)
@@ -121,8 +122,8 @@ fn stroll(
     buttons: Res<Buttons>,
     mut tilt: ResMut<Tilt>,
     touch: Res<Touch>,
-    power: Res<Power>,
-    mut gps: ResMut<Gps>,
+    mut power: ResMut<Power>,
+    mut counted: ResMut<Steps>,
     mut walk: ResMut<Walk>,
     mut pals: ResMut<Pals>,
     mut blob: ResMut<SaveBlob>,
@@ -131,11 +132,13 @@ fn stroll(
 ) {
     let dt = time.delta_secs();
     walk.clock += dt;
-    let fix = gps.take();
+    let counted = counted.take();
     if power.saying_good_night() {
         return;
     }
     let pressed = buttons.action.pressed();
+    let any_button = pressed || buttons.zero.pressed();
+    let mut dozing = false;
     let tap = touch.just_pressed().then(|| touch.position()).flatten();
     let mock_walk = pals.mock_walk;
     let mut next = None;
@@ -152,12 +155,12 @@ fn stroll(
                 Some(pet) if pet < count => {
                     next = Some(WalkPhase::Walking {
                         pet,
-                        trail: Trail::default(),
+                        steps: 0,
                         mock: mock_walk.then(|| MockWalk::at_pace(MOCK_PACES[pals.mock_pace])),
                         fraction_m: 0.0,
                         unsaved_m: 0.0,
                         secs: 0.0,
-                        last_fix: None,
+                        awake_secs: 0.0,
                         levelled_at: None,
                         from_level: pals.pets[pet].stamina_level(),
                     });
@@ -171,19 +174,22 @@ fn stroll(
         }
         WalkPhase::Walking {
             pet,
-            trail,
+            steps,
             mock,
             fraction_m,
             unsaved_m,
             secs,
-            last_fix,
+            awake_secs,
             levelled_at,
             from_level,
         } => {
             *secs += dt;
-            if fix.is_some() {
-                *last_fix = Some(*secs);
-            }
+            *awake_secs = if touch.position().is_some() {
+                0.0
+            } else {
+                *awake_secs + dt
+            };
+            dozing = mock.is_none() && *awake_secs >= DOZE_AFTER_SECS;
             if let Some(mock) = mock.as_mut() {
                 let faster = tap.is_some_and(|at| ui::FASTER.hit(at));
                 let slower = tap.is_some_and(|at| ui::SLOWER.hit(at));
@@ -199,14 +205,14 @@ fn stroll(
                     sound.play(&CLICK);
                 }
             }
-            let fix = match mock {
+            let new = match mock {
                 Some(mock) => mock.step(dt),
-                None => fix,
+                None => counted,
             };
-            let gained = fix.map_or(0.0, |fix| trail.step(fix));
+            *steps += new;
             let fish = &mut pals.pets[*pet];
             let before = fish.stamina_level();
-            *fraction_m += gained;
+            *fraction_m += new as f32 * STRIDE_M;
             let whole = *fraction_m as u32;
             if whole > 0 {
                 fish.walk(whole as f32);
@@ -215,17 +221,20 @@ fn stroll(
             }
             if fish.stamina_level() > before {
                 *levelled_at = Some(*secs);
-                sound.play(&angler_game::audio::CATCH);
+                if !dozing {
+                    sound.play(&angler_game::audio::CATCH);
+                }
             }
-            let stop = pressed || tap.is_some_and(|at| ui::STOP.hit(at));
+            let stop = any_button || tap.is_some_and(|at| ui::STOP.hit(at));
             save |= *unsaved_m >= SAVE_EVERY_M || stop;
             if save {
                 *unsaved_m = 0.0;
             }
             if stop {
+                dozing = false;
                 next = Some(WalkPhase::Done {
                     pet: *pet,
-                    meters: trail.meters as u32,
+                    steps: *steps,
                     from_level: *from_level,
                 });
             }
@@ -236,6 +245,7 @@ fn stroll(
             }
         }
     }
+    power.set_dozing(dozing);
     if save {
         pals::save::store(&mut blob, &pals);
     }
@@ -255,7 +265,6 @@ fn choice_point(index: usize, count: usize) -> Vec2 {
 fn draw_frame(
     walk: Res<Walk>,
     pals: Res<Pals>,
-    gps: Res<Gps>,
     tilt: Res<Tilt>,
     power: Res<Power>,
     mut frame: ResMut<Frame>,
@@ -264,12 +273,16 @@ fn draw_frame(
     shapes.clear();
     match walk.phase.as_ref() {
         WalkPhase::Choose => choose(shapes, &pals, tilt.steer_deg),
+        WalkPhase::Walking { .. } if power.dozing() => {
+            shapes.push(rect(0, 0, 466, 466, BLACK));
+            shapes.push(label(233, "WALKING. PRESS TO STOP", 1, DOZE_TEXT));
+            return;
+        }
         WalkPhase::Walking {
             pet,
-            trail,
+            steps,
             mock,
             secs,
-            last_fix,
             levelled_at,
             ..
         } => {
@@ -278,25 +291,13 @@ fn draw_frame(
             bowl(shapes, fish, walk.clock);
             progress(shapes, fish);
             text(shapes, label(66, fish.name.as_str(), 2, TEXT));
-            text(
-                shapes,
-                label(330, &format!("{} M", trail.meters as u32), 3, TEXT),
-            );
+            text(shapes, label(318, &format!("{steps} STEPS"), 2, TEXT));
+            let metres = (*steps as f32 * STRIDE_M) as u32;
+            text(shapes, label(344, &format!("{metres} M"), 1, TEXT));
             let level = format!("STAMINA LV {}", fish.stamina_level());
-            let without_sky = secs - last_fix.unwrap_or(0.0);
             let status = match mock {
                 Some(mock) => format!("MOCK WALK x{}", mock.pace() as u32),
-                None if last_fix.is_some() && without_sky < SKY_LOST_SECS => {
-                    format!("SATELLITES {}", gps.satellites)
-                }
-                None if without_sky >= NO_SKY_SECS => {
-                    if ((secs / HINT_SWAP_SECS) as u32).is_multiple_of(2) {
-                        "NO SKY YET, STILL LOOKING".into()
-                    } else {
-                        "INDOORS? TRY MOCK WALK".into()
-                    }
-                }
-                None => "LOOKING FOR THE SKY".into(),
+                None => "SCREEN GOES OFF TO SAVE POWER".into(),
             };
             let lines = [label(368, &level, 1, GOLD), label(392, &status, 1, HINT)];
             plated_lines(shapes, lines, GRASS);
@@ -311,25 +312,27 @@ fn draw_frame(
         }
         WalkPhase::Done {
             pet,
-            meters,
+            steps,
             from_level,
         } => {
             let fish = &pals.pets[*pet];
             shapes.push(rect(0, 0, 466, 466, DEEP));
-            fish::draw(shapes, fish, Vec2::new(233.0, 150.0), 5, true);
-            shapes.push(label(230, &format!("WALKED {meters} M"), 2, TEXT));
+            fish::draw(shapes, fish, Vec2::new(233.0, 140.0), 5, true);
+            shapes.push(label(220, &format!("WALKED {steps} STEPS"), 2, TEXT));
+            let metres = (*steps as f32 * STRIDE_M) as u32;
+            shapes.push(label(248, &format!("{metres} M"), 1, TEXT));
             let now = fish.stamina_level();
             let level = if now > *from_level {
                 format!("STAMINA LV {from_level} TO {now}!")
             } else {
                 format!("STAMINA LV {now}")
             };
-            shapes.push(label(270, &level, 1, GOLD));
+            shapes.push(label(274, &level, 1, GOLD));
             let next = match fish.next_level_m() {
                 Some(next) => format!("{} M TO THE NEXT LEVEL", next - fish.walked_m),
                 None => "THE TOP LEVEL!".into(),
             };
-            shapes.push(label(296, &next, 1, HINT));
+            shapes.push(label(298, &next, 1, HINT));
             shapes.push(label(400, "PRESS TO GO ON", 1, HINT));
         }
     }

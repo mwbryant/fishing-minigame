@@ -12,6 +12,9 @@ pub const LEAN_HELD_DEG: f32 = 15.0;
 /// How fast it tips there and back.
 pub const LEAN_DEG_PER_SEC: f32 = 120.0;
 
+/// Walking pace while W is held, steps a second.
+pub const STEPS_PER_SEC: f32 = 2.0;
+
 /// A pretend board held in the player's hands. Keys turn it; it reports what
 /// its IMU would read, so the game's real motion filter does the rest.
 pub struct VirtualDevice {
@@ -19,6 +22,8 @@ pub struct VirtualDevice {
     /// firmware maps the QMI8658 into (x right, y down, z into the screen).
     truth: Quat,
     lean_deg: f32,
+    /// Part of a step walked (W held) but not yet counted.
+    stride: f32,
 }
 
 impl VirtualDevice {
@@ -26,6 +31,7 @@ impl VirtualDevice {
         Self {
             truth: Quat::from_rotation_x(-core::f32::consts::FRAC_PI_2),
             lean_deg: 0.0,
+            stride: 0.0,
         }
     }
 
@@ -40,6 +46,18 @@ impl VirtualDevice {
     /// second, and it stays turned. `lean` (-1..1) is how hard ↑/↓ are held:
     /// the top edge tips away (or back) toward `lean * LEAN_HELD_DEG` and
     /// springs back level on release, like a wrist.
+    /// The pedometer while `walking` (W held) at [`STEPS_PER_SEC`]: whole
+    /// steps taken in `dt`.
+    pub fn steps(&mut self, walking: bool, dt: f32) -> u32 {
+        if !walking {
+            return 0;
+        }
+        self.stride += STEPS_PER_SEC * dt;
+        let whole = self.stride as u32;
+        self.stride -= whole as f32;
+        whole
+    }
+
     pub fn sample(&mut self, steer: f32, lean: f32, dt: f32) -> ImuSample {
         let max_step = LEAN_DEG_PER_SEC * dt;
         let lean_step = (lean * LEAN_HELD_DEG - self.lean_deg).clamp(-max_step, max_step);

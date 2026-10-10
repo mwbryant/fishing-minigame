@@ -3,7 +3,8 @@ use core::{f32::consts::FRAC_PI_2, time::Duration};
 use bevy::{prelude::*, time::TimeUpdateStrategy};
 use orbit_core::{
     Battery, Buttons, ControlsPlugin, CorePlugin, ImuFeed, ImuSample, Mic, MicPlugin, Power,
-    SaveBlob, SoundCommand, SoundPlugin, SoundQueue, Tilt, preferences, testing,
+    SaveBlob, SoundCommand, SoundPlugin, SoundQueue, Steps, StepsPlugin, Tilt, preferences,
+    testing,
 };
 
 const DT: f32 = 1.0 / 60.0;
@@ -443,4 +444,25 @@ fn a_word_said_into_the_mic_is_heard_once_and_matches_the_same_word_again() {
         orbit_core::recognize(&again, taught.iter().map(|print| ((), print))),
         Some(())
     );
+}
+
+#[test]
+fn steps_the_platform_counts_are_taken_once() {
+    let mut app = App::new();
+    app.add_plugins(StepsPlugin);
+    let mut steps = app.world_mut().resource_mut::<Steps>();
+    steps.add(3);
+    steps.add(2);
+    assert_eq!(steps.take(), 5);
+    assert_eq!(steps.take(), 0);
+}
+
+#[test]
+fn a_game_can_ask_the_platform_to_doze_and_wake() {
+    let mut power = Power::default();
+    assert!(!power.dozing());
+    power.set_dozing(true);
+    assert!(power.dozing());
+    power.set_dozing(false);
+    assert!(!power.dozing());
 }

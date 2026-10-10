@@ -233,6 +233,26 @@ fn park(camera: &mut Camera) {
     camera.shoot(&app, "park_fast_forward");
     core_testing::click_action(&mut app);
     camera.shoot(&app, "park_done");
+
+    let mut tank = pals::Pals::default();
+    tank.keep(pet("GILLY", 3)).ok();
+    let mut blob = SaveBlob::from_storage(None);
+    pals::save::store(&mut blob, &tank);
+    let mut app = core_testing::headless(
+        |app| {
+            app.add_plugins(WalkPlugin);
+        },
+        blob.take_pending(),
+    );
+    battery(&mut app, 76);
+    core_testing::click_action(&mut app);
+    for _ in 0..3 {
+        app.world_mut().resource_mut::<orbit_core::Steps>().add(48);
+        core_testing::tick(&mut app, 30);
+    }
+    camera.shoot(&app, "park_stepping");
+    core_testing::tick(&mut app, 60 * 5);
+    camera.shoot(&app, "park_dozing");
 }
 
 /// The contest hall: the tiers, a show with a judge's call, the results.
