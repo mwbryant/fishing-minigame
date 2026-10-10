@@ -35,7 +35,8 @@ model of the board (download it into `../docs/` first: see
   0.4 mm under the glass, so a print that comes out a little off can't hold the board up off its
   posts.
 - **Posts.** Each post flares into the floor and a rib ties it to the wall, so screwing the board
-  down doesn't snap it off at the base.
+  down doesn't snap it off at the base. Where a post passes the BAT/SPK sockets or the BOOT
+  cap's flange it narrows for its last couple of mm, keeping at least 1.5 mm from the cap.
 - **Buttons.** PWR and BOOT press through two printed caps, 8 x 4.6 mm rounded slots that stand
   1.4 mm out of the rim. Inside, a flange stops each cap falling out and a nub presses the board's
   side switch. The slot shape keys the cap so it can't turn.
@@ -185,8 +186,9 @@ CAD program, but those edits don't flow back into the Python.
 - **Orientation:** USB-C sits at 9 o'clock with the game upright, so the back art reads upright
   when the device is turned over left to right. `WHALE_ROTATION` turns the whale; the text stays
   laid out around the screw heads.
-- **Tolerances:** they're tuned on a Bambu P2S: a 0.3 mm gap at the glass and 0.15 mm around the
-  button caps. If the glass is tight in the fit ring, raise `GLASS_GAP`.
+- **Tolerances:** they're tuned on a Bambu P2S, which prints a little fat: a 0.3 mm gap at the
+  glass and 0.25 mm all round each button cap (`BUTTON_HOLE_GAP`). If the glass is tight in the
+  fit ring, raise `GLASS_GAP`; if the caps don't slide freely, raise `BUTTON_HOLE_GAP`.
 - **Screw holes:** printed holes come out small, and an M2 screw that has to cut its way in can
   crack a post. The shank hole is 2.7 mm (`SCREW_CLEARANCE_D`) and the head recess 4.4 mm
   (`SCREW_HEAD_D`). The screw should slide through the post and only bite in the board.

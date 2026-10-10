@@ -1126,3 +1126,22 @@ Images are in `img/`. Newest beats go at the bottom.
   `img/59-after-park-dozing.png`.
   - TODO(user): a phone clip of the screen going dark mid-walk and a button bringing back the
     step count.
+
+## 48. Third print: the buttons can't breathe (2026-10-10)
+
+- **The ask:** "a bit more tolerance on the post by the button, also the buttons on the most
+  recent print were way too snug of a fit and can't move freely".
+- **What the measurement showed:** the BOOT cap's flange sits right next to the lower-right
+  screw post. The gap was 1.06 mm at rest and 0.71 mm with the button pressed, and the P2S
+  prints a little fat. The PWR cap is 14.7 mm from any post.
+- **The fix:**
+  - the cap holes get 0.25 mm all round instead of 0.15;
+  - a post now narrows to 4.6 mm for its last couple of mm wherever it passes a cap's flange (as
+    the top post already did beside the BAT/SPK sockets), and its wide part and rib stop 1 mm
+    under the flange.
+- **The numbers:** BOOT to post went from 1.06 to 1.85 mm at rest, and from 0.71 to 1.51 mm
+  pressed. Both cases are still 24.6 and 31.4 mm, and `check.py` passes: the caps still land
+  on their switches.
+- **Hook:** "One button, one post, 0.7 millimetres apart. On a printer, that's touching."
+- **Media:** `img/48-before-boot-post.png`, `img/48-after-boot-post.png`.
+  - TODO(user): a photo of the fourth print's buttons.

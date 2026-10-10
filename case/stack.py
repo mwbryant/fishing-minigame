@@ -36,12 +36,24 @@ def shelf_z() -> float:
 
 
 def post_wide_top(x: float, y: float) -> float:
-    """How high the post at (x, y) stays wide: up to its standoff, unless a socket is close."""
+    """How high the post at (x, y) stays wide: up to its standoff, unless a BAT/SPK socket or a
+    button's flange is close, where it narrows to POST_D."""
     keep = p.POST_WIDE_D / 2 + 0.3
     top = board.STANDOFF_END_Z
     for x0, y0, x1, y1, low in board.LOW_PARTS:
         if math.hypot(max(x0 - x, 0, x - x1), max(y0 - y, 0, y - y1)) < keep:
             top = min(top, low - 0.5)
+    w, h = p.BUTTON_SIZE
+    flange_len, flange_h = w + 2 * p.BUTTON_FLANGE, h + 2 * p.BUTTON_FLANGE
+    inner, outer = board.KEY_TIP_R, BORE_R + 0.5
+    for angle in (board.PWR_ANGLE, board.BOOT_ANGLE):
+        a = math.radians(angle)
+        mid = (inner + outer) / 2
+        u = x * math.cos(a) + y * math.sin(a) - mid
+        v = -x * math.sin(a) + y * math.cos(a)
+        gap = math.hypot(max(abs(u) - (outer - inner) / 2, 0), max(abs(v) - flange_len / 2, 0))
+        if gap < p.POST_WIDE_D / 2 + p.POST_BUTTON_GAP:
+            top = min(top, BUTTON_Z - flange_h / 2 - 1.0)
     return top
 
 
@@ -50,7 +62,7 @@ BUTTON_Z = board.KEY_Z - p.BUTTON_DROP  # height of the button caps' centres
 
 def rib_top() -> float:
     """The ribs stop below the button flanges."""
-    return BUTTON_Z - p.BUTTON_SIZE[1] / 2 - p.BUTTON_FLANGE - 0.5
+    return BUTTON_Z - p.BUTTON_SIZE[1] / 2 - p.BUTTON_FLANGE - 1.0
 
 
 def footprint(w: float, length: float, x: float, y: float, angle: float) -> Poly:

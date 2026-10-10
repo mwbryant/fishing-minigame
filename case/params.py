@@ -10,7 +10,7 @@ is at 9 o'clock, PWR at 2 o'clock and BOOT at 4 o'clock (see board.py).
 GLASS_GAP = 0.30  # mm, glass edge to bore; raise it if the glass is tight in the fit ring
 RIM_PROUD = 0.50  # mm the rim stands above the glass, so a face-down drop lands on plastic
 FLOOR_GAP = 0.60  # mm under the deepest board part (8-pin header); sets depth if nothing's under
-BUTTON_HOLE_GAP = 0.15  # mm all round a cap in its hole; raise it if the caps stick
+BUTTON_HOLE_GAP = 0.25  # mm all round a cap in its hole; raise it if the caps stick
 BUTTON_ACTUATOR_GAP = 0.10  # mm from nub to switch at rest; raise if always pressed, lower if mushy
 
 # --- Body ---------------------------------------------------------------------------------
@@ -33,7 +33,8 @@ SCREW_CLEARANCE_D = 2.7  # mm, hole for the M2 shank; printed holes come out sma
 SCREW_HEAD_D = 4.4  # mm counterbore; M2 pan heads are 4.0, socket heads 3.8
 SCREW_SHELF = 2.7  # mm of plastic under the head; 2.7 + 3.3 thread = M2x6 (check.py tests it)
 POST_WIDE_D = 6.0  # mm, the posts the standoffs sit on; wider pushes the GPS antenna lower
-POST_D = 4.6  # mm, the top post's last few mm, next to the BAT/SPK sockets
+POST_D = 4.6  # mm, a post's last few mm where it passes the BAT/SPK sockets or a button
+POST_BUTTON_GAP = 1.5  # mm a post keeps from a button's flange; it narrows to POST_D beside one
 POST_FLARE = 1.5  # mm the foot of each post flares into the floor (45 deg), clear of the stack
 POST_RIB = 1.6  # mm, thickness of the rib tying each post to the wall; 0 for none
 
