@@ -2,10 +2,6 @@
 
 pub use orbit_ui::Button;
 
-/// At a door, below its name.
-pub const ENTER: Button = Button::new(173, 404, 120, 32, "GO IN");
-/// The sign at a door, GO IN and all: a tap anywhere on it goes in.
-pub const SIGN: Button = Button::new(113, 366, 240, 76, "");
 /// Settings, clockwise from 12 o'clock as on its dial.
 pub const SOUND: Button = Button::new(148, 88, 170, 44, "SOUND");
 pub const MOCK_WALK: Button = Button::new(286, 211, 160, 44, "MOCK WALK");

@@ -1,5 +1,5 @@
-//! Draws the town: the clearing you're in, you, the purse and door sign, and
-//! the settings screens.
+//! Draws the town: the clearing you're in, you, the purse and the plate that
+//! names where you are, and the settings screens.
 
 use alloc::{format, vec::Vec};
 
@@ -8,7 +8,7 @@ use bevy::prelude::*;
 use orbit_core::{Frame, Power, SoundQueue, Tilt};
 use orbit_gfx::{Point, Rgb565, Shape, SpriteRef};
 use orbit_ui::{
-    DANGER, DEEP, GOLD, HINT, TEXT, battery_level, battery_level_on, button, dial_choice, disc,
+    DANGER, DEEP, GOLD, HINT, TEXT, battery_level, battery_level_on, dial_choice, disc,
     framed_button, gold_label_on, label, labelled_button, plated_lines, power_overlay, rect, rgb,
 };
 use pals::Pals;
@@ -18,6 +18,7 @@ use super::{
     map::{LAKE, Screen, Way, props},
     ui,
 };
+use crate::Place;
 
 pub const GRASS: Rgb565 = rgb(78, 150, 84);
 const PATH: Rgb565 = rgb(206, 186, 136);
@@ -25,9 +26,6 @@ const WATER: Rgb565 = rgb(48, 110, 180);
 const SHORE: Rgb565 = rgb(196, 180, 120);
 const PATH_WIDTH: u32 = 40;
 const AVATAR_SCALE: u32 = 2;
-/// A door's sign is this much wider than its name, if that's wider than
-/// `ui::SIGN`.
-const SIGN_PAD: u32 = 28;
 
 pub(crate) fn draw_frame(
     town: Res<Town>,
@@ -115,7 +113,9 @@ fn avatar(shapes: &mut Vec<Shape>, town: &Town) {
     });
 }
 
-/// The purse on top, and at a door, its name and how to go in.
+/// The purse on top, and a plate naming the clearing, or at a door the
+/// place and how to go in. Walking in from a landmark keeps the clearing's
+/// plate, so it doesn't flash on the way in.
 fn hud(shapes: &mut Vec<Shape>, town: &Town, pals: &Pals) {
     gold_label_on(
         shapes,
@@ -124,25 +124,16 @@ fn hud(shapes: &mut Vec<Shape>, town: &Town, pals: &Pals) {
         1,
         GRASS,
     );
-    match town.near() {
-        Some(place) => {
-            let name = label(384, place.name(), 2, GOLD);
-            let wide = orbit_gfx::ink(&name).map_or(0, |ink| ink.size.width + SIGN_PAD);
-            let sign = ui::SIGN.area;
-            let width = wide.max(sign.size.width);
-            let left = 233 - width as i32 / 2;
-            shapes.push(rect(left, sign.top_left.y, width, sign.size.height, DEEP));
-            shapes.push(name);
-            button(shapes, &ui::ENTER);
-        }
-        None => {
-            let lines = [
-                label(420, town.screen().name(), 1, rgb(230, 240, 220)),
-                label(440, "TAP WHERE TO GO", 1, rgb(200, 220, 190)),
-            ];
-            plated_lines(shapes, lines, GRASS);
-        }
-    }
+    let (title, hint) = match town.near().filter(|_| town.heading_in.is_none()) {
+        Some(Place::Settings) => (Place::Settings.name(), "PRESS TO OPEN"),
+        Some(place) => (place.name(), "PRESS TO GO IN"),
+        None => (town.screen().name(), "TAP WHERE TO GO"),
+    };
+    let lines = [
+        label(420, title, 1, rgb(230, 240, 220)),
+        label(440, hint, 1, rgb(200, 220, 190)),
+    ];
+    plated_lines(shapes, lines, GRASS);
 }
 
 fn settings(shapes: &mut Vec<Shape>, pals: &Pals, sound: &SoundQueue, pointed: usize) {

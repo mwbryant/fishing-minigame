@@ -1025,8 +1025,6 @@ pet*`.
   - With more than one button, `tapped(at, buttons)` picks the one the tap lands on, else the
     nearest within reach, so a padded neighbor can't steal it. RENAME, TRICKS and BACK on a
     fish's card are 2 px apart.
-  - At a door the whole sign is the GO IN target, and a tap below it still walks down the
-    path.
 - **Dial spots** are picked with `nearest(at, spots, reach)`:
 
   | Spots | Reach |
@@ -1065,7 +1063,9 @@ pet*`.
     out.
 - **Edges:** solid scenery slides you along it. The rim keeps you in, except down a path to
   the next clearing.
-- **Doors:** within 40 px of a door its name shows; PWR or GO IN enters.
+- **Doors:** within 40 px of a door, the plate at the bottom names the place and says PRESS
+  TO GO IN (PRESS TO OPEN at the signpost), and PWR enters. Walking in from a landmark tap
+  keeps the clearing's plate, so nothing flashes on the way in.
 - **Landmarks:** a tap on a place's landmark (`town::map::landmark`: the house, signpost,
   bench, hall, shop, den, bee tree or cabinet, and the pond's water and dock), give or take
   `TAP_SLOP`, walks you to its door and goes in. A tap at the end of a path still means the

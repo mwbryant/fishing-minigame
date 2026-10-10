@@ -186,6 +186,48 @@ fn every_place_is_one_tap_on_its_landmark_away() {
 }
 
 #[test]
+fn at_a_door_the_plate_names_it_and_there_is_no_go_in_button() {
+    for place in Place::ALL {
+        let mut app = town(None);
+        app.world_mut().resource_mut::<Town>().stand_at(place);
+        update(&mut app);
+        assert!(!shows(&app, "GO IN"), "{place:?}");
+        assert!(shows(&app, place.name()), "{place:?}");
+        let hint = if place == Place::Settings {
+            "PRESS TO OPEN"
+        } else {
+            "PRESS TO GO IN"
+        };
+        assert!(shows(&app, hint), "{place:?}");
+    }
+}
+
+#[test]
+fn where_go_in_was_is_just_the_path_south_now() {
+    let mut app = town(None);
+    assert_eq!(state(&app).near(), Some(Place::Home));
+    tap_and_walk(&mut app, Vec2::new(233.0, 420.0), 60 * 4);
+    assert_eq!(state(&app).destination(), None);
+    assert_eq!(state(&app).screen(), Screen::MainStreet);
+}
+
+#[test]
+fn walking_in_from_a_landmark_keeps_the_usual_plate() {
+    let mut app = town(None);
+    tap_and_walk(&mut app, Vec2::new(330.0, 300.0), 120);
+    tap(&mut app, Vec2::new(233.0, 100.0));
+    for _ in 0..180 {
+        if state(&app).destination().is_some() {
+            break;
+        }
+        assert!(!shows(&app, "PRESS TO GO IN"), "the door plate flashed");
+        update(&mut app);
+    }
+    assert_eq!(state(&app).destination(), Some(Place::Home));
+    assert!(!shows(&app, "PRESS TO GO IN"), "the door plate flashed");
+}
+
+#[test]
 fn standing_near_a_door_is_enough_to_go_in() {
     let mut app = town(None);
     let door = state(&app).at();

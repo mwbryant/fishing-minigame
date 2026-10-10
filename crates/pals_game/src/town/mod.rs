@@ -1,8 +1,8 @@
 //! The town, where the board starts: six clearings you walk around by touch.
 //! Tap where to go, or hold a finger down and follow it; tap the end of a path
 //! to go down it. Tap a place's landmark (its building, sign, or the pond's
-//! water and dock) and you walk to its door and go in. PWR (or GO IN) at a
-//! door goes in too. Going in ends the town app, and the platform builds that
+//! water and dock) and you walk to its door and go in. PWR at a door goes in
+//! too. Going in ends the town app, and the platform builds that
 //! place's app. The signpost by the house opens settings instead:
 //! sound, mock walks and reset, picked by turning like every menu.
 
@@ -278,10 +278,8 @@ fn roam(
                     town.finger_spent = true;
                 }
             }
-            let near = town.near();
-            let on_sign = tap.is_some_and(|at| ui::SIGN.miss(at) == 0.0);
-            let going_in = |place: &Place| pressed || on_sign || town.heading_in == Some(*place);
-            if let Some(place) = near.filter(going_in) {
+            let going_in = |place: &Place| pressed || town.heading_in == Some(*place);
+            if let Some(place) = town.near().filter(going_in) {
                 sound.play(&CLICK);
                 if place == Place::Settings {
                     town.phase = TownPhase::Settings;

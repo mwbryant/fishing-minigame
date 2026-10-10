@@ -928,3 +928,18 @@ Images are in `img/`. Newest beats go at the bottom.
   unchanged.
 - **The numbers:** 3 new tests; spider's 60 s random-play crowding run covers the 7-spot dial.
 - **Media:** `img/50-before-spider-bet.png`, `img/50-after-spider-bet.png`.
+
+## 51. GO IN, gone (2026-10-10)
+
+- **The ask:** "remove the go in button on the overworld can be completely removed now, it only
+  appears for a frame and seems buggy"
+- **What got in the way:** beat 49 made a landmark tap walk you to the door and straight in. The
+  door's big sign with its GO IN button popped up on the frame you arrived and vanished the
+  next, which read as a glitch.
+- **The fix:** the sign and its button are gone, along with the tap target behind them. At a
+  door, the small plate that already names the clearing names the place instead and says PRESS
+  TO GO IN (PRESS TO OPEN at the signpost). Walking in from a landmark keeps the clearing's
+  plate, so nothing flashes. A tap where GO IN used to be now just walks down the south path.
+- **The numbers:** 3 new town tests, including one that watches every frame of a walk-in for
+  the door plate.
+- **Media:** `img/51-before-town-door.png`, `img/51-after-town-door.png`.
