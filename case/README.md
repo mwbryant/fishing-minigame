@@ -17,7 +17,7 @@ model of the board (download it into `../docs/` first: see
 ## How it goes together
 
 ```
-            glass (flush, 0.5 mm below the rim)
+            glass (0.5 mm below the rim, over a ledge)
    rim  ____________________________________  rim
   |  |  board, screwed down through its     |  |   USB-C opening (9 o'clock)
   |  |  three M2 standoffs onto three posts  |  |   PWR / BOOT button caps (2 and 4 o'clock)
@@ -30,6 +30,11 @@ model of the board (download it into `../docs/` first: see
 
 - **One cup.** The board drops in glass-up, and three M2 screws through the back go into its own
   threaded standoffs. No clips, no glue: three screws open it.
+- **Seat.** A chamfer round the rim guides the glass in, and a ledge under the glass rim (notched
+  for USB-C) keeps the board level and takes the load when you press the screen. The posts set
+  the height; the ledge sits 0.1 mm under the glass.
+- **Posts.** Each post flares into the floor and a rib ties it to the wall, so screwing the board
+  down doesn't snap it off at the base.
 - **Buttons.** PWR and BOOT press through two printed caps, 8 x 4.6 mm rounded slots that stand
   1 mm out of the rim. Inside, a flange stops each cap falling out and a nub presses the board's
   side switch. The slot shape keys the cap so it can't turn.
@@ -61,7 +66,8 @@ Both cases are 53.9 mm across. How deep they are depends on the board:
 ## Printing on the P2S
 
 - **Material:** PLA is fine. PETG gives tougher button caps.
-- **Profile:** 0.16 mm layers, 3 walls, 15 % infill, no supports, no brim. The 3MF already lays
+- **Profile:** 0.16 mm layers, 4 walls (the posts print solid), 15 % infill, no supports, no
+  brim. The 3MF already lays
   every part the way it prints: the case on its back, the caps on the face you press.
 - **Raised art, face down:** the background around the art is recessed 0.7 mm. The art and the
   outer rim are the first layers, so they take the plate's texture. The background prints as
@@ -178,5 +184,11 @@ CAD program, but those edits don't flow back into the Python.
 - **Orientation:** USB-C sits at 9 o'clock with the game upright, so the back art reads upright
   when the device is turned over left to right. `WHALE_ROTATION` turns the whale; the text stays
   laid out around the screw heads.
-- **Tolerances:** they're tuned for a Bambu printer: a 0.3 mm gap at the glass and 0.15 mm around
-  the button caps. If the glass is tight in the fit ring, raise `GLASS_GAP`.
+- **Tolerances:** they're tuned on a Bambu P2S: a 0.3 mm gap at the glass and 0.15 mm around the
+  button caps. If the glass is tight in the fit ring, raise `GLASS_GAP`.
+- **Screw holes:** printed holes come out small, and an M2 screw that has to cut its way in can
+  crack a post. The shank hole is 2.7 mm (`SCREW_CLEARANCE_D`) and the head recess 4.4 mm
+  (`SCREW_HEAD_D`). The screw should slide through the post and only bite in the board.
+- **USB-C:** the opening is 11.5 x 6.0 mm (`USB_OPENING`), raised 0.5 mm above the modelled port
+  (`USB_RAISE`) after the first test print. A cable's plug head has to fit through it to seat.
+- **Glass seat:** `SEAT_GAP` is the gap under the glass, `SEAT_LEDGE` how far the ledge reaches in.

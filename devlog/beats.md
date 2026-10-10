@@ -814,3 +814,32 @@ Images are in `img/`. Newest beats go at the bottom.
   - The repo went from a 16.4 MB bundle to a 9.8 MiB pack. `HEAD`'s tree is unchanged.
 - **A slip worth telling:** a commit with an unchained second step swept in three `.pyc` files.
   It was undone before anything else happened, and `__pycache__/` is now ignored.
+
+## 46. The first print: two screw posts snapped (2026-10-10)
+
+- **The ask:** "the screwposts broke 2/3 on first test, lets add a bit more attachment at the
+  base and more tolerance on their screw diameter (I think the 3d print expanded just a tiny
+  bit)". Also something so the screen seats more easily, and a smaller USB-C opening sitting
+  slightly higher. The buttons wait for another test print.
+- **What got in the way:** each post was a plain 6 mm cylinder standing 11 mm off the floor of
+  the 24.6 mm GPS case, with a 2.4 mm hole for a 2.0 mm M2 shank. Printed holes come out small,
+  so the screw had to cut its way in, and the twist snapped the posts at the floor.
+- **The fix:**
+  - shank hole 2.4 -> 2.7 mm and head recess 4.2 -> 4.4 mm, so the screw only bites in the board;
+  - each post flares into the floor (45 deg, 1.5 mm), and a 1.6 mm rib ties it to the wall
+    1.65 mm away (+95 mm3 over the three posts);
+  - a ledge 1.25 mm wide runs under the glass rim, 0.1 mm below the glass, notched for USB-C; the
+    rim's lead-in chamfer went 0.3 -> 0.5 mm;
+  - USB-C opening 13 x 7.4 -> 11.5 x 6.0 mm, raised 0.5 mm.
+- **Dead end:** widening the posts to 6.6 mm pushed the GPS antenna's spot 4 mm lower and the
+  USB case from 24.6 to 28.6 mm. The posts stayed 6.0 mm and the flare and rib do the work, so
+  both cases are still 24.6 and 31.4 mm.
+- **Checks:** `check.py` passes both cases. The board still lowers straight in past the new
+  ledge, which ends 0.17 mm from the glass and 0.53 mm from the spacer under it.
+- **Hook:** "Two of three screw posts snapped on the first print. The fix wasn't a fatter post;
+  it was a bigger hole."
+- **Media:** `img/46-before-post.png`, `img/46-after-post.png`, `img/46-before-seat.png`,
+  `img/46-after-seat.png` (the rim cut through at 10:30), `img/46-before-usb.png`,
+  `img/46-after-usb.png`.
+  - TODO(user): a photo of the two snapped posts on the first print, and of the second print
+    with the board screwed down.

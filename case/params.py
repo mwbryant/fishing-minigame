@@ -21,34 +21,41 @@ BACK_FLANGE = 2.0  # mm, height of the smooth flange at the back; taller leaves 
 FLANGE_PROUD = 0.30  # mm the flanges stand proud of the line; adds to the diameter
 FRONT_ROUND = 1.0  # mm, radius of the front outer edge
 BACK_CHAMFER = 0.8  # mm; a chamfer, not a round, so the first layers don't overhang
-RIM_CHAMFER = 0.3  # mm, on the rim's inner edge around the glass
+RIM_CHAMFER = 0.5  # mm, lead-in on the rim's inner edge that guides the glass into the bore
 
 # Fishing line wound on the spool (the rim between the flanges)
 LINE_PITCH = 1.2  # mm per turn, adjusted so a whole number of turns fit; smaller is finer
 LINE_DEPTH = 0.35  # mm from groove to crest; deeper adds to the diameter
 
 # --- Board screws (3x M2 into the board's own SMT standoffs) ------------------------------
-SCREW_CLEARANCE_D = 2.4  # mm, hole for the M2 shank
-SCREW_HEAD_D = 4.2  # mm counterbore; M2 pan and socket heads are 3.8
+SCREW_CLEARANCE_D = 2.7  # mm, hole for the M2 shank; printed holes come out small, and a tight
+#                          one makes the screw cut its way in and crack the post
+SCREW_HEAD_D = 4.4  # mm counterbore; M2 pan heads are 4.0, socket heads 3.8
 SCREW_SHELF = 2.7  # mm of plastic under the head; 2.7 + 3.3 thread = M2x6 (check.py tests it)
-POST_D = 4.6  # mm, posts the standoffs sit on; narrow because the BAT/SPK sockets are close
-POST_WIDE_D = 6.0  # mm, lower part of the posts around the counterbore; the stack keeps clear
+POST_WIDE_D = 6.0  # mm, the posts the standoffs sit on; wider pushes the GPS antenna lower
+POST_D = 4.6  # mm, the top post's last few mm, next to the BAT/SPK sockets
+POST_FLARE = 1.5  # mm the foot of each post flares into the floor (45 deg), clear of the stack
+POST_RIB = 1.6  # mm, thickness of the rib tying each post to the wall; 0 for none
 
 # --- Buttons (two printed caps through the rim, pressing the side keys) --------------------
 BUTTON_SIZE = (
     8.0,
     4.6,
 )  # mm, the cap you press: along the rim x tall (a rounded slot, so it can't turn)
-BUTTON_FLANGE = (
-    0.9  # mm the flange inside overhangs the cap; a 45 deg cone, prints unsupported
-)
+BUTTON_FLANGE = 0.9  # mm the flange inside overhangs the cap; a 45 deg cone, prints unsupported
 BUTTON_FLANGE_T = 0.4  # mm, thickness of the flat flange behind the cone
 BUTTON_NUB_D = 1.8  # mm, presses the switch actuator (2.0 x 1.0)
 BUTTON_PROUD = 1.0  # mm the cap stands out past the flanges; more is easier to find and press
 BUTTON_TIP_CHAMFER = 0.4  # mm, 45 deg chamfer round the cap's outer edge
 
+# --- Glass seat ---------------------------------------------------------------------------
+SEAT_LEDGE = 1.25  # mm a ledge reaches in from the bore under the glass rim (notched for USB-C)
+SEAT_GAP = 0.10  # mm under the glass; the posts set the height, the ledge catches the glass when
+#                  you press the screen and keeps the board level as it goes in
+
 # --- Ports --------------------------------------------------------------------------------
-USB_OPENING = (13.0, 7.4)  # mm, along the rim x tall; USB-C overmolds are at most 12.35 x 6.5
+USB_OPENING = (11.5, 6.0)  # mm, along the rim x tall; a cable's plug head must fit through
+USB_RAISE = 0.5  # mm the opening sits above the port's modelled centre (from a test print)
 USB_OPENING_ROUND = 2.5  # mm, corner radius
 SD_SLOT = True  # cut the microSD slot; False closes it
 SD_SLOT_SIZE = (13.0, 2.0)  # mm, along the rim x tall

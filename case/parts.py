@@ -16,11 +16,13 @@ from build123d import (
     Box,
     CenterArc,
     Circle,
+    Cone,
     Curve,
     Cylinder,
     Ellipse,
     Part,
     Plane,
+    Polygon,
     Polyline,
     Pos,
     Rectangle,
@@ -48,6 +50,8 @@ CREST_R = TROUGH_R + p.LINE_DEPTH
 OUTER_R = CREST_R + p.FLANGE_PROUD
 TOP_Z = p.RIM_PROUD
 BOTTOM = (Align.CENTER, Align.CENTER, Align.MIN)
+SEAT_Z = -board.GLASS_DEPTH - p.SEAT_GAP  # top of the ledge under the glass rim
+SEAT_R = BORE_R - p.SEAT_LEDGE  # its inner edge
 
 
 def floor_z(battery: bool) -> float:
@@ -84,7 +88,10 @@ def through_rim(angle: float, z: float, profile: Sketch, offset: float = 0.0) ->
 
 
 def spool(battery: bool) -> Part:
-    """The revolved body: back flange, wound line, front flange and rim, hollow to the floor."""
+    """The revolved body: back flange, wound line, front flange and rim, hollow to the floor.
+
+    Under the glass rim a ledge runs round the bore; its underside is a 45 deg slope so it prints.
+    """
     zb, zf = back_z(battery), floor_z(battery)
     step = OUTER_R - TROUGH_R
     band_lo = zb + p.BACK_FLANGE + step
@@ -117,6 +124,10 @@ def spool(battery: bool) -> Part:
             (OUTER_R - r, 0, TOP_Z),
             (BORE_R + p.RIM_CHAMFER, 0, TOP_Z),
             (BORE_R, 0, TOP_Z - p.RIM_CHAMFER),
+            (BORE_R, 0, SEAT_Z),
+            (SEAT_R, 0, SEAT_Z),
+            (SEAT_R, 0, SEAT_Z - 0.4),
+            (BORE_R, 0, SEAT_Z - 0.4 - p.SEAT_LEDGE),
             (BORE_R, 0, zf),
             (0, 0, zf),
             (0, 0, zb),
@@ -126,14 +137,33 @@ def spool(battery: bool) -> Part:
 
 
 def screw_posts(battery: bool) -> Part:
-    """The three posts under the board's standoffs, wider low down around the counterbores."""
-    zf, wide_top = floor_z(battery), stack.wide_post_top()
-    posts = Part()
+    """The posts under the board's standoffs: wide, flared into the floor, ribbed to the wall.
+
+    The top post narrows for its last few mm, beside the BAT/SPK sockets. The flares are cut
+    back wherever the stack's bottom layer lies, so the speaker still drops in.
+    """
+    zf = floor_z(battery)
+    wide = p.POST_WIDE_D / 2
+    posts, flares = Part(), Part()
     for x, y in board.STANDOFFS:
-        posts += Pos(x, y, zf) * Cylinder(p.POST_D / 2, board.STANDOFF_END_Z - zf, align=BOTTOM)
-        if wide_top > zf:
-            posts += Pos(x, y, zf) * Cylinder(p.POST_WIDE_D / 2, wide_top - zf, align=BOTTOM)
-    return posts
+        wide_top = stack.post_wide_top(x, y)
+        posts += Pos(x, y, zf) * Cylinder(wide, wide_top - zf, align=BOTTOM)
+        if wide_top < board.STANDOFF_END_Z:
+            posts += Pos(x, y, zf) * Cylinder(p.POST_D / 2, board.STANDOFF_END_Z - zf, align=BOTTOM)
+        if p.POST_FLARE:
+            flare = Cone(wide + p.POST_FLARE, wide, p.POST_FLARE, align=BOTTOM)
+            flares += Pos(x, y, zf) * flare
+        if p.POST_RIB:
+            rib = Polygon(*stack.rib(x, y), align=None)
+            posts += Pos(0, 0, zf) * extrude(rib, amount=stack.rib_top() - zf)
+    for _, box in item_boxes(battery):
+        bb = box.bounding_box()
+        if bb.min.Z < zf + p.POST_FLARE:
+            keep_out = Box(
+                bb.size.X + 2 * p.STACK_GAP, bb.size.Y + 2 * p.STACK_GAP, 20, align=BOTTOM
+            )
+            flares -= Pos(bb.center().X, bb.center().Y, zf - 1) * keep_out
+    return posts + flares
 
 
 def screw_holes(battery: bool) -> Part:
@@ -176,9 +206,18 @@ def speaker_grille(battery: bool) -> Part:
 
 
 def port_cutouts() -> Part:
-    """The USB-C opening, both button holes with seats for their flanges, and the SD slot."""
+    """The USB-C opening, both button holes with seats for their flanges, and the SD slot.
+
+    The glass ledge is notched over USB-C, the one part wider than the ledge's opening.
+    """
     w, h = p.USB_OPENING
-    cuts = through_rim(board.USB_ANGLE, board.USB_Z, RectangleRounded(w, h, p.USB_OPENING_ROUND))
+    usb_z = board.USB_Z + p.USB_RAISE
+    cuts = through_rim(board.USB_ANGLE, usb_z, RectangleRounded(w, h, p.USB_OPENING_ROUND))
+    ledge_h = 0.4 + p.SEAT_LEDGE
+    notch = Rectangle(board.USB_SIZE[0] + 1.6, ledge_h + 0.2)
+    start, reach = SEAT_R - 1, board.USB_FACE_R + 0.4
+    plane = radial_plane(board.USB_ANGLE, start, SEAT_Z - ledge_h / 2)
+    cuts += extrude(plane * notch, amount=reach - start)
     w, h = p.BUTTON_SIZE
     g, f = p.BUTTON_HOLE_GAP, p.BUTTON_FLANGE
     hole = SlotOverall(w + 2 * g, h + 2 * g)

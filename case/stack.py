@@ -35,9 +35,19 @@ def shelf_z() -> float:
     return board.STANDOFF_END_Z - p.SCREW_SHELF
 
 
-def wide_post_top() -> float:
-    """Below this the screw posts are wide, around the screw heads."""
-    return shelf_z() + 0.6
+def post_wide_top(x: float, y: float) -> float:
+    """How high the post at (x, y) stays wide: up to its standoff, unless a socket is close."""
+    keep = p.POST_WIDE_D / 2 + 0.3
+    top = board.STANDOFF_END_Z
+    for x0, y0, x1, y1, low in board.LOW_PARTS:
+        if math.hypot(max(x0 - x, 0, x - x1), max(y0 - y, 0, y - y1)) < keep:
+            top = min(top, low - 0.5)
+    return top
+
+
+def rib_top() -> float:
+    """The ribs stop below the button flanges."""
+    return board.KEY_Z - p.BUTTON_SIZE[1] / 2 - p.BUTTON_FLANGE - 0.5
 
 
 def footprint(w: float, length: float, x: float, y: float, angle: float) -> Poly:
@@ -67,6 +77,21 @@ def box(x0: float, y0: float, x1: float, y1: float) -> Poly:
     return [(x0, y0), (x1, y0), (x1, y1), (x0, y1)]
 
 
+def rib(x: float, y: float, grow: float = 0.0) -> Poly:
+    """The rib from the post at (x, y) straight out into the wall, `grow` bigger all round."""
+    r = math.hypot(x, y)
+    a = math.atan2(y, x)
+    length = BORE_R + 0.5 - r
+    mid = r + length / 2
+    return footprint(
+        length + 2 * grow,
+        p.POST_RIB + 2 * grow,
+        mid * math.cos(a),
+        mid * math.sin(a),
+        math.degrees(a),
+    )
+
+
 def ceiling(outline: Poly, plugs: bool) -> float:
     """The lowest thing over `outline`: board parts, the GPS plug and, with `plugs`, BAT/SPK."""
     zones = list(board.LOW_PARTS)
@@ -87,8 +112,11 @@ def ceiling(outline: Poly, plugs: bool) -> float:
 
 
 def clear_of_posts(w: float, length: float, x: float, y: float, angle: float) -> bool:
-    """Whether the rectangle keeps 0.3 mm clear of the bore and of the wide screw posts."""
-    if any(math.hypot(cx, cy) > BORE_R - 0.3 for cx, cy in footprint(w, length, x, y, angle)):
+    """Whether the rectangle keeps 0.3 mm clear of the bore, the screw posts and their ribs."""
+    outline = footprint(w, length, x, y, angle)
+    if any(math.hypot(cx, cy) > BORE_R - 0.3 for cx, cy in outline):
+        return False
+    if p.POST_RIB and any(overlap(outline, rib(px, py, 0.3)) for px, py in board.STANDOFFS):
         return False
     a = math.radians(angle)
     ca, sa = math.cos(a), math.sin(a)
