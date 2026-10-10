@@ -290,7 +290,7 @@ PLACES = [
     (662, "angler_caught", "pond", "Angler", "angler_game"),
     (832, "town_home", "town", "the hub", None),
     (1002, "home_tank", "house", "tank, tricks", None),
-    (1172, "park_walking", "park", "GPS walks", None),
+    (1172, "park_stepping", "park", "step walks", None),
     (1342, "contest_trick", "contest hall", "trick shows", None),
     (1512, "shop_crown", "hat shop", "12 hats", None),
     (1768, "orbit_playing", "Orbit", "own binary", "orbit_game"),
@@ -303,7 +303,7 @@ BACKENDS = [
     ("orbit_gfx", "rasterizer, dirty rects, 8-row bands", "CO5300 AMOLED<br>40 MHz QSPI", "minifb window<br>PNG snapshots", "down", "pixels"),
     ("orbit_audio", "16 kHz mixer and voice prints", "ES8311 speaker<br>ES7210 mics", "laptop speaker<br>and mic", "both", "PCM"),
     ("orbit_save", "power-fail-safe flash records", "SPI flash<br>two sectors", "~/.logic-orbit/<br>*.flash file", "both", "save records"),
-    (None, None, "CST9217 touch<br>two buttons<br>AXP2101 battery<br>LC76G GPS", "mouse<br>Space and Z<br>MOCK WALK", "core", None),
+    (None, None, "CST9217 touch<br>two buttons<br>AXP2101 battery<br>IMU pedometer", "mouse<br>Space and Z<br>W walks", "core", None),
 ]
 
 
@@ -390,7 +390,7 @@ def overview():
         598,
         1720,
         64,
-        span(mono("orbit_core", CYAN, 20) + "&nbsp;&nbsp; Bevy plumbing: the Frame, touch, buttons, tilt, power and sleep, sound, mic, GPS, saves")
+        span(mono("orbit_core", CYAN, 20) + "&nbsp;&nbsp; Bevy plumbing: the Frame, touch, buttons, tilt, power and sleep, sound, mic, steps, saves")
         + span("CorePlugin + ControlsPlugin", font_family=MONO, font_size="14px", color=MUTED),
         CYAN,
         fill=0.12,
@@ -618,9 +618,9 @@ INPUTS = [
     ("CST9217 touch · I2C 0x5A", "rotated 180°, lifted after 2 empty reads", "Touch", "the finger, in screen px", "CorePlugin", "touch.position()<br>touch.just_pressed()"),
     ("PWR key · TCA9554 at 0x20", "BOOT on GPIO0", "Buttons", "two switches, by role", "ControlsPlugin", "buttons.action.pressed()<br>buttons.zero.held()"),
     ("QMI8658 IMU · I2C 0x6B", "accel and gyro, read every frame", "ImuFeed → Tilt", "samples in, degrees out (Mahony)", "ControlsPlugin", "tilt.steer_deg<br>tilt.lean_deg"),
-    ("AXP2101 gauge · I2C 0x34", "read every 5 s; idle dims the panel", "Power", "battery, idle, hold to sleep", "ControlsPlugin", "power.battery<br>power.saying_good_night()"),
+    ("AXP2101 gauge · I2C 0x34", "read every 5 s; idle dims, a doze darkens", "Power", "battery, idle, sleep, doze", "ControlsPlugin", "power.battery<br>power.set_dozing(true)"),
     ("ES7210 mics · I2C 0x40", "data on the speaker's I2S clocks", "Mic", "16 kHz samples in, words out", "MicPlugin", "mic.take() → VoicePrint<br>mic.level()"),
-    ("LC76G GPS · I2C 0x50, 0x54", "asked for new text every second", "Gps", "NMEA text in, fixes out", "GpsPlugin", "gps.take() → Fix<br>fix.meters_to(&amp;last)"),
+    ("QMI8658 pedometer · I2C 0x6B", "its count read every frame or doze wake", "Steps", "new steps since the last look", "StepsPlugin", "steps.take()"),
 ]
 OUTPUTS = [
     ("CO5300 AMOLED · QSPI 40 MHz", "Presenter sends dirty rects, 2 DMA buffers", "Frame", "the display list, back to front", "CorePlugin", "frame.shapes.push(shape)"),

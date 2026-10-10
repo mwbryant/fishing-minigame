@@ -11,7 +11,8 @@ Only text people read says Fishing Minigame.
 - **town** (`pals_game::town`): walk by touch; menus still turn.
 - **pond**: Angler. Catch, then KEEP and name by turning, up to three.
 - **house**: the tank, cards, and trick school by voice and touch strokes.
-- **park**: GPS walks for stamina, or MOCK WALK.
+- **park**: walks for stamina, counted in steps by the IMU's pedometer with the screen off
+  (`Power::dozing`), or MOCK WALK. The GPS sleeps from boot.
 - **contest hall**: live trick shows for gold.
 - **hat shop**: hats for the fish.
 - **den**: Spider Roulette with bets.
@@ -52,11 +53,11 @@ pong) is a separate binary. A desktop simulator shares the renderer and the moti
   `orbit_ui` dials (3x gain, so ±60 degrees reaches everything). The upper button (PWR on the
   board) confirms, but **nothing may need it**: every PWR action also works by touch (a tap, a
   button, or a held finger for a held PWR), because a worn button gets unreliable. Only sleep
-  (holding BOOT) is button-only.
+  (holding BOOT) and ending a dozing walk (screen and touch off) need a button.
 - **New games and places:**
   - **Plugins:** `CorePlugin` and `ControlsPlugin` (buttons, tilt, and `Power`: battery, idle and
     hold-BOOT sleep, all handled in core), plus `SoundPlugin` for sound, `MicPlugin` to listen and
-    `GpsPlugin` to walk.
+    `StepsPlugin` to walk (`GpsPlugin` still exists, but the receiver sleeps from boot).
   - **Flow:** a phase enum resource, not Bevy states (states cost device heap).
   - **Drawing and input:** draw `orbit_ui::power_overlay` last, and ignore input while
     `Power::saying_good_night()`.
@@ -72,7 +73,7 @@ pong) is a separate binary. A desktop simulator shares the renderer and the moti
     - a desktop `Game` with snapshots.
 - **Heap:** Bevy must fit in about 284 KB of internal SRAM, because PSRAM atomics are unreliable
   on the S3.
-  - Peak headroom: Orbit 12 KB, Angler 67, the house 73, the contest 75, the park 80, Skate 82,
+  - Peak headroom: Orbit 12 KB, Angler 67, the house 73, the contest 75, the park 84, Skate 82,
     Bees??? 84, the town 84, Spider Roulette 85, the shop 86.
   - Only one app is ever in memory: Fishing Minigame drops each one before building the next.
   - **A resource costs about 64 times its size in heap** (a 3 KB resource cost 204 KB). Keep

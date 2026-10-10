@@ -1096,3 +1096,33 @@ Images are in `img/`. Newest beats go at the bottom.
   arcade and the humming tree. The park's and contest's BACK spots, which also leave, are
   unchanged.
 - **Media:** `img/58-before-home-tank.png`, `img/58-after-home-tank.png`.
+
+## 59. The GPS never found the sky, so walks count steps (2026-10-10)
+
+- **The ask:** "I still have never gotten a lock on the gps. Can we change that game to be a
+  step counter system instead. the game should be as power efficent as possible in that mode
+  and it should be ended by a button press."
+- **What got in the way:** the receiver never got a fix, and it draws about 36 mA with no
+  power switch, more than any other part of the board when the screen is dim.
+- **The fix:**
+  - **Steps from the IMU:** the QMI8658 has a pedometer built in. SensorLib's settings went in
+    as two pages of CAL registers through its CTRL9 command handshake, and the firmware reads
+    its 24-bit count every frame. Walks count steps at 0.75 m each, so stamina and saves carry
+    on.
+  - **The doze:** five seconds into a real walk the game sets `Power::dozing`. The board puts
+    the panel and touch to sleep, turns the amp and gyro off, stops drawing, and wakes every
+    100 ms only to read the step count and the buttons. On battery it light-sleeps in between;
+    BOOT can wake it directly, and PWR is polled. PWR or BOOT ends the walk and shows the
+    steps.
+  - **The GPS asleep:** at boot the firmware sends `$PAIR650,0*25`, backup mode at 13 uA.
+    Quectel's hardware design (v1.3, 3.3.4, note 3) says only the PA and PB variants must
+    also cut VCC; this board's (AB) can keep it.
+  - **Dead end:** a research subagent was meant to find the pedometer registers while the game
+    side was built, but it stopped silently when a command was interrupted. The registers came
+    from SensorLib's source and the receiver's sleep from Quectel's PDF, read directly.
+- **The numbers:** the park's peak heap headroom went from 80 to 84 KB (`Steps` is smaller than
+  the GPS sentence buffer); the QEMU tour passes; 378 tests pass.
+- **Media:** `img/59-before-park.png` (LOOKING FOR THE SKY), `img/59-after-park.png`,
+  `img/59-after-park-dozing.png`.
+  - TODO(user): a phone clip of the screen going dark mid-walk and a button bringing back the
+    step count.

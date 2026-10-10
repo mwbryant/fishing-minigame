@@ -18,7 +18,7 @@ board · 9 Bring-up checks on the board · 10 Systems and games (10.1 sprites, 1
 ## Board status
 
 The board is the -G variant, with the LC76G GNSS. Everything runs on it: every game and
-place at 60 fps, touch, tilt, both buttons, voice commands, GPS walks, sound, saves, idle
+place at 60 fps, touch, tilt, both buttons, voice commands, step-counted walks, sound, saves, idle
 dimming, switching off and on (10.5), and battery charging. The display, touch, IMU and PWR
 work with the original constants; no mirror, offset or axis needed changing. The serial logs in `logs/`
 record sessions, for example:
@@ -86,12 +86,13 @@ crates/orbit_core    #![no_std] shared Bevy plumbing. `CorePlugin`: Frame, Touch
                      `ControlsPlugin` (opt-in): Buttons {action, zero}, ImuFeed -> Tilt (zero
                      re-levels), `Power` (battery, idle, hold-BOOT sleep).
                      `SoundPlugin` (opt-in): `SoundQueue` (mutable), `preferences` (mute).
-                     `MicPlugin` (opt-in): `Mic` (words heard). `GpsPlugin` (opt-in): `Gps`
+                     `MicPlugin` (opt-in): `Mic` (words heard). `StepsPlugin` (opt-in):
+                     `Steps` (the pedometer's new steps). `GpsPlugin` (opt-in, unused): `Gps`
                      (NMEA in, fixes out).
 crates/orbit_ui      #![no_std] shared drawing: Button, battery level, sleep overlay, the
                      rotation dial and list, typing by turning, the gold coin, CLICK/THUD.
 crates/pals          #![no_std] Fishing Minigame's state and rules, no systems: pets, tricks,
-                     gestures, walks (trail, mock walk), gold, the hat shelf, `PALS` save.
+                     gestures, walks (stride, mock walk), gold, the hat shelf, `PALS` save.
 crates/pals_game     #![no_std] Fishing Minigame's places, one app each: the town (boot), the
                      house, the park, the contest hall, the hat shop.
 crates/angler_game   #![no_std] Angler, the pond (fishing; keep and name; no Bevy states).
@@ -117,7 +118,8 @@ docs/reference/      research: the ES8311 speaker driver, and the LC76G and ES72
    - buttons (`ControlsPlugin`): held state via `Buttons.{action,zero}.set`;
    - IMU: `ImuFeed::push(ImuSample)`, in the screen frame;
    - mics (`MicPlugin`): `Mic::push(&[i16])`, 16 kHz mono;
-   - GPS (`GpsPlugin`): NMEA text via `Gps::push(&[u8])`.
+   - steps (`StepsPlugin`): `Steps::add(count)`, new steps since the last frame;
+   - GPS (`GpsPlugin`, unused): NMEA text via `Gps::push(&[u8])`.
 2. `app.update()` runs the systems; `draw_frame` (PostUpdate) refills `Frame { shapes }`.
 3. `Presenter::present(&shapes, &mut panel)` diffs against the last frame (`FrameDiff`), takes
    the bounds of every shape that appeared or vanished (even-aligned, merged), renders each
@@ -206,7 +208,12 @@ All on one bus; each driver gets an `embedded-hal-bus` `RefCellDevice` on it.
     supply keeps the sky it knew, so a fix comes back in seconds.
   - The 2 s stats line adds `gps <n> B` (NMEA bytes since the last line) while an app
     listens, and `restarted <n>x` once it has been restarted.
-  - No power enable: it draws about 36 mA whenever the board is on.
+  - **Asleep from boot:** it has no power enable and draws about 36 mA running, and nothing
+    uses it, so the firmware sends `$PAIR650,0*25` at boot (backup mode, 13 uA, through the
+    `0x50`/`0x58` write path) and 1.5 s later checks that it queues nothing (`LC76G asleep
+    (backup mode)`). The LC76G (AB) may keep VCC on in backup mode; only the PA and PB need it
+    cut (hardware design v1.3, 3.3.4, note 3). It wakes only when the board loses power, so an
+    app that adds `GpsPlugin` again needs the boot command removed.
 - Register sequences, protocol and sources: `docs/reference/gnss_and_mics.md`.
 
 ### CO5300 display protocol
@@ -298,6 +305,19 @@ All on one bus; each driver gets an `embedded-hal-bus` `RefCellDevice` on it.
   - CTRL5 = 0x33: both low-pass filters.
   - CTRL7 = 0x03: accel and gyro on.
 - **Reading:** one 12-byte burst from 0x35.
+- **Pedometer** (while an app has `Steps`; `init` turns it off again), from SensorLib's
+  `configPedometer`:
+  - CTRL2 = 0x17, CTRL3 = 0x57: aODR/gODR 0111, 56 Hz with the gyro on, 62.5 Hz with it off;
+  - two pages of settings in CAL1_L..CAL4_H (0x0B-0x12), each sent with CTRL9 command 0x0D:
+    a 50-sample window, 200 mg peak to peak, 100 mg over the average (CAL4_H = 1), then a
+    200-sample timeout, 20-sample minimum step, 10 steps in a row before counting starts,
+    precision 0, updates every 4 steps (CAL4_H = 2); CAL4_L = 0x02 both times;
+  - CTRL8 bit 4 enables it, CTRL9 0x0F zeroes the count, and the count is 24 bits
+    little-endian at 0x5A-0x5C, read every frame;
+  - a CTRL9 command waits for STATUS_INT (0x2D) bit 7, writes 0x00 (ACK), and waits for it to
+    clear;
+  - while the walk dozes, CTRL7 = 0x01 turns the gyro off; the pedometer needs only the
+    accelerometer.
 - **Axes in the screen frame** (x right, y down, z into the screen):
   `screen = (imu.y, -imu.x, imu.z)`, from the PCB axis marking by U3 and three Waveshare tilt
   demos. At rest: face-up, accel z ≈ −1 g; upright with USB on the left, x_imu ≈ +1; button
@@ -668,13 +688,11 @@ boots.
     meter along the bottom of the rim rises as you speak. Words that never "take" may need a
     different gain (`GAIN_30_DB` in `firmware/src/mic.rs`) or the other mic slot.
 
-16. **GPS:** the boot log says `LC76G satellite receiver found`. Outdoors in the park, the walk
-    shows SATELLITES n within about 30 s (cold start) and counts metres. Indoors there's no fix:
-    the status says LOOKING FOR THE SKY, then after a minute takes turns between NO SKY YET,
-    STILL LOOKING and INDOORS? TRY MOCK WALK, and a fix still counts whenever it comes. The
-    stats line's `gps <n> B` shows the receiver is talking (a few hundred bytes a second).
-    `LC76G read failed` lines mean the I2C reads need work: try 100 kHz, as in Waveshare's
-    demo.
+16. **Steps:** the boot log says `LC76G satellite receiver found; sent to backup mode`, then
+    `LC76G asleep (backup mode)`. In the park the log says `pedometer on` and the stats line
+    adds `pedometer <n>`; the count moves once 10 steps come in a row, then every 4. Five
+    seconds into a real walk the log says `dozing: screen off until a button`, the stats line
+    drops to about 20 frames per 2 s, and PWR or BOOT brings `awake` and the results.
 17. **Saves across apps:** keep a fish at the pond, go home, and it's in the tank. Walk it, and
     the card's stamina grows.
 
@@ -963,6 +981,13 @@ The contract is `orbit_core::Power`, added by `ControlsPlugin` (so Orbit doesn't
 - **Idle:** 30 s (`IDLE_SECS`) without a touch, a button or a 3-degree turn sets `idle`. The
   firmware dims the panel to 0x40 and paces the loop at 20 Hz; the desktop dims and drops to
   20 fps.
+- **Doze** (`Power::dozing`, set by a game; the park's real walks):
+  - the firmware sends the panel to sleep, touch to sleep, the amp off and the gyro off, and
+    stops drawing; leaving, it runs the panel's and touch's `init` again and redraws the frame;
+  - it wakes every `DOZE_PERIOD_MS` (100 ms) to read the pedometer and the buttons (PWR has no
+    wake line, so it's polled);
+  - on battery it light-sleeps between wakes (`LowPower::sleep_light`, a timer deadline, and
+    BOOT listening for a low level); on USB it only halts, so the serial log keeps working.
 - **CPU halt:** the spare part of every frame halts the CPU with `waiti` until a systimer
   alarm interrupt (`firmware/src/idle.rs`), instead of spinning in `Delay`. The display and
   speaker DMA keep running. On the board the loop paces 117 frames per 2 s (58.5 fps), where
@@ -974,10 +999,9 @@ updates), part of the winit/render stack this build lacks, and nothing else in
 - the loop: halting between frames and the slower idle rate, both built;
 - the panel: brightness and dark scenes, since a black AMOLED pixel is off. AMOLED draw scales
   with brightness times lit pixels, and the lake scene is bright sky at 0xFF;
-- peripherals: the sleep sequence above.
+- peripherals: the sleep sequence above, the doze, and the GPS asleep from boot.
 
 **Not done yet**, roughly by value:
-- A brightness setting. The default is full; even 0xC0 should save noticeably.
 - Switching the NS4150B amp off after a second of silence: a few mA at idle, but waking it can
   clip a sound's start.
 - A 160 MHz CPU clock: some power saved, but every frame 1.5x longer.
@@ -1159,20 +1183,19 @@ or lets the new catch go.
   success to double the lesson. A command for another trick makes it do that one instead.
 - **Echo:** words heard within 1 s of the speaker playing are ignored.
 
-**Walks** (`pals_game::walk`, with `GpsPlugin`):
-- Stamina level is 1 + √(metres / 100): levels at 100 m, 400 m, 900 m...
-- **The sky:** the walk never stops listening. With no fix yet, or none for `SKY_LOST_SECS`
-  (5 s) after one, it says LOOKING FOR THE SKY; after `NO_SKY_SECS` (60 s) without one it takes
-  turns, every 3 s, between NO SKY YET, STILL LOOKING and INDOORS? TRY MOCK WALK. STOP (or
-  PWR) ends the walk.
-- **Counting** (`pals::Trail`): fixes count only once 8 m (or 4 x HDOP) from the last counted
-  spot. Fixes with HDOP over 5 or fewer than 4 satellites are ignored, as is anything faster
-  than 4.5 m/s.
-- **MOCK WALK** strolls at 1.4 m/s through the same trail, times its pace (x1, x2, x5, x10 or
-  x25). Each fix still reports walking speed, so the trail counts it. On a mock walk, - and +
-  beside the distance change the pace mid-walk, and the new pace is saved.
-- Progress saves every 25 m and when the walk ends. After a minute with no fix, the screen
-  suggests MOCK WALK.
+**Walks** (`pals_game::walk`, with `StepsPlugin`):
+- Stamina level is 1 + √(metres / 100): levels at 100 m, 400 m, 900 m... A step is
+  `pals::STRIDE_M` (0.75 m).
+- **Counting:** the IMU's pedometer (section 3) counts; the walk takes `Steps` each frame and
+  throws away any counted before it started.
+- **Dozing:** `DOZE_AFTER_SECS` (5 s) after a real walk starts or the glass was last touched,
+  it sets `Power::dozing` and draws only a dark screen; the firmware turns the panel off. PWR
+  or BOOT (the screen and touch are off) ends the walk; awake, STOP does too. The results show
+  steps and metres, and a level-up during the doze shows there.
+- **MOCK WALK** steps at 1.9 a second (about 1.4 m/s) times its pace (x1, x2, x5, x10 or x25)
+  and never dozes, so - and + beside the distance can change the pace mid-walk; the new pace
+  is saved. The desktop walks while W is held.
+- Progress saves every 25 m and when the walk ends.
 
 **Contests** (`pals_game::contest`, with `MicPlugin`):
 

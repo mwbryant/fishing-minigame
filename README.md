@@ -4,8 +4,8 @@
 
 **A pocket fishing game on a round, watch-sized AMOLED screen, inside a 3D-printed case that
 looks like a fly-fishing reel.** Turn it like a steering wheel to cast, lean it to fight the
-fish, and keep your best three. Name them, teach them tricks with your voice, walk them with
-real GPS, buy them hats and enter them in contests. It's Nintendogs for fish, and it fits in one hand.
+fish, and keep your best three. Name them, teach them tricks with your voice, walk them (it
+counts your steps), buy them hats and enter them in contests. It's Nintendogs for fish, and it fits in one hand.
 
 Fishing Minigame was made with an AI-first workflow. Claude Code wrote most of the code, the
 case model and the trailer pipeline. The developer decided what to build, played every change,
@@ -23,8 +23,9 @@ and tested it on the board.
   (species, size, stamina, appeal) and five tricks, from SPLASH to RAINBOW LEAP. Teach a trick
   by saying a word twice, or by drawing a stroke on the glass twice. Pet the fish right after
   it gets one right, and it learns twice as fast.
-- **Walk them in the park.** Walks build stamina. The GPS counts the metres you really walk (not
-  standing still, not in a car), and MOCK WALK strolls on its own at up to ×25.
+- **Walk them in the park.** Walks build stamina. The board counts your steps with its screen
+  off to save power, and a press of either button ends the walk. MOCK WALK strolls on its own
+  at up to ×25.
 - **Show off at the contest hall.** A 30-second live show. Give your commands as it runs: the
   judges call for tricks, rarer tricks score more, and the top three win gold.
 - **Spend it.** The hat shop's ring of 12 hats runs from a beanie to a crown, and the mirror
@@ -100,10 +101,11 @@ cargo run --release -p orbit_desktop -- footage <dir>   # the trailer's takes, e
 - **Arrow keys:** ←/→ turn the virtual device like a wheel; it stays turned. Hold ↑/↓ to lean
   it; it springs back level when you let go.
 - **C:** straighten the device.
+- **W:** walk (two steps a second), for the park's step counter.
 
 The arrow keys feed a virtual IMU through the same motion filter the board uses. The laptop's
-microphone stands in for the board's mics (macOS asks for access once), and walks use MOCK WALK
-from the signpost by the house. Desktop saves go to
+microphone stands in for the board's mics (macOS asks for access once). Hold W to walk on a
+real walk, or use MOCK WALK from the signpost by the house. Desktop saves go to
 `~/.logic-orbit/<mode>.flash`. The window title shows fps, KB pushed per frame, and how long
 that traffic would take on the real link.
 
@@ -192,8 +194,9 @@ python3 docs/architecture/build.py # the architecture slides below, as 1080p PNG
 - **The board:** a Waveshare **ESP32-S3-Touch-AMOLED-1.75-G**. It has the 466×466 round AMOLED,
   touch, an IMU, two mics, a speaker amp, a PMIC and the LC76G GPS
   ([Waveshare's hardware reference](https://github.com/waveshareteam/ESP32-S3-Touch-AMOLED-1.75)).
-  - The plain **-1.75** works too: walks use MOCK WALK, and the case can be built thinner
-    (`GPS_ANTENNA = None` in `case/params.py`).
+  - The plain **-1.75** works the same (walks count steps with the IMU), and the case can be
+    built thinner (`GPS_ANTENNA = None` in `case/params.py`). The -G board's GPS isn't used:
+    the firmware puts it to sleep at boot.
   - The firmware expects the 1.75's LCD and touch resets on GPIO39 and GPIO40. The **1.75C** puts
     them on GPIO1 and GPIO2.
 - **The speaker:** the 8 Ω speaker that comes with the board, plus a little double-sided foam
@@ -266,7 +269,8 @@ Most fixes are one-line constants or a mapping function in `firmware/src/lib.rs`
 ### On the board
 
 Everything in this README runs on the board: every game and place at 60 fps, touch, tilt, both
-buttons, voice commands, GPS walks, sound, saves, switching off and on, and battery charging.
+buttons, voice commands, step-counted walks, sound, saves, brightness, switching off and on, and
+battery charging.
 The serial logs of real sessions are in `logs/`.
 
 ## How it's built
@@ -325,7 +329,7 @@ crates/orbit_motion  no_std IMU fusion (Mahony) with zeroing -> steer/lean
 crates/orbit_save    no_std power-fail-safe flash records
 crates/orbit_audio   no_std PCM clips + mixer, and voice prints for spoken commands
 crates/orbit_core    shared Bevy plumbing: frame, touch, rng, save sections, mute; opt-in buttons,
-                     tilt, power (battery, sleep, idle), sound, mic, GPS
+                     tilt, power (battery, sleep, idle, doze), sound, mic, steps, GPS
 crates/orbit_ui      shared drawing: buttons, battery, sleep overlay, the rotation dial and list,
                      typing by turning
 crates/pals          Fishing Minigame's state and rules: pets, tricks, gestures, walks, gold, hats

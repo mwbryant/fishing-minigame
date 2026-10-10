@@ -12,8 +12,14 @@ use esp_hal::time::Instant;
 
 const COMMAND: u8 = 0x50;
 const READ: u8 = 0x54;
+const WRITE: u8 = 0x58;
 const ASK_LENGTH: [u8; 8] = [0x08, 0x00, 0x51, 0xAA, 0x04, 0x00, 0x00, 0x00];
 const ASK_DATA: [u8; 4] = [0x00, 0x20, 0x51, 0xAA];
+const ASK_FREE: [u8; 8] = [0x04, 0x00, 0x51, 0xAA, 0x04, 0x00, 0x00, 0x00];
+const SEND: [u8; 4] = [0x00, 0x10, 0x53, 0xAA];
+/// Backup mode: only the backup domain runs (13 uA), until the module loses
+/// power. On the LC76G (AB) VCC may stay on (hardware design v1.3, 3.3.4).
+const BACKUP: &[u8] = b"$PAIR650,0*25\r\n";
 /// The receiver wants this long between the steps of a read.
 const STEP_MS: u64 = 10;
 /// It reports once a second, so it's asked once a second.
@@ -97,6 +103,33 @@ impl<I2C: I2c> Lc76g<I2C> {
         };
         self.step = next;
         Ok(read)
+    }
+
+    /// Sends the module to backup mode, its 13 uA sleep, for good: it
+    /// answers nothing more until the board loses power.
+    pub fn sleep(&mut self, delay: &mut impl DelayNs) -> Result<(), I2C::Error> {
+        self.i2c.write(COMMAND, &ASK_FREE)?;
+        delay.delay_ms(STEP_MS as u32);
+        let mut free = [0u8; 4];
+        self.i2c.read(READ, &mut free)?;
+        delay.delay_ms(STEP_MS as u32);
+        let mut header = [0u8; 8];
+        header[..4].copy_from_slice(&SEND);
+        header[4..].copy_from_slice(&(BACKUP.len() as u32).to_le_bytes());
+        self.i2c.write(COMMAND, &header)?;
+        delay.delay_ms(STEP_MS as u32);
+        self.i2c.write(WRITE, BACKUP)
+    }
+
+    /// How many NMEA bytes the module has waiting. A running module queues
+    /// a report every second; one in backup mode queues none (or stops
+    /// answering).
+    pub fn waiting(&mut self, delay: &mut impl DelayNs) -> Result<usize, I2C::Error> {
+        self.i2c.write(COMMAND, &ASK_LENGTH)?;
+        delay.delay_ms(STEP_MS as u32);
+        let mut length = [0u8; 4];
+        self.i2c.read(READ, &mut length)?;
+        Ok(u32::from_le_bytes(length) as usize)
     }
 
     /// After a failed transaction, start over at the next poll.

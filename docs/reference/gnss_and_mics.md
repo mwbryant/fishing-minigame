@@ -5,8 +5,10 @@ module, the ES7210 mic ADC, and how esp-hal 1.2.2 runs the speaker and mics on o
 It comes from Waveshare's repo, Quectel's specs, Espressif's drivers and the esp-hal source
 (listed at the end).
 
-**On the board** both drivers work: voice commands and GPS walks run on them. The boot log
-shows `ES7210 mics listening` and `LC76G satellite receiver found`.
+**On the board** both drivers work: voice commands run on the mics, and the GNSS driver reads
+NMEA. No game uses GPS now, so the firmware sends the receiver to backup mode at boot; the boot
+log shows `ES7210 mics listening`, `LC76G satellite receiver found; sent to backup mode` and
+`LC76G asleep (backup mode)`.
 
 ## GNSS on the ESP32-S3-Touch-AMOLED-1.75-G (SKU 31264)
 
@@ -25,8 +27,10 @@ The module, its wiring, and how to read NMEA and send commands over I2C.
   - The expander boots with every pin as an input, so P7 floats until firmware sets it.
   - Active-low (Quectel calls it RESET_N). On the board, the module answers once the
     firmware drives P7 high.
-- **Power**: VCC is VCC3V3 with no enable pin, so the module draws about 36 mA the
-  whole time the board is on. V_BCKP runs from VCC-RTC, so hot starts survive. FORCE_ON (R18)
+- **Power**: VCC is VCC3V3 with no enable pin, so running it draws about 36 mA. The
+  firmware puts it in backup mode at boot (`$PAIR650,0*25`, 13 uA; on the (AB) variant VCC
+  may stay on, hardware design v1.3 3.3.4 note 3) because nothing uses it. V_BCKP runs from
+  VCC-RTC, so hot starts survive. FORCE_ON (R18)
   isn't fitted, and 1PPS doesn't reach a GPIO.
 - **Defaults** (Quectel spec v1.1 and protocol spec v1.4):
   - 1 Hz fix rate (up to 10 Hz), NMEA 0183 v4.10.

@@ -33,7 +33,7 @@ use esp_hal::{
     gpio::{Event, Input, InputConfig, Level, NoPin, Output, OutputConfig, Pull, WakeupConfig},
     i2c::master::{Config as I2cConfig, I2c},
     i2s::master::{Channels, DataFormat, I2s, I2sRx, TdmConfig},
-    peripherals::{DMA_CH1, GPIO8, GPIO9, GPIO10, GPIO42, GPIO45, GPIO46, I2S0, LPWR},
+    peripherals::{DMA_CH1, GPIO8, GPIO9, GPIO10, GPIO42, GPIO45, GPIO46, I2S0},
     rng::Rng as HardwareRng,
     rtc_cntl::{
         SocResetReason,
@@ -52,7 +52,7 @@ use log::{info, warn};
 use orbit_audio::{Mixer, SAMPLE_RATE};
 use orbit_core::{
     Battery, Buttons, Frame, Gps, ImuFeed, ImuSample, Launcher, Mic, Power, Rng, SaveBlob,
-    SoundQueue, Touch, preferences,
+    SoundQueue, Steps, Touch, preferences,
 };
 use orbit_gfx::{Presenter, Rgb565, SCREEN_SIZE};
 use orbit_save::SlotStore;
@@ -100,6 +100,9 @@ const FULL_BRIGHTNESS: u8 = 0xFF;
 /// Idle dims the panel to this fraction of the chosen brightness.
 const IDLE_DIVISOR: u16 = 4;
 const BATTERY_POLL_MS: u64 = 5000;
+/// While a game dozes, the board wakes this often to count steps and read
+/// the buttons (PWR has no wake line, so it's read on each wake).
+const DOZE_PERIOD_MS: u64 = 100;
 /// The LC76G reports every second; this long without a byte while an app
 /// listens means it has stalled, and it's restarted.
 const GPS_SILENT_SECS: u64 = 5;
@@ -162,7 +165,7 @@ pub struct Board {
     speaker_pins: Option<SpeakerPins>,
     speaker: Option<Speaker>,
     idle: Idle,
-    lpwr: Option<LPWR<'static>>,
+    low_power: LowPower<'static>,
     finger: Option<Vec2>,
     empty_touch_reads: u8,
     battery: Option<(Battery, u16)>,
@@ -170,6 +173,15 @@ pub struct Board {
     last_imu_read: HalInstant,
     gps: Option<Lc76g<Device>>,
     gps_errors: u32,
+    /// When the receiver was sent to backup mode, until the check that it
+    /// went quiet.
+    gps_sleep_sent: Option<HalInstant>,
+    /// The IMU is counting steps (an app has `Steps`).
+    pedometer: bool,
+    /// The pedometer's count at the last read.
+    last_steps: Option<u32>,
+    /// A game asked to doze (`Power::dozing`): screen and touch off.
+    dozing: bool,
     /// While an app listens to the receiver: when it last sent anything.
     gps_heard: Option<HalInstant>,
     /// NMEA bytes since the last stats line.
@@ -263,12 +275,23 @@ impl Board {
             peripherals.GPIO0,
             InputConfig::default().with_pull(Pull::Up),
         );
-        let gps = Lc76g::new(RefCellDevice::new(bus));
-        if gps.is_some() {
-            info!("LC76G satellite receiver found");
-        } else {
-            info!("no satellite receiver (not a -G board); walks need MOCK WALK");
-        }
+        // Nothing uses the satellite receiver, and it draws about 36 mA with no
+        // power switch, so it goes to backup mode (13 uA) until power is lost.
+        let mut gps = Lc76g::new(RefCellDevice::new(bus));
+        let gps_sleep_sent = match gps.as_mut().map(|gps| gps.sleep(&mut delay)) {
+            Some(Ok(())) => {
+                info!("LC76G satellite receiver found; sent to backup mode");
+                Some(HalInstant::now())
+            }
+            Some(Err(err)) => {
+                warn!("LC76G backup command failed: {err:?}; it keeps drawing ~36 mA");
+                None
+            }
+            None => {
+                info!("no satellite receiver (not a -G board)");
+                None
+            }
+        };
 
         let mut saves = SlotStore::new(FlashStorage::new(peripherals.FLASH), SAVE_FLASH_OFFSET);
         info!(
@@ -304,7 +327,7 @@ impl Board {
             }),
             speaker: None,
             idle: Idle::new(SystemTimer::new(peripherals.SYSTIMER).alarm0),
-            lpwr: Some(peripherals.LPWR),
+            low_power: LowPower::new(peripherals.LPWR),
             finger: None,
             empty_touch_reads: 0,
             battery: None,
@@ -312,6 +335,10 @@ impl Board {
             last_imu_read: HalInstant::now(),
             gps,
             gps_errors: 0,
+            gps_sleep_sent,
+            pedometer: false,
+            last_steps: None,
+            dozing: false,
             gps_heard: None,
             gps_bytes: 0,
             gps_restarts: 0,
@@ -359,6 +386,22 @@ impl Board {
         {
             start_mic(&mut speaker.mic, self.bus);
         }
+        let counts_steps = app.world().contains_resource::<Steps>();
+        if self.imu_ready && counts_steps != self.pedometer {
+            let switched = if counts_steps {
+                self.imu.start_pedometer(&mut self.delay)
+            } else {
+                self.imu.init(&mut self.delay)
+            };
+            match switched {
+                Ok(()) => {
+                    self.pedometer = counts_steps;
+                    info!("pedometer {}", if counts_steps { "on" } else { "off" });
+                }
+                Err(err) => warn!("QMI8658 pedometer switch failed: {err:?}"),
+            }
+            self.last_steps = None;
+        }
         let mut presenter = Presenter::new(vec![0u8; BAND_BYTES], background);
         let mut stats = Stats::new();
         let mut brightness = None;
@@ -378,10 +421,23 @@ impl Board {
             {
                 warn!("saving failed: {err:?}");
             }
-            let sent =
-                presenter.present(&app.world().resource::<Frame>().shapes, &mut self.display);
-
             let power = app.world().get_resource::<Power>().copied();
+            let doze = power.is_some_and(|power| power.dozing()) && app.should_exit().is_none();
+            if doze != self.dozing {
+                if doze {
+                    self.start_doze();
+                } else {
+                    self.end_doze();
+                    presenter.invalidate();
+                    brightness = None;
+                }
+            }
+            let sent = if self.dozing {
+                0
+            } else {
+                presenter.present(&app.world().resource::<Frame>().shapes, &mut self.display)
+            };
+
             if power.is_some_and(|power| power.sleep_requested()) {
                 self.sleep();
             }
@@ -393,7 +449,7 @@ impl Board {
                 preferences::brightness(app.world().resource::<SaveBlob>()),
                 dimmed,
             );
-            if brightness != Some(level) {
+            if !self.dozing && brightness != Some(level) {
                 brightness = Some(level);
                 if let Err(err) = self.display.set_brightness(level) {
                     warn!("brightness change failed: {err:?}");
@@ -410,14 +466,22 @@ impl Board {
                     }
                 };
                 self.gps_bytes = 0;
+                let steps = match (self.pedometer, self.last_steps) {
+                    (true, Some(count)) => format!(" | pedometer {count}"),
+                    _ => String::new(),
+                };
                 info!(
-                    "{frames}{}{}{gps} | heap {}",
+                    "{frames}{}{}{gps}{steps} | heap {}",
                     self.speaker
                         .as_ref()
                         .map_or(String::new(), |speaker| audio_status(&speaker.audio)),
                     battery_status(self.battery),
                     esp_alloc::HEAP.stats(),
                 );
+            }
+            if self.dozing {
+                self.doze_wait();
+                continue;
             }
             let budget = if dimmed {
                 IDLE_FRAME_BUDGET
@@ -430,11 +494,78 @@ impl Board {
         }
     }
 
+    /// The game asked to doze: the panel and touch to sleep and the amp off,
+    /// leaving the IMU counting steps.
+    fn start_doze(&mut self) {
+        info!("dozing: screen off until a button");
+        self.dozing = true;
+        self.finger = None;
+        if let Err(err) = self.display.sleep(&mut self.delay) {
+            warn!("display sleep failed: {err:?}");
+        }
+        if self.touch_ready
+            && let Err(err) = self.touch.sleep()
+        {
+            warn!("touch sleep failed: {err:?}");
+        }
+        if let Some(speaker) = self.speaker.as_mut() {
+            speaker.amp.set_low();
+        }
+        if self.pedometer
+            && let Err(err) = self.imu.gyro(false)
+        {
+            warn!("gyro off failed: {err:?}");
+        }
+    }
+
+    /// Back from a doze: the panel and touch start again (only a reset wakes
+    /// them) and the amp comes back on.
+    fn end_doze(&mut self) {
+        info!("awake");
+        self.dozing = false;
+        if let Err(err) = self.display.init(&mut self.delay) {
+            warn!("display wake failed: {err:?}");
+        }
+        self.touch_ready = self.touch.init().is_ok();
+        if !self.touch_ready {
+            warn!("CST9217 touch wake failed; running without touch");
+        }
+        if let Some(speaker) = self.speaker.as_mut() {
+            speaker.amp.set_high();
+        }
+        if self.pedometer
+            && let Err(err) = self.imu.gyro(true)
+        {
+            warn!("gyro on failed: {err:?}");
+        }
+    }
+
+    /// Waits out a doze period. On battery the chip light-sleeps (BOOT or the
+    /// period's end wakes it); on USB, where power doesn't matter, it only
+    /// halts, so the USB serial log keeps working.
+    fn doze_wait(&mut self) {
+        let period = HalDuration::from_millis(DOZE_PERIOD_MS);
+        let on_battery = self
+            .battery
+            .is_some_and(|(battery, _)| !battery.external_power);
+        if !on_battery {
+            self.idle.wait(period);
+            return;
+        }
+        self.boot.listen(Event::LowLevel);
+        self.low_power
+            .set_wakeup_deadline(HalInstant::now() + period);
+        self.low_power.sleep_light(RtcSleepConfig::default());
+        self.low_power.clear_wakeup_deadline();
+        self.boot.unlisten();
+    }
+
     /// Feeds touch, battery, buttons, mics, GPS and IMU into the app's input
     /// resources.
     fn feed_inputs(&mut self, world: &mut World) {
         // A failed read says nothing about the finger, so it changes nothing.
         if self.touch_ready
+            && !self.dozing
             && let Ok(points) = self.touch.touches()
         {
             match points[0] {
@@ -493,6 +624,34 @@ impl Board {
             }
         }
 
+        if self.pedometer
+            && let Some(mut steps) = world.get_resource_mut::<Steps>()
+            && let Ok(count) = self.imu.steps()
+        {
+            let new = match self.last_steps {
+                Some(last) if count >= last => count - last,
+                Some(_) => count,
+                None => 0,
+            };
+            self.last_steps = Some(count);
+            steps.add(new);
+        }
+
+        if self
+            .gps_sleep_sent
+            .is_some_and(|at| at.elapsed().as_millis() >= 1500)
+            && let Some(gps) = self.gps.as_mut()
+        {
+            self.gps_sleep_sent = None;
+            match gps.waiting(&mut self.delay) {
+                Ok(0) | Err(_) => {
+                    info!("LC76G asleep (backup mode)");
+                    self.gps = None;
+                }
+                Ok(bytes) => warn!("LC76G still running after the backup command ({bytes} B)"),
+            }
+        }
+
         if let (Some(gps), Some(mut feed)) = (self.gps.as_mut(), world.get_resource_mut::<Gps>()) {
             let now = HalInstant::now();
             let heard = *self.gps_heard.get_or_insert(now);
@@ -529,6 +688,7 @@ impl Board {
         }
 
         if self.imu_ready
+            && !self.dozing
             && let Some(mut feed) = world.get_resource_mut::<ImuFeed>()
             && let Ok((accel, gyro)) = self.imu.read()
         {
@@ -586,8 +746,7 @@ impl Board {
         self.boot
             .apply_wakeup_config(&WakeupConfig::default().with_low_power_path(true))
             .expect("GPIO0 is a low-power pad");
-        let lpwr = self.lpwr.take().expect("the board sleeps once per boot");
-        LowPower::new(lpwr).sleep_deep(RtcSleepConfig::deep());
+        self.low_power.sleep_deep(RtcSleepConfig::deep());
     }
 }
 
