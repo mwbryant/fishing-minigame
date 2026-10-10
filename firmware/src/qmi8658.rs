@@ -45,14 +45,16 @@ const CMD_ACK: u8 = 0x00;
 const CMD_CONFIGURE_PEDOMETER: u8 = 0x0D;
 const CMD_RESET_PEDOMETER: u8 = 0x0F;
 const CMD_DONE: u8 = 1 << 7;
-/// SensorLib's example settings, written to CAL1_L..CAL4_H in two pages
-/// (CAL4_H = page, CAL4_L = 0x02): a 50-sample window, 200 mg peak to peak,
-/// 100 mg over the average; a 200-sample timeout, 20-sample minimum step,
-/// counting once 10 steps come in a row (then all of them), and the count
-/// updated every 4 steps.
+/// Forgiving pedometer settings, written to CAL1_L..CAL4_H in two pages
+/// (CAL4_H = page, CAL4_L = 0x02) in SensorLib's layout: a 50-sample window,
+/// 120 mg peak to peak and 60 mg over the average (SensorLib's example uses
+/// 200 and 100); a 200-sample timeout and a 12-sample minimum step (0.21 s,
+/// so a quick pace counts; the example's 20 is 0.36 s); counting from the
+/// first step and updating the count every step (the example waits for 10 in
+/// a row and updates every 4).
 const PEDOMETER_PAGES: [[u8; 8]; 2] = [
-    [50, 0, 200, 0, 100, 0, 0x02, 0x01],
-    [200, 0, 20, 10, 0, 4, 0x02, 0x02],
+    [50, 0, 120, 0, 60, 0, 0x02, 0x01],
+    [200, 0, 12, 1, 0, 1, 0x02, 0x02],
 ];
 
 const ACCEL_LSB_PER_G: f32 = 8192.0;
@@ -106,10 +108,11 @@ impl<I2C: I2c> Qmi8658<I2C> {
             self.write(CAL1_L + 6, page[6])?;
             self.command(CMD_CONFIGURE_PEDOMETER, delay)?;
         }
+        // SensorLib enables the pedometer only once the accelerometer is on.
+        self.write(CTRL7, CTRL7_ACCEL_GYRO)?;
         let ctrl8 = self.read_register(CTRL8)?;
         self.write(CTRL8, ctrl8 | CTRL8_PEDOMETER)?;
-        self.command(CMD_RESET_PEDOMETER, delay)?;
-        self.write(CTRL7, CTRL7_ACCEL_GYRO)
+        self.command(CMD_RESET_PEDOMETER, delay)
     }
 
     /// The pedometer's running count (it updates every few steps).

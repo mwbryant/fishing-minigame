@@ -308,12 +308,14 @@ All on one bus; each driver gets an `embedded-hal-bus` `RefCellDevice` on it.
 - **Pedometer** (while an app has `Steps`; `init` turns it off again), from SensorLib's
   `configPedometer`:
   - CTRL2 = 0x17, CTRL3 = 0x57: aODR/gODR 0111, 56 Hz with the gyro on, 62.5 Hz with it off;
-  - two pages of settings in CAL1_L..CAL4_H (0x0B-0x12), each sent with CTRL9 command 0x0D:
-    a 50-sample window, 200 mg peak to peak, 100 mg over the average (CAL4_H = 1), then a
-    200-sample timeout, 20-sample minimum step, 10 steps in a row before counting starts,
-    precision 0, updates every 4 steps (CAL4_H = 2); CAL4_L = 0x02 both times;
-  - CTRL8 bit 4 enables it, CTRL9 0x0F zeroes the count, and the count is 24 bits
-    little-endian at 0x5A-0x5C, read every frame;
+  - two pages of settings in CAL1_L..CAL4_H (0x0B-0x12), each sent with CTRL9 command 0x0D,
+    tuned forgiving: a 50-sample window, 120 mg peak to peak, 60 mg over the average
+    (CAL4_H = 1), then a 200-sample timeout, 12-sample minimum step (0.21 s, so a quick pace
+    counts), counting from the first step, precision 0, updating every step (CAL4_H = 2);
+    CAL4_L = 0x02 both times. SensorLib's example (200 mg, 100 mg, 20 samples, 10 steps in a
+    row, every 4) counted nothing for a short quick pace;
+  - with the sensors on (CTRL7 = 0x03), CTRL8 bit 4 enables it and CTRL9 0x0F zeroes the
+    count; the count is 24 bits little-endian at 0x5A-0x5C, read every frame;
   - a CTRL9 command waits for STATUS_INT (0x2D) bit 7, writes 0x00 (ACK), and waits for it to
     clear;
   - while the walk dozes, CTRL7 = 0x01 turns the gyro off; the pedometer needs only the
@@ -690,7 +692,7 @@ boots.
 
 16. **Steps:** the boot log says `LC76G satellite receiver found; sent to backup mode`, then
     `LC76G asleep (backup mode)`. In the park the log says `pedometer on` and the stats line
-    adds `pedometer <n>`; the count moves once 10 steps come in a row, then every 4. Five
+    adds `pedometer <n>`, which moves with every step (shaking the board counts too). Five
     seconds into a real walk the log says `dozing: screen off until a button`, the stats line
     drops to about 20 frames per 2 s, and PWR or BOOT brings `awake` and the results.
 17. **Saves across apps:** keep a fish at the pond, go home, and it's in the tank. Walk it, and
