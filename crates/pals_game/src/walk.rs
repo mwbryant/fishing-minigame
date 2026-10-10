@@ -28,8 +28,12 @@ const BOWL_WATER: Rgb565 = rgb(70, 140, 205);
 const SAVE_EVERY_M: f32 = 25.0;
 /// How long "LEVEL UP!" shows.
 const LEVEL_UP_SECS: f32 = 10.0;
-/// Without a fix this long, the walk suggests a mock walk.
+/// Without a fix this long, the walk says it's still looking and suggests a
+/// mock walk, taking turns every `HINT_SWAP_SECS`. It never stops looking.
 pub const NO_SKY_SECS: f32 = 60.0;
+const HINT_SWAP_SECS: f32 = 3.0;
+/// A fix older than this means the sky was lost.
+const SKY_LOST_SECS: f32 = 5.0;
 const NAME_RING: f32 = 160.0;
 
 pub mod ui {
@@ -55,6 +59,8 @@ pub enum WalkPhase {
         /// Whole metres credited since the last save.
         unsaved_m: f32,
         secs: f32,
+        /// `secs` at the receiver's last fix, if it has had one this walk.
+        last_fix: Option<f32>,
         levelled_at: Option<f32>,
         from_level: u32,
     },
@@ -151,6 +157,7 @@ fn stroll(
                         fraction_m: 0.0,
                         unsaved_m: 0.0,
                         secs: 0.0,
+                        last_fix: None,
                         levelled_at: None,
                         from_level: pals.pets[pet].stamina_level(),
                     });
@@ -169,10 +176,14 @@ fn stroll(
             fraction_m,
             unsaved_m,
             secs,
+            last_fix,
             levelled_at,
             from_level,
         } => {
             *secs += dt;
+            if fix.is_some() {
+                *last_fix = Some(*secs);
+            }
             if let Some(mock) = mock.as_mut() {
                 let faster = tap.is_some_and(|at| ui::FASTER.hit(at));
                 let slower = tap.is_some_and(|at| ui::SLOWER.hit(at));
@@ -258,6 +269,7 @@ fn draw_frame(
             trail,
             mock,
             secs,
+            last_fix,
             levelled_at,
             ..
         } => {
@@ -271,11 +283,20 @@ fn draw_frame(
                 label(330, &format!("{} M", trail.meters as u32), 3, TEXT),
             );
             let level = format!("STAMINA LV {}", fish.stamina_level());
-            let status = match (mock, gps.latest()) {
-                (Some(mock), _) => format!("MOCK WALK x{}", mock.pace() as u32),
-                (None, Some(_)) => format!("SATELLITES {}", gps.satellites),
-                (None, None) if *secs >= NO_SKY_SECS => "NO SKY? TRY MOCK WALK".into(),
-                (None, None) => "LOOKING FOR THE SKY".into(),
+            let without_sky = secs - last_fix.unwrap_or(0.0);
+            let status = match mock {
+                Some(mock) => format!("MOCK WALK x{}", mock.pace() as u32),
+                None if last_fix.is_some() && without_sky < SKY_LOST_SECS => {
+                    format!("SATELLITES {}", gps.satellites)
+                }
+                None if without_sky >= NO_SKY_SECS => {
+                    if ((secs / HINT_SWAP_SECS) as u32).is_multiple_of(2) {
+                        "NO SKY YET, STILL LOOKING".into()
+                    } else {
+                        "INDOORS? TRY MOCK WALK".into()
+                    }
+                }
+                None => "LOOKING FOR THE SKY".into(),
             };
             let lines = [label(368, &level, 1, GOLD), label(392, &status, 1, HINT)];
             plated_lines(shapes, lines, GRASS);

@@ -99,6 +99,9 @@ const IDLE_FRAME_BUDGET: Duration = Duration::from_millis(50);
 const FULL_BRIGHTNESS: u8 = 0xFF;
 const IDLE_BRIGHTNESS: u8 = 0x40;
 const BATTERY_POLL_MS: u64 = 5000;
+/// The LC76G reports every second; this long without a byte while an app
+/// listens means it has stalled, and it's restarted.
+const GPS_SILENT_SECS: u64 = 5;
 /// A finger counts as lifted only after this many empty touch reads in a
 /// row, so one dropped report can't fake a new tap.
 const TOUCH_RELEASE_READS: u8 = 2;
@@ -166,6 +169,11 @@ pub struct Board {
     last_imu_read: HalInstant,
     gps: Option<Lc76g<Device>>,
     gps_errors: u32,
+    /// While an app listens to the receiver: when it last sent anything.
+    gps_heard: Option<HalInstant>,
+    /// NMEA bytes since the last stats line.
+    gps_bytes: usize,
+    gps_restarts: u32,
 }
 
 impl Board {
@@ -303,6 +311,9 @@ impl Board {
             last_imu_read: HalInstant::now(),
             gps,
             gps_errors: 0,
+            gps_heard: None,
+            gps_bytes: 0,
+            gps_restarts: 0,
         }
     }
 
@@ -395,8 +406,16 @@ impl Board {
 
             let busy = frame_start.elapsed();
             if let Some(frames) = stats.record(busy, sent) {
+                let gps = match (self.gps_heard, self.gps_restarts) {
+                    (None, _) => String::new(),
+                    (Some(_), 0) => format!(" | gps {} B", self.gps_bytes),
+                    (Some(_), restarts) => {
+                        format!(" | gps {} B, restarted {restarts}x", self.gps_bytes)
+                    }
+                };
+                self.gps_bytes = 0;
                 info!(
-                    "{frames}{}{} | heap {}",
+                    "{frames}{}{}{gps} | heap {}",
                     self.speaker
                         .as_ref()
                         .map_or(String::new(), |speaker| audio_status(&speaker.audio)),
@@ -479,9 +498,17 @@ impl Board {
         }
 
         if let (Some(gps), Some(mut feed)) = (self.gps.as_mut(), world.get_resource_mut::<Gps>()) {
+            let now = HalInstant::now();
+            let heard = *self.gps_heard.get_or_insert(now);
             let mut text = [0u8; 1024];
             match gps.poll(&mut text) {
-                Ok(read) => feed.push(&text[..read]),
+                Ok(read) => {
+                    if read > 0 {
+                        self.gps_heard = Some(now);
+                        self.gps_bytes += read;
+                    }
+                    feed.push(&text[..read]);
+                }
                 Err(err) => {
                     self.gps_errors += 1;
                     if self.gps_errors.is_power_of_two() {
@@ -490,6 +517,19 @@ impl Board {
                     gps.reset();
                 }
             }
+            if (now - heard).as_secs() >= GPS_SILENT_SECS {
+                self.gps_restarts += 1;
+                warn!(
+                    "LC76G silent for {GPS_SILENT_SECS} s; restarting it ({} so far)",
+                    self.gps_restarts
+                );
+                if let Err(err) = gps.restart(&mut self.delay) {
+                    warn!("LC76G restart failed: {err:?}");
+                }
+                self.gps_heard = Some(now);
+            }
+        } else {
+            self.gps_heard = None;
         }
 
         if self.imu_ready

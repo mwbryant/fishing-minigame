@@ -7,7 +7,7 @@
 //! startup; boards without the module don't answer `0x50`. From Waveshare's
 //! `09_LC76G_I2C` demo and Quectel's I2C note (`docs/reference/gnss_and_mics.md`).
 
-use embedded_hal::i2c::I2c;
+use embedded_hal::{delay::DelayNs, i2c::I2c};
 use esp_hal::time::Instant;
 
 const COMMAND: u8 = 0x50;
@@ -22,6 +22,8 @@ const TCA9554_ADDRESS: u8 = 0x20;
 const TCA_OUTPUT: u8 = 0x01;
 const TCA_CONFIG: u8 = 0x03;
 const GPS_RESET: u8 = 1 << 7;
+/// How long a restart holds the module's reset low.
+const RESET_MS: u32 = 20;
 
 #[derive(Clone, Copy, Debug)]
 enum Step {
@@ -101,5 +103,21 @@ impl<I2C: I2c> Lc76g<I2C> {
     pub fn reset(&mut self) {
         self.step = Step::Idle;
         self.since = Instant::now();
+    }
+
+    /// Holds the module in reset for a moment and lets it start again, for
+    /// when it stops answering. Its backup supply keeps what it knows of the
+    /// sky, so it picks a fix back up quickly.
+    pub fn restart(&mut self, delay: &mut impl DelayNs) -> Result<(), I2C::Error> {
+        let mut value = [0u8];
+        self.i2c
+            .write_read(TCA9554_ADDRESS, &[TCA_OUTPUT], &mut value)?;
+        self.i2c
+            .write(TCA9554_ADDRESS, &[TCA_OUTPUT, value[0] & !GPS_RESET])?;
+        delay.delay_ms(RESET_MS);
+        self.i2c
+            .write(TCA9554_ADDRESS, &[TCA_OUTPUT, value[0] | GPS_RESET])?;
+        self.reset();
+        Ok(())
     }
 }

@@ -201,6 +201,11 @@ All on one bus; each driver gets an `embedded-hal-bus` `RefCellDevice` on it.
   - At boot the firmware drives TCA9554 P7 (its reset) high and probes `0x50`.
   - While an app has `Gps`, it reads NMEA one I2C step per frame, about once a second. Each
     step wants 10 ms after the last, so it never blocks for 20 ms.
+  - The module reports every second, fix or not. Silent for `GPS_SILENT_SECS` (5 s) while an
+    app listens, it's restarted: P7 low for 20 ms, then high (`Lc76g::restart`). Its backup
+    supply keeps the sky it knew, so a fix comes back in seconds.
+  - The 2 s stats line adds `gps <n> B` (NMEA bytes since the last line) while an app
+    listens, and `restarted <n>x` once it has been restarted.
   - No power enable: it draws about 36 mA whenever the board is on.
 - Register sequences, protocol and sources: `docs/reference/gnss_and_mics.md`.
 
@@ -664,8 +669,12 @@ boots.
     different gain (`GAIN_30_DB` in `firmware/src/mic.rs`) or the other mic slot.
 
 16. **GPS:** the boot log says `LC76G satellite receiver found`. Outdoors in the park, the walk
-    shows SATELLITES n within about 30 s (cold start) and counts metres. `LC76G read failed`
-    lines mean the I2C reads need work: try 100 kHz, as in Waveshare's demo.
+    shows SATELLITES n within about 30 s (cold start) and counts metres. Indoors there's no fix:
+    the status says LOOKING FOR THE SKY, then after a minute takes turns between NO SKY YET,
+    STILL LOOKING and INDOORS? TRY MOCK WALK, and a fix still counts whenever it comes. The
+    stats line's `gps <n> B` shows the receiver is talking (a few hundred bytes a second).
+    `LC76G read failed` lines mean the I2C reads need work: try 100 kHz, as in Waveshare's
+    demo.
 17. **Saves across apps:** keep a fish at the pond, go home, and it's in the tank. Walk it, and
     the card's stamina grows.
 
@@ -1146,6 +1155,10 @@ or lets the new catch go.
 
 **Walks** (`pals_game::walk`, with `GpsPlugin`):
 - Stamina level is 1 + √(metres / 100): levels at 100 m, 400 m, 900 m...
+- **The sky:** the walk never stops listening. With no fix yet, or none for `SKY_LOST_SECS`
+  (5 s) after one, it says LOOKING FOR THE SKY; after `NO_SKY_SECS` (60 s) without one it takes
+  turns, every 3 s, between NO SKY YET, STILL LOOKING and INDOORS? TRY MOCK WALK. STOP (or
+  PWR) ends the walk.
 - **Counting** (`pals::Trail`): fixes count only once 8 m (or 4 x HDOP) from the last counted
   spot. Fixes with HDOP over 5 or fewer than 4 satellites are ignored, as is anything faster
   than 4.5 m/s.

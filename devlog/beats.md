@@ -1000,3 +1000,28 @@ Images are in `img/`. Newest beats go at the bottom.
 - **Media:** `img/54-before-angler_title.png` / `img/54-after-angler_title.png`,
   `img/54-before-home_practice.png` / `img/54-after-home_practice.png`,
   `img/54-before-park_walking.png` / `img/54-after-park_walking.png`.
+
+## 55. NO SKY? (2026-10-10)
+
+- **The ask:** "the gps game always says looking for the sky, how long should a lock take.
+  Update it says No Sky?, i am inside is that the problem? Can we get a retry built in?"
+- **What got in the way:**
+  - Indoors, mostly. The LC76G needs open sky: about 28 s for a cold first fix, 1 s hot,
+    indoors usually never. In the case its antenna lies ceramic-down on the speaker, looking
+    out through the back.
+  - The park never stopped listening, but after 60 s its one status line said NO SKY? TRY MOCK
+    WALK, which reads like it gave up. Lose the sky mid-walk and it kept showing the last fix's
+    satellite count forever.
+  - A receiver that stops answering (Oct 7's logs show its I2C reads failing over and over)
+    was never restarted, only re-polled.
+- **The fix:**
+  - The walk tracks time since its last fix: five seconds without one says LOOKING FOR THE SKY
+    again, and after a minute it takes turns between NO SKY YET, STILL LOOKING and INDOORS? TRY
+    MOCK WALK. A fix still counts whenever it comes.
+  - The firmware restarts a receiver that's silent for 5 s while the park listens (its reset
+    line low for 20 ms; the backup supply keeps what it knew of the sky).
+  - The 2 s stats line now says `gps <n> B`, so a log shows whether it's talking at all.
+- **The numbers:** 3 new walk tests (one already passed: a late fix always counted); 369 tests
+  pass.
+- **Hook:** "It wasn't broken. It was inside."
+  - TODO(user): a photo of SATELLITES on the walk screen outdoors.

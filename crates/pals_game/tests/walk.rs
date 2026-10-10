@@ -94,12 +94,46 @@ fn a_real_walk_counts_the_metres_the_receiver_reports() {
 }
 
 #[test]
-fn with_no_sky_for_a_minute_it_suggests_a_mock_walk() {
+fn with_no_sky_for_a_minute_it_keeps_looking_and_suggests_a_mock_walk() {
     let mut app = park(&[("GILLY", 0.0)], false);
     start_walking(&mut app);
     tick(&mut app, 60 * 65);
-    assert!(shows(&app, "NO SKY? TRY MOCK WALK"), "{:?}", labels(&app));
+    let (mut looking, mut mock) = (false, false);
+    for _ in 0..60 * 7 {
+        update(&mut app);
+        looking |= shows(&app, "NO SKY YET, STILL LOOKING");
+        mock |= shows(&app, "INDOORS? TRY MOCK WALK");
+    }
+    assert!(looking && mock, "{:?}", labels(&app));
     assert_eq!(walked(&app, 0), 0);
+}
+
+#[test]
+fn the_sky_found_after_a_long_wait_still_counts() {
+    let mut app = park(&[("GILLY", 0.0)], false);
+    start_walking(&mut app);
+    tick(&mut app, 60 * 70);
+    for second in 0..=30 {
+        let text = fix_at(second as f64 * 1.4);
+        app.world_mut().resource_mut::<Gps>().push(text.as_bytes());
+        tick(&mut app, 60);
+    }
+    assert!(walked(&app, 0) > 30, "walked {} m", walked(&app, 0));
+    assert!(shows(&app, "SATELLITES 9"));
+}
+
+#[test]
+fn losing_the_sky_mid_walk_goes_back_to_looking() {
+    let mut app = park(&[("GILLY", 0.0)], false);
+    start_walking(&mut app);
+    for second in 0..=10 {
+        let text = fix_at(second as f64 * 1.4);
+        app.world_mut().resource_mut::<Gps>().push(text.as_bytes());
+        tick(&mut app, 60);
+    }
+    assert!(shows(&app, "SATELLITES 9"));
+    tick(&mut app, 60 * 8);
+    assert!(shows(&app, "LOOKING FOR THE SKY"), "{:?}", labels(&app));
 }
 
 #[test]
