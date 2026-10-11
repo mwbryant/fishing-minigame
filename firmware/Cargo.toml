@@ -44,6 +44,7 @@ bench = false
 orbit_game = { path = "../crates/orbit_game" }
 orbit_gfx = { path = "../crates/orbit_gfx" }
 orbit_core = { path = "../crates/orbit_core" }
+orbit_motion = { path = "../crates/orbit_motion" }
 orbit_save = { path = "../crates/orbit_save" }
 orbit_audio = { path = "../crates/orbit_audio" }
 angler_game = { path = "../crates/angler_game" }

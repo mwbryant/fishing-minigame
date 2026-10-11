@@ -55,6 +55,7 @@ use orbit_core::{
     SoundQueue, Steps, Touch, preferences,
 };
 use orbit_gfx::{Presenter, Rgb565, SCREEN_SIZE};
+use orbit_motion::StepCounter;
 use orbit_save::SlotStore;
 
 use crate::{
@@ -176,10 +177,10 @@ pub struct Board {
     /// When the receiver was sent to backup mode, until the check that it
     /// went quiet.
     gps_sleep_sent: Option<HalInstant>,
-    /// The IMU is counting steps (an app has `Steps`).
-    pedometer: bool,
-    /// The pedometer's count at the last read.
-    last_steps: Option<u32>,
+    /// Counts steps from the accelerometer while an app has `Steps`.
+    steps: StepCounter,
+    /// Steps counted since the app started, for the log.
+    steps_counted: u32,
     /// A game asked to doze (`Power::dozing`): screen and touch off.
     dozing: bool,
     /// While an app listens to the receiver: when it last sent anything.
@@ -336,8 +337,8 @@ impl Board {
             gps,
             gps_errors: 0,
             gps_sleep_sent,
-            pedometer: false,
-            last_steps: None,
+            steps: StepCounter::default(),
+            steps_counted: 0,
             dozing: false,
             gps_heard: None,
             gps_bytes: 0,
@@ -386,22 +387,8 @@ impl Board {
         {
             start_mic(&mut speaker.mic, self.bus);
         }
-        let counts_steps = app.world().contains_resource::<Steps>();
-        if self.imu_ready && counts_steps != self.pedometer {
-            let switched = if counts_steps {
-                self.imu.start_pedometer(&mut self.delay)
-            } else {
-                self.imu.init(&mut self.delay)
-            };
-            match switched {
-                Ok(()) => {
-                    self.pedometer = counts_steps;
-                    info!("pedometer {}", if counts_steps { "on" } else { "off" });
-                }
-                Err(err) => warn!("QMI8658 pedometer switch failed: {err:?}"),
-            }
-            self.last_steps = None;
-        }
+        self.steps = StepCounter::default();
+        self.steps_counted = 0;
         let mut presenter = Presenter::new(vec![0u8; BAND_BYTES], background);
         let mut stats = Stats::new();
         let mut brightness = None;
@@ -466,9 +453,10 @@ impl Board {
                     }
                 };
                 self.gps_bytes = 0;
-                let steps = match (self.pedometer, self.last_steps) {
-                    (true, Some(count)) => format!(" | pedometer {count}"),
-                    _ => String::new(),
+                let steps = if app.world().contains_resource::<Steps>() {
+                    format!(" | steps {}", self.steps_counted)
+                } else {
+                    String::new()
                 };
                 info!(
                     "{frames}{}{}{gps}{steps} | heap {}",
@@ -494,8 +482,8 @@ impl Board {
         }
     }
 
-    /// The game asked to doze: the panel and touch to sleep and the amp off,
-    /// leaving the IMU counting steps.
+    /// The game asked to doze: the panel and touch to sleep, the amp and gyro
+    /// off, leaving the accelerometer on for steps.
     fn start_doze(&mut self) {
         info!("dozing: screen off until a button");
         self.dozing = true;
@@ -511,7 +499,7 @@ impl Board {
         if let Some(speaker) = self.speaker.as_mut() {
             speaker.amp.set_low();
         }
-        if self.pedometer
+        if self.imu_ready
             && let Err(err) = self.imu.gyro(false)
         {
             warn!("gyro off failed: {err:?}");
@@ -533,7 +521,7 @@ impl Board {
         if let Some(speaker) = self.speaker.as_mut() {
             speaker.amp.set_high();
         }
-        if self.pedometer
+        if self.imu_ready
             && let Err(err) = self.imu.gyro(true)
         {
             warn!("gyro on failed: {err:?}");
@@ -624,19 +612,6 @@ impl Board {
             }
         }
 
-        if self.pedometer
-            && let Some(mut steps) = world.get_resource_mut::<Steps>()
-            && let Ok(count) = self.imu.steps()
-        {
-            let new = match self.last_steps {
-                Some(last) if count >= last => count - last,
-                Some(_) => count,
-                None => 0,
-            };
-            self.last_steps = Some(count);
-            steps.add(new);
-        }
-
         if self
             .gps_sleep_sent
             .is_some_and(|at| at.elapsed().as_millis() >= 1500)
@@ -687,19 +662,30 @@ impl Board {
             self.gps_heard = None;
         }
 
+        // Tilt while awake; steps whenever an app counts them, dozing included
+        // (one reading a doze period).
+        let tilts = !self.dozing && world.contains_resource::<ImuFeed>();
+        let counts_steps = world.contains_resource::<Steps>();
         if self.imu_ready
-            && !self.dozing
-            && let Some(mut feed) = world.get_resource_mut::<ImuFeed>()
+            && (tilts || counts_steps)
             && let Ok((accel, gyro)) = self.imu.read()
         {
             let now = HalInstant::now();
             let dt = (now - self.last_imu_read).as_micros() as f32 / 1e6;
             self.last_imu_read = now;
-            feed.push(ImuSample {
-                accel: imu_to_screen(accel),
-                gyro: imu_to_screen(gyro) * (core::f32::consts::PI / 180.0),
-                dt,
-            });
+            let accel = imu_to_screen(accel);
+            if let Some(mut steps) = world.get_resource_mut::<Steps>() {
+                let new = self.steps.push(accel, dt);
+                self.steps_counted += new;
+                steps.add(new);
+            }
+            if tilts && let Some(mut feed) = world.get_resource_mut::<ImuFeed>() {
+                feed.push(ImuSample {
+                    accel,
+                    gyro: imu_to_screen(gyro) * (core::f32::consts::PI / 180.0),
+                    dt,
+                });
+            }
         }
     }
 

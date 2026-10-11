@@ -89,7 +89,7 @@ crates/orbit_core    #![no_std] shared Bevy plumbing. `CorePlugin`: Frame, Touch
                      re-levels), `Power` (battery, idle, hold-BOOT sleep).
                      `SoundPlugin` (opt-in): `SoundQueue` (mutable), `preferences` (mute).
                      `MicPlugin` (opt-in): `Mic` (words heard). `StepsPlugin` (opt-in):
-                     `Steps` (the pedometer's new steps). `GpsPlugin` (opt-in, unused): `Gps`
+                     `Steps` (new steps counted). `GpsPlugin` (opt-in, unused): `Gps`
                      (NMEA in, fixes out).
 crates/orbit_ui      #![no_std] shared drawing: Button, battery level, sleep overlay, the
                      rotation dial and list, typing by turning, the gold coin, CLICK/THUD.
@@ -313,21 +313,17 @@ All on one bus; each driver gets an `embedded-hal-bus` `RefCellDevice` on it.
   - CTRL5 = 0x33: both low-pass filters.
   - CTRL7 = 0x03: accel and gyro on.
 - **Reading:** one 12-byte burst from 0x35.
-- **Pedometer** (while an app has `Steps`; `init` turns it off again), from SensorLib's
-  `configPedometer`:
-  - CTRL2 = 0x17, CTRL3 = 0x57: aODR/gODR 0111, 56 Hz with the gyro on, 62.5 Hz with it off;
-  - two pages of settings in CAL1_L..CAL4_H (0x0B-0x12), each sent with CTRL9 command 0x0D,
-    tuned forgiving: a 50-sample window, 120 mg peak to peak, 60 mg over the average
-    (CAL4_H = 1), then a 200-sample timeout, 12-sample minimum step (0.21 s, so a quick pace
-    counts), counting from the first step, precision 0, updating every step (CAL4_H = 2);
-    CAL4_L = 0x02 both times. SensorLib's example (200 mg, 100 mg, 20 samples, 10 steps in a
-    row, every 4) counted nothing for a short quick pace;
-  - with the sensors on (CTRL7 = 0x03), CTRL8 bit 4 enables it and CTRL9 0x0F zeroes the
-    count; the count is 24 bits little-endian at 0x5A-0x5C, read every frame;
-  - a CTRL9 command waits for STATUS_INT (0x2D) bit 7, writes 0x00 (ACK), and waits for it to
-    clear;
-  - while the walk dozes, CTRL7 = 0x01 turns the gyro off; the pedometer needs only the
-    accelerometer.
+- **Steps** (while an app has `Steps`): the accelerometer reads above go to
+  `orbit_motion::StepCounter`, every frame awake and once a doze wake (10 a second):
+  - a step is the acceleration's size dipping more than `STEP_SWING_G` (15 mg) under its 1 s
+    running average and coming back up more than 15 mg over it, at most one every
+    `STEP_GAP_SECS` (0.2 s);
+  - turning the board doesn't count (gravity's size stays 1 g), but any bounce or shake does,
+    so it overcounts on purpose;
+  - the chip's built-in pedometer (SensorLib's `configPedometer`, CTRL9 command 0x0D, count at
+    0x5A-0x5C) counted no steps on the board even tuned down to 120 mg and 0.21 s steps, so
+    it's unused;
+  - while the walk dozes, CTRL7 = 0x01 turns the gyro off; steps need only the accelerometer.
 - **Axes in the screen frame** (x right, y down, z into the screen):
   `screen = (imu.y, -imu.x, imu.z)`, from the PCB axis marking by U3 and three Waveshare tilt
   demos. At rest: face-up, accel z ≈ −1 g; upright with USB on the left, x_imu ≈ +1; button
@@ -699,8 +695,8 @@ boots.
     different gain (`GAIN_30_DB` in `firmware/src/mic.rs`) or the other mic slot.
 
 16. **Steps:** the boot log says `LC76G satellite receiver found; sent to backup mode`, then
-    `LC76G asleep (backup mode)`. In the park the log says `pedometer on` and the stats line
-    adds `pedometer <n>`, which moves with every step (shaking the board counts too). Five
+    `LC76G asleep (backup mode)`. In the park the stats line adds `steps <n>`, which moves with
+    every step (any bounce or shake counts too). Five
     seconds into a real walk the log says `dozing: screen off until a button`, the stats line
     drops to about 20 frames per 2 s, and PWR or BOOT brings `awake` and the results.
 17. **Saves across apps:** keep a fish at the pond, go home, and it's in the tank. Walk it, and
@@ -994,8 +990,8 @@ The contract is `orbit_core::Power`, added by `ControlsPlugin` (so Orbit doesn't
 - **Doze** (`Power::dozing`, set by a game; the park's real walks):
   - the firmware sends the panel to sleep, touch to sleep, the amp off and the gyro off, and
     stops drawing; leaving, it runs the panel's and touch's `init` again and redraws the frame;
-  - it wakes every `DOZE_PERIOD_MS` (100 ms) to read the pedometer and the buttons (PWR has no
-    wake line, so it's polled);
+  - it wakes every `DOZE_PERIOD_MS` (100 ms) to read the accelerometer for steps and the
+    buttons (PWR has no wake line, so it's polled);
   - on battery it light-sleeps between wakes (`LowPower::sleep_light`, a timer deadline, and
     BOOT listening for a low level); on USB it only halts, so the serial log keeps working.
 - **CPU halt:** the spare part of every frame halts the CPU with `waiti` until a systimer
@@ -1196,8 +1192,8 @@ or lets the new catch go.
 **Walks** (`pals_game::walk`, with `StepsPlugin`):
 - Stamina level is 1 + √(metres / 100): levels at 100 m, 400 m, 900 m... A step is
   `pals::STRIDE_M` (0.75 m).
-- **Counting:** the IMU's pedometer (section 3) counts; the walk takes `Steps` each frame and
-  throws away any counted before it started.
+- **Counting:** `orbit_motion::StepCounter` counts from the accelerometer (section 3); the walk
+  takes `Steps` each frame and throws away any counted before it started.
 - **Dozing:** `DOZE_AFTER_SECS` (5 s) after a real walk starts or the glass was last touched,
   it sets `Power::dozing` and draws only a dark screen; the firmware turns the panel off. PWR
   or BOOT (the screen and touch are off) ends the walk; awake, STOP does too. The results show

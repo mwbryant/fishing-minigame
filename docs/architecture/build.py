@@ -303,7 +303,7 @@ BACKENDS = [
     ("orbit_gfx", "rasterizer, dirty rects, 8-row bands", "CO5300 AMOLED<br>40 MHz QSPI", "minifb window<br>PNG snapshots", "down", "pixels"),
     ("orbit_audio", "16 kHz mixer and voice prints", "ES8311 speaker<br>ES7210 mics", "laptop speaker<br>and mic", "both", "PCM"),
     ("orbit_save", "power-fail-safe flash records", "SPI flash<br>two sectors", "~/.logic-orbit/<br>*.flash file", "both", "save records"),
-    (None, None, "CST9217 touch<br>two buttons<br>AXP2101 battery<br>IMU pedometer", "mouse<br>Space and Z<br>W walks", "core", None),
+    (None, None, "CST9217 touch<br>two buttons<br>AXP2101 battery<br>IMU steps", "mouse<br>Space and Z<br>W walks", "core", None),
 ]
 
 
@@ -620,7 +620,7 @@ INPUTS = [
     ("QMI8658 IMU · I2C 0x6B", "accel and gyro, read every frame", "ImuFeed → Tilt", "samples in, degrees out (Mahony)", "ControlsPlugin", "tilt.steer_deg<br>tilt.lean_deg"),
     ("AXP2101 gauge · I2C 0x34", "read every 5 s; idle dims, a doze darkens", "Power", "battery, idle, sleep, doze", "ControlsPlugin", "power.battery<br>power.set_dozing(true)"),
     ("ES7210 mics · I2C 0x40", "data on the speaker's I2S clocks", "Mic", "16 kHz samples in, words out", "MicPlugin", "mic.take() → VoicePrint<br>mic.level()"),
-    ("QMI8658 pedometer · I2C 0x6B", "its count read every frame or doze wake", "Steps", "new steps since the last look", "StepsPlugin", "steps.take()"),
+    ("QMI8658 accel · I2C 0x6B", "StepCounter: a swing up through the average", "Steps", "new steps since the last look", "StepsPlugin", "steps.take()"),
 ]
 OUTPUTS = [
     ("CO5300 AMOLED · QSPI 40 MHz", "Presenter sends dirty rects, 2 DMA buffers", "Frame", "the display list, back to front", "CorePlugin", "frame.shapes.push(shape)"),

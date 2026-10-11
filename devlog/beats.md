@@ -1223,3 +1223,46 @@ Images are in `img/`. Newest beats go at the bottom.
   `img/62-pad-angler-aim.png`, `img/62-pad-angler-lean.png`, and `video/62-pad-angler-aim.mp4`
   (10 s, Angler's cast swung by the stick).
   - TODO(user): a phone clip, a thumb on the pad swinging Angler's cast.
+
+## 63. The pedometer that never counted, swapped for twenty lines (2026-10-11)
+
+- **The ask:** "the pedometer is still not counting any steps. Make it very easy to trigger a
+  step, basically any 0 crossing or something should trigger a step. Prefer to way over
+  count", then "lets abandon their crate and swap to a very simple impl".
+- **What got in the way:** the QMI8658's own pedometer, set up as SensorLib's
+  `configPedometer` does, counted nothing on the board twice: first with the example's
+  settings (200/100 mg, 0.36 s steps, 10 in a row before counting), then tuned forgiving
+  (120/60 mg, 0.21 s, from the first step). Its rules live inside the chip, so there was
+  nothing to see or test from our side.
+- **Dead end:** tuning the chip's thresholds a second time. It still counted no steps, and
+  the logs never showed why.
+- **The fix:** `orbit_motion::StepCounter`. A step is the acceleration's size dipping 15 mg
+  under its 1 s running average and coming back 15 mg over it, at most five a second.
+  Turning the board changes nothing, because gravity's size stays 1 g, but any bounce counts.
+  The firmware feeds it the accelerometer reads it already makes, every frame awake and ten a
+  second while dozing. The chip's pedometer setup is gone (CTRL9 commands, CAL pages, the
+  count registers): 134 lines out, 43 in.
+- **The numbers:** 6 tests on made-up walks:
+  - 30 s at rest with 6 mg of noise: 0 steps;
+  - 20 s of turning the board 70 degrees each way: 0;
+  - a 2 Hz walk with 150 mg bounce: at least 19 of 20 steps;
+  - a 1.6 Hz stroll with only 30 mg bounce: at least 15 of 16;
+  - a walk read 10 times a second while dozing: at least 20 of 22;
+  - a 9 Hz shake: capped at 40 to 50 in 10 s.
+
+  The QEMU smoke test boots every game's firmware and passes the town tour, and 415 host
+  tests pass.
+- **Something to watch:** both board logs today lost USB right around the park. One printed
+  `pedometer on` (the old CTRL9 setup) and then `Broken pipe`, and in the other the board
+  dropped off USB as the monitor connected.
+
+  ```text
+  INFO - pedometer on
+  Error:   × Broken pipe
+  ```
+
+- **Hook:** "The chip has a pedometer built in. It never counted a single step. So I wrote
+  my own, and it counts everything."
+- **Media:** none yet.
+  - TODO(user): a phone clip of the park's step count climbing on a walk, and the log line
+    `steps <n>` from `./flash.sh`.

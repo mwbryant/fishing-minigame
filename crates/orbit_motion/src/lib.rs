@@ -8,10 +8,12 @@
 
 #![no_std]
 
+mod steps;
 mod virtual_device;
 
 use bevy::math::{Quat, Vec3, ops};
 
+pub use steps::{STEP_GAP_SECS, STEP_SWING_G, StepCounter};
 pub use virtual_device::{
     LEAN_DEG_PER_SEC, LEAN_HELD_DEG, STEPS_PER_SEC, TURN_DEG_PER_SEC, VirtualDevice,
 };

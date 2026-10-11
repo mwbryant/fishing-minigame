@@ -11,8 +11,8 @@ Only text people read says Fishing Minigame.
 - **town** (`pals_game::town`): walk by touch; menus still turn.
 - **pond**: Angler. Catch, then KEEP and name by turning, up to three.
 - **house**: the tank, cards, and trick school by voice and touch strokes.
-- **park**: walks for stamina, counted in steps by the IMU's pedometer with the screen off
-  (`Power::dozing`), or MOCK WALK. The GPS sleeps from boot.
+- **park**: walks for stamina, counted in steps from the accelerometer
+  (`orbit_motion::StepCounter`) with the screen off (`Power::dozing`), or MOCK WALK. The GPS sleeps from boot.
 - **contest hall**: live trick shows for gold.
 - **hat shop**: hats for the fish.
 - **den**: Spider Roulette with bets.

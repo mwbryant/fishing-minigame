@@ -2147,6 +2147,7 @@ dependencies = [
  "orbit_core",
  "orbit_game",
  "orbit_gfx",
+ "orbit_motion",
  "orbit_save",
  "pals",
  "pals_game",
