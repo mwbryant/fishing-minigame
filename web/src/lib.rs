@@ -6,5 +6,6 @@ pub mod board;
 pub mod clock;
 pub mod controls;
 pub mod mic;
+pub mod pad;
 pub mod panel;
 pub mod phone;

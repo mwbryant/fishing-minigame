@@ -1,6 +1,6 @@
 //! The browser as the board's platform, as the firmware is on the board: the
-//! `#orbit` canvas is the panel, the mouse or a finger the touch, keys the
-//! buttons and the device's motion (a phone's own tilt when it has one),
+//! `#orbit` canvas is the panel, the mouse or a finger the touch, keys, the
+//! `#pad` stick or a phone's own tilt the buttons and the device's motion,
 //! WebAudio the speaker and the mic, and localStorage the save flash.
 //! index.html resumes the audio on the first tap or key, as browsers ask.
 
@@ -14,6 +14,7 @@ use orbit_web::{
     clock,
     controls::{Controls, Tilt, key_bit},
     mic::Downsampler,
+    pad::Pad,
     panel::SIZE,
 };
 use wasm_bindgen::{
@@ -23,9 +24,9 @@ use wasm_bindgen::{
 };
 use web_sys::{
     AudioContext, AudioContextOptions, AudioContextState, AudioProcessingEvent,
-    CanvasRenderingContext2d, DeviceOrientationEvent, Event, EventTarget, HtmlCanvasElement,
-    ImageData, KeyboardEvent, MediaStream, MediaStreamConstraints, PointerEvent, Storage,
-    UrlSearchParams, Window, console,
+    CanvasRenderingContext2d, DeviceOrientationEvent, Document, Event, EventTarget,
+    HtmlCanvasElement, ImageData, KeyboardEvent, MediaStream, MediaStreamConstraints, PointerEvent,
+    Storage, UrlSearchParams, Window, console,
 };
 
 pub fn run() {
@@ -33,18 +34,8 @@ pub fn run() {
     clock::start();
     let window = web_sys::window().expect("a window");
     let document = window.document().expect("a document");
-    let canvas: HtmlCanvasElement = document
-        .get_element_by_id("orbit")
-        .expect("index.html's #orbit canvas")
-        .dyn_into()
-        .expect("#orbit is a canvas");
-    let panel: CanvasRenderingContext2d = canvas
-        .get_context("2d")
-        .ok()
-        .flatten()
-        .expect("a 2d context")
-        .dyn_into()
-        .expect("a 2d context");
+    let (canvas, panel) = canvas_named(&document, "orbit");
+    let (pad_canvas, pad_panel) = canvas_named(&document, "pad");
     let game = game_asked(&window).unwrap_or(Game::Town);
     let storage = window.local_storage().ok().flatten();
     let save_key = format!("logic-orbit/{}.flash", game.name());
@@ -55,6 +46,7 @@ pub fn run() {
     let page = Rc::new(RefCell::new(Page {
         board: Board::boot(game, flash, seed),
         controls: Controls::default(),
+        pad: Pad::default(),
         speaker: Speaker::open(),
         heard: Rc::default(),
         mic_opened: false,
@@ -65,11 +57,28 @@ pub fn run() {
         window: window.clone(),
         canvas: canvas.clone(),
         panel,
+        pad_canvas: pad_canvas.clone(),
+        pad_panel,
         storage,
         save_key,
     }));
-    listen(&page, &window, &document, &canvas);
+    listen(&page, &window, &document, &canvas, &pad_canvas);
     start_frames(page, window);
+}
+
+/// index.html's `#id` canvas and its 2D context.
+fn canvas_named(document: &Document, id: &str) -> (HtmlCanvasElement, CanvasRenderingContext2d) {
+    let canvas: HtmlCanvasElement = document
+        .get_element_by_id(id)
+        .and_then(|element| element.dyn_into().ok())
+        .unwrap_or_else(|| panic!("index.html has no #{id} canvas"));
+    let context = canvas
+        .get_context("2d")
+        .ok()
+        .flatten()
+        .and_then(|context| context.dyn_into().ok())
+        .expect("a 2d context");
+    (canvas, context)
 }
 
 /// `?game=NAME` boots one app on its own, like the desktop simulator's
@@ -83,6 +92,7 @@ fn game_asked(window: &Window) -> Option<Game> {
 struct Page {
     board: Board,
     controls: Controls,
+    pad: Pad,
     speaker: Option<Speaker>,
     /// What the mic heard since the last frame, at 16 kHz.
     heard: Rc<RefCell<Vec<i16>>>,
@@ -94,6 +104,8 @@ struct Page {
     window: Window,
     canvas: HtmlCanvasElement,
     panel: CanvasRenderingContext2d,
+    pad_canvas: HtmlCanvasElement,
+    pad_panel: CanvasRenderingContext2d,
     storage: Option<Storage>,
     save_key: String,
 }
@@ -119,7 +131,11 @@ impl Page {
         self.board.hear(&heard);
 
         if self.board.take_drawn() {
-            self.draw();
+            put(&self.panel, self.board.pixels());
+        }
+        self.pad.show(input.stick, self.board.pose());
+        if self.pad.take_drawn() {
+            put(&self.pad_panel, self.pad.pixels());
         }
         self.show_brightness();
         if self.board.take_saved() {
@@ -134,15 +150,6 @@ impl Page {
 
     fn now(&self) -> f64 {
         self.window.performance().map_or(0.0, |clock| clock.now())
-    }
-
-    fn draw(&self) {
-        let pixels = Clamped(self.board.pixels());
-        if let Ok(image) =
-            ImageData::new_with_u8_clamped_array_and_sh(pixels, SIZE as u32, SIZE as u32)
-        {
-            self.panel.put_image_data(&image, 0.0, 0.0).ok();
-        }
     }
 
     /// The panel's brightness setting (and idle dimming) as a CSS filter.
@@ -172,16 +179,6 @@ impl Page {
         if let Err(err) = kept {
             warn("the save wasn't kept:", &err);
         }
-    }
-
-    /// Panel pixels under the pointer.
-    fn panel_point(&self, event: &PointerEvent) -> Vec2 {
-        let rect = self.canvas.get_bounding_client_rect();
-        let scale = SIZE as f64;
-        Vec2::new(
-            ((f64::from(event.client_x()) - rect.left()) * scale / rect.width()) as f32,
-            ((f64::from(event.client_y()) - rect.top()) * scale / rect.height()) as f32,
-        )
     }
 
     fn screen_angle(&self) -> f32 {
@@ -216,6 +213,25 @@ impl Page {
     }
 }
 
+/// 466 x 466 RGBA pixels onto a canvas.
+fn put(panel: &CanvasRenderingContext2d, pixels: &[u8]) {
+    let pixels = Clamped(pixels);
+    if let Ok(image) = ImageData::new_with_u8_clamped_array_and_sh(pixels, SIZE as u32, SIZE as u32)
+    {
+        panel.put_image_data(&image, 0.0, 0.0).ok();
+    }
+}
+
+/// The 466 x 466 panel pixel under the pointer on `canvas`.
+fn panel_point(canvas: &HtmlCanvasElement, event: &PointerEvent) -> Vec2 {
+    let rect = canvas.get_bounding_client_rect();
+    let scale = SIZE as f64;
+    Vec2::new(
+        ((f64::from(event.client_x()) - rect.left()) * scale / rect.width()) as f32,
+        ((f64::from(event.client_y()) - rect.top()) * scale / rect.height()) as f32,
+    )
+}
+
 fn load_flash(window: &Window, storage: &Storage, key: &str) -> Option<Vec<u8>> {
     let text = storage.get_item(key).ok()??;
     let binary = window.atob(&text).ok()?;
@@ -225,27 +241,47 @@ fn load_flash(window: &Window, storage: &Storage, key: &str) -> Option<Vec<u8>> 
 fn listen(
     page: &Rc<RefCell<Page>>,
     window: &Window,
-    document: &web_sys::Document,
+    document: &Document,
     canvas: &HtmlCanvasElement,
+    pad: &HtmlCanvasElement,
 ) {
     on(canvas, "pointerdown", page, |page, event: PointerEvent| {
         if event.pointer_type() == "mouse" && event.button() != 0 {
             return;
         }
         page.ask_for_tilt();
-        let at = page.panel_point(&event);
+        let at = panel_point(&page.canvas, &event);
         if page.controls.finger_down(event.pointer_id(), at) {
             event.prevent_default();
             page.canvas.set_pointer_capture(event.pointer_id()).ok();
         }
     });
     on(canvas, "pointermove", page, |page, event: PointerEvent| {
-        let at = page.panel_point(&event);
+        let at = panel_point(&page.canvas, &event);
         page.controls.finger_moved(event.pointer_id(), at);
     });
     for lift in ["pointerup", "pointercancel"] {
         on(canvas, lift, page, |page, event: PointerEvent| {
             page.controls.finger_up(event.pointer_id());
+        });
+    }
+    on(pad, "pointerdown", page, |page, event: PointerEvent| {
+        if event.pointer_type() == "mouse" && event.button() != 0 {
+            return;
+        }
+        let at = panel_point(&page.pad_canvas, &event);
+        if page.controls.pad_down(event.pointer_id(), at) {
+            event.prevent_default();
+            page.pad_canvas.set_pointer_capture(event.pointer_id()).ok();
+        }
+    });
+    on(pad, "pointermove", page, |page, event: PointerEvent| {
+        let at = panel_point(&page.pad_canvas, &event);
+        page.controls.pad_moved(event.pointer_id(), at);
+    });
+    for lift in ["pointerup", "pointercancel"] {
+        on(pad, lift, page, |page, event: PointerEvent| {
+            page.controls.pad_up(event.pointer_id());
         });
     }
     on(window, "keydown", page, |page, event: KeyboardEvent| {
@@ -470,8 +506,11 @@ impl Stats {
             return;
         }
         let rate = f64::from(SAMPLE_RATE);
+        let pose = board.pose().unwrap_or_default();
         for (name, value) in [
             ("data-playing", board.playing().name().to_string()),
+            ("data-steer", format!("{:.1}", pose.steer_deg)),
+            ("data-lean", format!("{:.1}", pose.lean_deg)),
             ("data-off", board.is_off().to_string()),
             ("data-frames", self.frames.to_string()),
             ("data-frame-ms", format!("{:.3}", self.frame_ms)),

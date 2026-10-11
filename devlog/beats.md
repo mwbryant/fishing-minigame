@@ -1192,3 +1192,34 @@ Images are in `img/`. Newest beats go at the bottom.
 - **Media:** `img/61-browser-town.png`, `img/61-browser-house.png`,
   `img/61-browser-hold-to-sleep.png`, `video/61-browser-smoke.mp4` (the smoke run, 11 s).
   - TODO(user): a phone clip of the itch page with the phone turned to steer in the town.
+
+## 62. A thumbstick for a board you can't hold (2026-10-11)
+
+- **The ask:** "for touch controls is there not a built in or bevy way to get a circle overlay
+  joystick thing so we can let them rotate the board and see the virtual orientation. maybe on
+  the right side of the screen while the game circle takes the left".
+- **What got in the way:** neither has one. Browsers have no on-screen stick, and Bevy's
+  third-party ones sit on its UI, renderer and windowing, which this project's `no_std` Bevy
+  doesn't have. On a phone without tilt, nothing could turn the board.
+- **The fix:** a second round canvas, the pad, drawn by `orbit_gfx` with its own `Presenter`
+  like the glass. A thumbstick turns the board at up to 60 degrees a second (left and right,
+  like the arrow keys) and leans it up to 15 degrees (up and down, springing back). Around it
+  is a mini board with its side buttons at 2 and 4 o'clock and a gold notch at its top, turned
+  by the `Tilt` the game reads, and a lean meter. The pad is a second touch, so Angler can
+  charge a cast on the glass while the thumb aims. It sits beside the glass in landscape and
+  below it in portrait. Using it takes steering from the phone's tilt.
+- **The numbers:** 13 new tests, 28 in `orbit_web`:
+  - the stick's travel, its 12% dead zone, and the clamp past the rim;
+  - the mini board's top showing a 90-degree turn;
+  - the meter rising with the lean;
+  - a pushed stick turning Angler 30 degrees in 0.5 s, and that turn staying;
+  - leaning 15 degrees, then coming back level.
+
+  In the smoke run, a 0.6 s push turned the town's board 37.9 degrees, and pushing back
+  returned it to -0.6.
+- **Hook:** "A game you steer by turning the whole device, played on a laptop. So the device
+  got its own little twin on screen."
+- **Media:** before: `img/61-browser-town.png` (glass only). After: `img/62-pad-portrait-town.png`,
+  `img/62-pad-angler-aim.png`, `img/62-pad-angler-lean.png`, and `video/62-pad-angler-aim.mp4`
+  (10 s, Angler's cast swung by the stick).
+  - TODO(user): a phone clip, a thumb on the pad swinging Angler's cast.

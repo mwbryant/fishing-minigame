@@ -1,6 +1,6 @@
-// Plays the itch.io build in headless Chromium: the town boots, a tap on the
-// house walks in and its mic listens, holding Z switches the board off and
-// Space turns it back on. Fails on any page error or a step that doesn't
+// Plays the itch.io build in headless Chromium: the town boots, the pad's
+// stick turns the board, a tap on the house walks in and its mic listens,
+// holding Z switches the board off and Space turns it back on. Fails on any page error or a step that doesn't
 // happen, and prints the frame time, sound and mic numbers.
 // Usage: node web/smoke.mjs [SHOTS_DIR]   (after `trunk build --release`; a
 //   PNG of each step goes to SHOTS_DIR when given, and SMOKE_VIDEO=DIR records
@@ -68,6 +68,8 @@ const state = () =>
     return {
       playing: data.playing,
       off: data.off === 'true',
+      steer: Number(data.steer ?? 0),
+      lean: Number(data.lean ?? 0),
       frames: Number(data.frames ?? 0),
       frameMs: Number(data.frameMs ?? 0),
       spokenSecs: Number(data.spokenSecs ?? 0),
@@ -83,18 +85,42 @@ async function waitFor(what, test, secs) {
   return false;
 }
 
+/// The page point over pixel (x, y) of the 466 x 466 canvas `id`.
+async function over(id, x, y) {
+  const box = await page.locator(`#${id}`).boundingBox();
+  return [box.x + (x * box.width) / SIZE, box.y + (y * box.height) / SIZE];
+}
+
 /// A tap at panel pixel (x, y), held a tenth of a second.
 async function tap(x, y) {
-  const glass = await page.locator('#orbit').boundingBox();
-  await page.mouse.move(glass.x + (x * glass.width) / SIZE, glass.y + (y * glass.height) / SIZE);
+  await page.mouse.move(...(await over('orbit', x, y)));
   await page.mouse.down();
   await page.waitForTimeout(100);
+  await page.mouse.up();
+}
+
+/// Pushes the pad's stick by (dx, dy) of a full push for `ms`, then lets go.
+async function push(dx, dy, ms) {
+  await page.mouse.move(...(await over('pad', 233, 233)));
+  await page.mouse.down();
+  await page.mouse.move(...(await over('pad', 233 + dx * 150, 233 + dy * 150)), { steps: 5 });
+  await page.waitForTimeout(ms);
   await page.mouse.up();
 }
 
 await page.goto(`http://localhost:${server.address().port}/`);
 check(await waitFor('town', (s) => s.playing === 'town' && s.frames > 30, 10), 'the town runs');
 await shot('town');
+
+await push(1, 0, 600);
+await page.waitForTimeout(500);
+let turned = await state();
+check(turned.steer > 20, `pushing the stick right turns the board and it stays turned (${turned.steer} deg)`);
+await shot('pad-turned');
+await push(-1, 0, 600);
+await page.waitForTimeout(300);
+turned = await state();
+check(Math.abs(turned.steer) < 10, `pushing it left turns it back (${turned.steer} deg)`);
 
 await tap(233, 110);
 check(await waitFor('home', (s) => s.playing === 'home', 15), 'tapping the house walks in');

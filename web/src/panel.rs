@@ -1,7 +1,8 @@
 //! The browser's panel: the presenter's RGB565 bands land as RGBA pixels the
 //! page copies onto its canvas. The glass is round in CSS.
 
-use orbit_gfx::{Panel, Rectangle, SCREEN_SIZE};
+use embedded_graphics::pixelcolor::IntoStorage;
+use orbit_gfx::{Panel, Rectangle, Rgb565, SCREEN_SIZE};
 
 pub const SIZE: usize = SCREEN_SIZE as usize;
 const BLACK: [u8; 4] = [0, 0, 0, 255];
@@ -43,6 +44,11 @@ impl Panel for RgbaPanel {
             }
         }
     }
+}
+
+/// `color` as the panel shows it.
+pub fn rgba8(color: Rgb565) -> [u8; 4] {
+    expand(color.into_storage())
 }
 
 fn expand(c: u16) -> [u8; 4] {

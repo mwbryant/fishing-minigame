@@ -17,6 +17,8 @@ orbit_save.workspace = true
 orbit_audio.workspace = true
 orbit_gfx.workspace = true
 orbit_motion.workspace = true
+orbit_ui.workspace = true
+embedded-graphics.workspace = true
 
 # The versions Trunk has the wasm-bindgen CLI for (as logic-pickle).
 [target.'cfg(target_arch = "wasm32")'.dependencies]

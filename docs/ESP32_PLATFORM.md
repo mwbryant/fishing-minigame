@@ -107,7 +107,9 @@ desktop/             std simulator for Fishing Minigame or any one app (minifb w
                      PNG snapshots).
 web/                 the itch.io build (Trunk from the repo root's index.html): the same apps
                      in a browser. A canvas for the panel, WebAudio for the speaker and mic,
-                     a phone's tilt or the simulator's keys, localStorage for the save flash.
+                     the simulator's keys, a touch pad (a stick around a mini board showing
+                     `Tilt`, on its own canvas) or a phone's tilt, localStorage for the save
+                     flash.
                      `web/smoke.mjs` plays the build in headless Chromium.
 firmware/            ESP32-S3: lib (`Board`: bring-up once, then `run` one app at a time,
                      + drivers), the pals binary and one binary per game. Excluded from

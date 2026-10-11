@@ -6,7 +6,7 @@ use bevy::math::Vec2;
 
 use crate::{
     board::{Input, key},
-    phone,
+    pad, phone,
 };
 
 /// The board's bit for a `KeyboardEvent.code`.
@@ -45,8 +45,12 @@ struct Finger {
 pub struct Controls {
     held: u32,
     pressed: u32,
-    steer_by_keys: bool,
+    /// A turn key or the stick has turned the board, so the phone's tilt no
+    /// longer does.
+    by_hand: bool,
     finger: Option<Finger>,
+    /// The finger on the touch pad and the stick it pushes.
+    pad: Option<(i32, Vec2)>,
     tilt: Option<Tilt>,
 }
 
@@ -54,7 +58,7 @@ impl Controls {
     pub fn key_down(&mut self, bit: u32) {
         self.held |= bit;
         self.pressed |= bit;
-        self.steer_by_keys |= bit & (key::LEFT | key::RIGHT | key::UP | key::DOWN) != 0;
+        self.by_hand |= bit & (key::LEFT | key::RIGHT | key::UP | key::DOWN) != 0;
     }
 
     pub fn key_up(&mut self, bit: u32) {
@@ -92,6 +96,27 @@ impl Controls {
         finger.lifted = true;
     }
 
+    /// A finger on the touch pad (pad pixels) is the stick; one at a time.
+    pub fn pad_down(&mut self, id: i32, at: Vec2) -> bool {
+        if self.pad.is_some() {
+            return false;
+        }
+        self.pad = Some((id, pad::stick(at)));
+        true
+    }
+
+    pub fn pad_moved(&mut self, id: i32, at: Vec2) {
+        if let Some((_, stick)) = self.pad.as_mut().filter(|(held, _)| *held == id) {
+            *stick = pad::stick(at);
+        }
+    }
+
+    pub fn pad_up(&mut self, id: i32) {
+        if self.pad.is_some_and(|(held, _)| held == id) {
+            self.pad = None;
+        }
+    }
+
     pub fn tilt(&mut self, tilt: Tilt) {
         self.tilt = Some(tilt);
     }
@@ -100,16 +125,20 @@ impl Controls {
     pub fn let_go(&mut self) {
         self.held = 0;
         self.finger = None;
+        self.pad = None;
     }
 
     /// This frame's input.
     pub fn frame(&mut self) -> Input {
+        let stick = self.pad.map_or(Vec2::ZERO, |(_, stick)| stick);
+        self.by_hand |= stick != Vec2::ZERO;
         let input = Input {
             finger: self.finger.map(|finger| finger.at),
             keys: self.held | self.pressed,
+            stick,
             phone: self
                 .tilt
-                .filter(|_| !self.steer_by_keys)
+                .filter(|_| !self.by_hand)
                 .map(|t| phone::pose(t.alpha, t.beta, t.gamma, t.screen_angle)),
         };
         self.pressed = 0;
@@ -192,13 +221,50 @@ mod tests {
     }
 
     #[test]
+    fn the_stick_follows_the_pad_finger_and_springs_back_when_it_lifts() {
+        let mut controls = Controls::default();
+        let middle = Vec2::splat(233.0);
+        assert!(controls.pad_down(4, middle));
+        assert_eq!(controls.frame().stick, Vec2::ZERO);
+        controls.pad_moved(4, middle + Vec2::new(pad::TRAVEL, 0.0));
+        assert!(controls.frame().stick.distance(Vec2::X) < 1e-4);
+        controls.pad_up(4);
+        assert_eq!(controls.frame().stick, Vec2::ZERO);
+    }
+
+    #[test]
+    fn a_finger_on_the_pad_and_one_on_the_glass_both_count() {
+        let mut controls = Controls::default();
+        controls.finger_down(1, HOUSE);
+        controls.pad_down(2, Vec2::new(233.0 + pad::TRAVEL, 233.0));
+        let input = controls.frame();
+        assert_eq!(input.finger, Some(HOUSE));
+        assert!(input.stick.x > 0.99);
+    }
+
+    #[test]
+    fn pushing_the_stick_takes_steering_from_the_phone() {
+        let mut controls = Controls::default();
+        controls.tilt(upright());
+        controls.pad_down(2, Vec2::splat(233.0));
+        assert!(controls.frame().phone.is_some(), "a resting thumb");
+        controls.pad_moved(2, Vec2::new(233.0, 233.0 - pad::TRAVEL));
+        controls.tilt(upright());
+        assert!(controls.frame().phone.is_none());
+    }
+
+    #[test]
     fn letting_go_releases_keys_and_the_finger() {
         let mut controls = Controls::default();
         controls.key_down(key::ZERO);
         controls.finger_down(1, HOUSE);
+        controls.pad_down(2, Vec2::ZERO);
         controls.frame();
         controls.let_go();
         let input = controls.frame();
-        assert_eq!((input.keys, input.finger), (0, None));
+        assert_eq!(
+            (input.keys, input.finger, input.stick),
+            (0, None, Vec2::ZERO)
+        );
     }
 }

@@ -121,11 +121,14 @@ trunk build --release                            # dist/, ready for itch.io
 cd dist && zip -r ../logic-orbit-web.zip . && cd ..
 ```
 
+- **The touch pad:** a thumbstick beside the glass (below it in portrait). Left and right turn
+  the board like the arrow keys, and up and down lean it. The mini board inside turns and
+  leans as the game reads the board, and the meter at its left shows the lean.
 - **On itch.io:** Kind of project HTML, upload `logic-orbit-web.zip` and tick "This file will
-  be played in the browser". A 466 x 466 viewport shows the board's pixels 1:1; turn on the
-  fullscreen button.
+  be played in the browser". An 860 x 480 viewport shows the glass about 1:1 with the pad
+  beside it; turn on the fullscreen button.
 - **Phones:** a finger is the touch, and turning the phone turns the board (iPhones ask on the
-  first tap).
+  first tap) until the stick is used.
 - **In the browser:** sound starts on the first tap or key, the house and the contest ask for
   the microphone, and saves stay in the browser's local storage.
 - **The zip stays out of git**, because it holds the local-only GUTEN song.
@@ -133,7 +136,7 @@ cd dist && zip -r ../logic-orbit-web.zip . && cd ..
 ### Tests and checks
 
 ```sh
-cargo test --workspace                          # 396 tests
+cargo test --workspace                          # 409 tests
 cargo clippy --workspace --all-targets && cargo fmt
 tools/heap32/run.sh                             # each app's heap against the board's SRAM budget
 tools/qemu-smoke/run.sh                         # every game's firmware, booted in emulation

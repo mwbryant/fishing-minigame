@@ -8,7 +8,7 @@ use bees_game::BeesPlugin;
 use bevy::prelude::*;
 use orbit_audio::Mixer;
 use orbit_core::{
-    Battery, Buttons, Frame, ImuFeed, Launcher, Mic, Power, Rng, SaveBlob, SoundQueue, Steps,
+    Battery, Buttons, Frame, ImuFeed, Launcher, Mic, Power, Rng, SaveBlob, SoundQueue, Steps, Tilt,
     Touch, preferences,
 };
 use orbit_game::OrbitPlugin;
@@ -26,7 +26,10 @@ use pals_game::{
 use skate_game::SkatePlugin;
 use spider_game::SpiderPlugin;
 
-use crate::panel::{RgbaPanel, SIZE};
+use crate::{
+    pad::Pose,
+    panel::{RgbaPanel, SIZE},
+};
 
 /// Matches the firmware's 8-row band buffer.
 const BAND_BYTES: usize = SIZE * 2 * 8;
@@ -147,6 +150,9 @@ pub struct Input {
     pub finger: Option<Vec2>,
     /// [`key`] bits held down.
     pub keys: u32,
+    /// The touch pad's stick (at most 1 long, y down): x turns like the
+    /// arrow keys, up leans forward.
+    pub stick: Vec2,
     /// The phone's pose, when its orientation sensor reports one.
     pub phone: Option<Quat>,
 }
@@ -319,8 +325,9 @@ impl Board {
                     if input.held(key::STRAIGHTEN) {
                         self.device.straighten();
                     }
-                    let steer = input.axis(key::RIGHT, key::LEFT) * TURN_DEG_PER_SEC;
-                    let lean = input.axis(key::UP, key::DOWN);
+                    let turn = input.axis(key::RIGHT, key::LEFT) + input.stick.x;
+                    let steer = turn.clamp(-1.0, 1.0) * TURN_DEG_PER_SEC;
+                    let lean = (input.axis(key::UP, key::DOWN) - input.stick.y).clamp(-1.0, 1.0);
                     self.device.sample(steer, lean, dt)
                 }
             };
@@ -353,6 +360,17 @@ impl Board {
             (false, true) => 20,
             (false, false) => 60,
         };
+    }
+
+    /// The board's turn and lean as the running app reads them, for apps
+    /// that turn.
+    pub fn pose(&self) -> Option<Pose> {
+        let tilt = self.app.world().get_resource::<Tilt>()?;
+        Some(Pose {
+            steer_deg: tilt.steer_deg,
+            lean_deg: tilt.lean_deg,
+        })
+        .filter(|_| self.off.is_none())
     }
 
     pub fn playing(&self) -> Game {
@@ -488,6 +506,38 @@ mod tests {
                 .chunks_exact(4)
                 .any(|px| px[..3] != [0, 0, 0])
         );
+    }
+
+    fn pushed(stick: Vec2) -> Input {
+        Input {
+            stick,
+            ..Input::default()
+        }
+    }
+
+    #[test]
+    fn pushing_the_stick_right_turns_the_board_and_it_stays_turned() {
+        let mut board = booted(Game::Angler, None);
+        hold(&mut board, pushed(Vec2::X), 0.5);
+        hold(&mut board, Input::default(), 0.5);
+        let pose = board.pose().expect("Angler turns");
+        assert!((pose.steer_deg - 30.0).abs() < 2.0, "{pose:?}");
+    }
+
+    #[test]
+    fn pushing_the_stick_up_leans_forward_and_letting_go_levels_it() {
+        let mut board = booted(Game::Angler, None);
+        hold(&mut board, pushed(Vec2::NEG_Y), 0.5);
+        let leaning = board.pose().expect("Angler leans");
+        assert!((leaning.lean_deg - 15.0).abs() < 1.5, "{leaning:?}");
+        hold(&mut board, Input::default(), 0.5);
+        let level = board.pose().expect("Angler leans");
+        assert!(level.lean_deg.abs() < 1.5, "{level:?}");
+    }
+
+    #[test]
+    fn a_game_without_turning_has_no_pose_to_show() {
+        assert_eq!(booted(Game::Orbit, None).pose(), None);
     }
 
     #[test]
