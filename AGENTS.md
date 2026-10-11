@@ -19,7 +19,8 @@ Only text people read says Fishing Minigame.
 - **arcade cabinet** (Skate) and **humming tree** (Bees???).
 
 Shared state and rules live in `crates/pals` (the `PALS` save section). **Orbit** (circular
-pong) is a separate binary. A desktop simulator shares the renderer and the motion and save code.
+pong) is a separate binary. A desktop simulator and the itch.io build (`web/`, Trunk from the
+repo root) share the renderer and the motion and save code.
 
 ## Where to look
 
@@ -70,7 +71,7 @@ pong) is a separate binary. A desktop simulator shares the renderer and the moti
     - `firmware/src/bin/<game>.rs` if it's also standalone;
     - `tools/qemu-smoke` (its own bin, and the pals tour's `launch` and `leave`);
     - a `measure_<app>` in `tools/heap32`;
-    - a desktop `Game` with snapshots.
+    - a desktop `Game` with snapshots, and the same in `web/src/board.rs`.
 - **Heap:** Bevy must fit in about 284 KB of internal SRAM, because PSRAM atomics are unreliable
   on the S3.
   - Peak headroom: Orbit 12 KB, Angler 67, the house 73, the contest 75, the park 84, Skate 82,

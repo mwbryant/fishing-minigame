@@ -8,7 +8,13 @@
 
 #![no_std]
 
+mod virtual_device;
+
 use bevy::math::{Quat, Vec3, ops};
+
+pub use virtual_device::{
+    LEAN_DEG_PER_SEC, LEAN_HELD_DEG, STEPS_PER_SEC, TURN_DEG_PER_SEC, VirtualDevice,
+};
 
 /// One IMU reading. `accel` is specific force in g (reads +1 g "up" at rest),
 /// `gyro` is body angular rate in rad/s, `dt` the seconds since the last one.

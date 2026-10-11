@@ -1,0 +1,65 @@
+[package]
+name = "orbit_web"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+bevy.workspace = true
+orbit_game.workspace = true
+angler_game.workspace = true
+spider_game.workspace = true
+skate_game.workspace = true
+bees_game.workspace = true
+pals_game.workspace = true
+orbit_core.workspace = true
+orbit_save.workspace = true
+orbit_audio.workspace = true
+orbit_gfx.workspace = true
+orbit_motion.workspace = true
+
+# The versions Trunk has the wasm-bindgen CLI for (as logic-pickle).
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wasm-bindgen = "=0.2.126"
+js-sys = "0.3.103"
+console_error_panic_hook = "0.1"
+web-sys = { version = "0.3.103", features = [
+  "AudioBuffer",
+  "AudioBufferSourceNode",
+  "AudioContext",
+  "AudioContextOptions",
+  "AudioContextState",
+  "AudioDestinationNode",
+  "AudioNode",
+  "AudioProcessingEvent",
+  "AudioScheduledSourceNode",
+  "BaseAudioContext",
+  "CanvasRenderingContext2d",
+  "CssStyleDeclaration",
+  "DeviceOrientationEvent",
+  "Document",
+  "DomRect",
+  "Element",
+  "HtmlCanvasElement",
+  "HtmlElement",
+  "ImageData",
+  "KeyboardEvent",
+  "Location",
+  "MediaDevices",
+  "MediaStream",
+  "MediaStreamAudioSourceNode",
+  "MediaStreamConstraints",
+  "Navigator",
+  "Performance",
+  "PointerEvent",
+  "Screen",
+  "ScreenOrientation",
+  "ScriptProcessorNode",
+  "Storage",
+  "UrlSearchParams",
+  "Window",
+  "console",
+] }
+
+[lints]
+workspace = true

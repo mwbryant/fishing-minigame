@@ -8,3 +8,6 @@ docs/*.zip
 docs/*.pdf
 # Local-only assets
 crates/angler_game/assets/guten_morgen.pcm
+/dist
+# Built by trunk for itch.io; holds the local-only GUTEN song.
+/logic-orbit-web.zip

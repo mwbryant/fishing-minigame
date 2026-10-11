@@ -76,6 +76,8 @@ Where the code lives, how a frame flows, and the coding conventions.
 crates/orbit_gfx     #![no_std] rasterizer (disc/ring/arc/label/rect/line/sprite), dirty-rect
                      diff, band Presenter, `Panel` trait. No Bevy.
 crates/orbit_motion  #![no_std] Mahony IMU filter + zeroing -> steer/lean degrees. Bevy math only.
+                     `VirtualDevice`: the simulators' board, turned by keys or posed by a
+                     phone, reporting IMU samples.
 crates/orbit_save    #![no_std] power-fail-safe two-sector record store over embedded-storage NOR
                      flash, plus `RamFlash` (tests, desktop).
 crates/orbit_audio   #![no_std] 16 kHz mono PCM clips in flash + a one-voice `Mixer`; both
@@ -103,6 +105,10 @@ crates/orbit_game    #![no_std] Orbit (circular pong, touch only; uses Bevy stat
 desktop/             std simulator for Fishing Minigame or any one app (minifb window, RAM model
                      of the panel, virtual IMU, the laptop's mic, file-backed save flash,
                      PNG snapshots).
+web/                 the itch.io build (Trunk from the repo root's index.html): the same apps
+                     in a browser. A canvas for the panel, WebAudio for the speaker and mic,
+                     a phone's tilt or the simulator's keys, localStorage for the save flash.
+                     `web/smoke.mjs` plays the build in headless Chromium.
 firmware/            ESP32-S3: lib (`Board`: bring-up once, then `run` one app at a time,
                      + drivers), the pals binary and one binary per game. Excluded from
                      the workspace.

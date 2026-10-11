@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+    <title>Fishing Minigame</title>
+    <!-- wasm-opt flags: rustc emits bulk-memory/nontrapping-fptoint by default -->
+    <link data-trunk rel="rust" href="web/Cargo.toml" data-bin="orbit_web" data-type="main"
+          data-wasm-opt="s" data-wasm-opt-params="--enable-bulk-memory --enable-nontrapping-float-to-int"/>
+    <style>
+        html, body {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background: #111214;
+        }
+        .game-container {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+        }
+        /* CSS loading spinner; the canvas paints over it when the game starts. */
+        .lds-dual-ring {
+            position: absolute;
+            left: 0;
+            right: 0;
+            margin: auto;
+            width: 80px;
+            height: 80px;
+        }
+        .lds-dual-ring:after {
+            content: " ";
+            display: block;
+            width: 64px;
+            height: 64px;
+            border-radius: 50%;
+            border: 6px solid #6fb7e0;
+            border-color: #6fb7e0 transparent #6fb7e0 transparent;
+            animation: lds-dual-ring 1.2s linear infinite;
+        }
+        @keyframes lds-dual-ring {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        /* The board's round 466 x 466 panel, as big as the frame allows. */
+        canvas#orbit {
+            z-index: 2;
+            width: min(100vw, 100vh);
+            height: min(100vw, 100vh);
+            border-radius: 50%;
+            outline: none;
+            /* Stop mobile browsers stealing touches for scroll/zoom/long-press. */
+            touch-action: none;
+            -webkit-user-select: none;
+            user-select: none;
+            -webkit-touch-callout: none;
+        }
+    </style>
+</head>
+<body>
+    <script>
+        // Browsers block AudioContext until a user gesture: track every
+        // context and resume them all on the first interaction.
+        (function () {
+            const audioContextList = [];
+            const userInputEventNames = ["click", "contextmenu", "auxclick", "dblclick",
+                "mousedown", "mouseup", "pointerup", "touchend", "keydown", "keyup"];
+            self.AudioContext = new Proxy(self.AudioContext, {
+                construct(target, args) {
+                    const result = new target(...args);
+                    audioContextList.push(result);
+                    return result;
+                },
+            });
+            function resumeAllContexts() {
+                let running = 0;
+                audioContextList.forEach((ctx) => {
+                    if (ctx.state !== "running") { ctx.resume(); } else { running++; }
+                });
+                if (running > 0 && running === audioContextList.length) {
+                    userInputEventNames.forEach((n) => document.removeEventListener(n, resumeAllContexts));
+                }
+            }
+            userInputEventNames.forEach((n) => document.addEventListener(n, resumeAllContexts));
+        })();
+        document.addEventListener("contextmenu", (e) => e.preventDefault());
+    </script>
+    <div class="game-container">
+        <div class="lds-dual-ring"></div>
+        <canvas id="orbit" width="466" height="466">JavaScript and canvas support are required.</canvas>
+    </div>
+</body>
+</html>

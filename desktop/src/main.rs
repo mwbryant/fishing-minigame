@@ -39,6 +39,7 @@ use orbit_core::{
 };
 use orbit_game::OrbitPlugin;
 use orbit_gfx::Presenter;
+use orbit_motion::{TURN_DEG_PER_SEC, VirtualDevice};
 use pals_game::{
     Arrival, Place,
     contest::ContestPlugin,
@@ -51,7 +52,7 @@ use skate_game::SkatePlugin;
 use spider_game::SpiderPlugin;
 
 use crate::{
-    device::{SaveFile, VirtualDevice},
+    device::SaveFile,
     microphone::Microphone,
     panel::{RamPanel, SIZE},
     speaker::Speaker,
@@ -61,8 +62,6 @@ use crate::{
 pub const BAND_BYTES: usize = SIZE * 2 * 8;
 /// What the real link moves: 40 MHz QSPI clock, four data lines.
 const QSPI_BYTES_PER_SEC: f64 = 40e6 * 4.0 / 8.0;
-/// How fast ←/→ turn the virtual device.
-const TURN_DEG_PER_SEC: f32 = 60.0;
 
 /// What the simulator boots: the town (whose doors lead to the others) or
 /// one app on its own, like the firmware's binaries.

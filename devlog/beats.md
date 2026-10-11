@@ -1156,3 +1156,39 @@ Images are in `img/`. Newest beats go at the bottom.
 - **The fix:** every label on the ring is a tap target where it's drawn (one `name_spot` for
   drawing and tapping), and ring labels win over a fish swimming nearby.
 - **The numbers:** 2 new tests (EXIT with one, two and three fish; a name opens its card).
+
+## 61. The board in a browser tab (2026-10-11)
+
+- **The ask:** "a build of logic-orbit's game made for wasm that I can upload to itch.io, the
+  full game just like the simulator and what is flashed to the device".
+- **What made it easy:** the games were already `no_std` Bevy with no renderer or window, so
+  they compile for `wasm32-unknown-unknown` untouched (`tools/heap32` already did). The browser
+  only had to be a new platform, as the firmware and the minifb simulator are: a canvas for the
+  panel, WebAudio for the speaker and mics, `localStorage` for the save flash, and the same band
+  presenter, mixer and two-sector save format. Bevy's clock is `Instant::set_elapsed` fed the
+  animation-frame time, like the firmware's timer.
+- **Dead end:** the first version was a hand-written page: JS glue around raw `extern "C"`
+  exports, a drawn case with clickable PWR and BOOT buttons at 2 and 4 o'clock, a key legend
+  and a power-on overlay. It passed its smoke test, but the user wanted it "the same we did for
+  the pickle game". So the platform moved into Rust (web-sys), and `trunk build --release`
+  builds it from a pickle-style `index.html`: one canvas, a spinner, and the resume-audio-on-tap
+  script.
+- **What got in the way:** browser events come faster than frames, so a click or a Space tap
+  could start and end between two frames and never reach the game. `web::controls` holds every
+  press and tap for at least one frame (tested).
+- **Phones:** turning the phone turns the board. `deviceorientation`'s Z-X'-Y'' angles become
+  the board's pose (y down, z into the glass), and the simulator's `VirtualDevice`, now in
+  `orbit_motion`, turns poses into IMU samples for the real motion filter. Tests turn an upright
+  phone 30 degrees like a wheel (steer +30) and tip its top back 15 degrees (lean +15).
+- **The numbers:** wasm 4.6 MB from a plain release build, 3.2 MB with LTO and strip, and
+  2.9 MB after Trunk's `wasm-opt -Os`. `logic-orbit-web.zip` is 1.28 MB, and a release build
+  takes 22 s. 396 workspace tests pass. `web/smoke.mjs` plays the build in headless Chromium:
+  - the town boots;
+  - a tap walks into the house, and its mic hears (Chromium's fake mic);
+  - holding Z switches the board off, and Space brings it back;
+  - no page errors.
+- **Hook:** "The fishing game I flashed to a watch-sized board now runs in your browser, from
+  the same Rust, pixel for pixel."
+- **Media:** `img/61-browser-town.png`, `img/61-browser-house.png`,
+  `img/61-browser-hold-to-sleep.png`, `video/61-browser-smoke.mp4` (the smoke run, 11 s).
+  - TODO(user): a phone clip of the itch page with the phone turned to steer in the town.

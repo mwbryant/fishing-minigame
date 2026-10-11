@@ -18,14 +18,12 @@ orbit_core = { workspace = true, features = ["crowding"] }
 orbit_save.workspace = true
 orbit_audio.workspace = true
 orbit_gfx.workspace = true
+orbit_motion.workspace = true
 minifb = "0.29"
 png = "0.18"
 tinyaudio = "2.0"
 rtrb = "0.4"
 cpal = "0.16"
-
-[dev-dependencies]
-orbit_motion.workspace = true
 
 [lints]
 workspace = true

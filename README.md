@@ -80,6 +80,7 @@ Everything runs from this repo. It was developed on an Apple Silicon Mac.
 | The simulator, tests and slides | Rust (stable, edition 2024) via `rustup` |
 | The board's firmware | `cargo install espup espflash`, then `espup install --targets esp32s3` |
 | The heap check | `rustup target add wasm32-unknown-unknown` and Node |
+| The itch.io build | `rustup target add wasm32-unknown-unknown` and `cargo install --locked trunk` |
 | The QEMU check | the firmware toolchain (the script downloads Espressif's QEMU itself) |
 | The case | [uv](https://docs.astral.sh/uv/) |
 | The trailer | uv, ffmpeg and Blender |
@@ -109,13 +110,34 @@ real walk, or use MOCK WALK from the signpost by the house. Desktop saves go to
 `~/.logic-orbit/<mode>.flash`. The window title shows fps, KB pushed per frame, and how long
 that traffic would take on the real link.
 
+### The itch.io build
+
+The same apps run in a browser (`web/`), with the simulator's keys. Trunk builds them from the
+repo root, as for logic-pickle:
+
+```sh
+trunk serve                                      # http://127.0.0.1:8080 (?game=angler for one app)
+trunk build --release                            # dist/, ready for itch.io
+cd dist && zip -r ../logic-orbit-web.zip . && cd ..
+```
+
+- **On itch.io:** Kind of project HTML, upload `logic-orbit-web.zip` and tick "This file will
+  be played in the browser". A 466 x 466 viewport shows the board's pixels 1:1; turn on the
+  fullscreen button.
+- **Phones:** a finger is the touch, and turning the phone turns the board (iPhones ask on the
+  first tap).
+- **In the browser:** sound starts on the first tap or key, the house and the contest ask for
+  the microphone, and saves stay in the browser's local storage.
+- **The zip stays out of git**, because it holds the local-only GUTEN song.
+
 ### Tests and checks
 
 ```sh
-cargo test --workspace                          # 337 tests
+cargo test --workspace                          # 396 tests
 cargo clippy --workspace --all-targets && cargo fmt
 tools/heap32/run.sh                             # each app's heap against the board's SRAM budget
 tools/qemu-smoke/run.sh                         # every game's firmware, booted in emulation
+trunk build --release && node web/smoke.mjs     # the itch.io build, played in headless Chromium
 ```
 
 - **`cargo test`:** checks every frame of every game test for crowded text: text touching
@@ -327,7 +349,8 @@ never leaves stale pixels.
 
 ```
 crates/orbit_gfx     no_std rasterizer (embedded-graphics + pixel-art sprites), dirty rects, bands
-crates/orbit_motion  no_std IMU fusion (Mahony) with zeroing -> steer/lean
+crates/orbit_motion  no_std IMU fusion (Mahony) with zeroing -> steer/lean, and the simulators'
+                     virtual device
 crates/orbit_save    no_std power-fail-safe flash records
 crates/orbit_audio   no_std PCM clips + mixer, and voice prints for spoken commands
 crates/orbit_core    shared Bevy plumbing: frame, touch, rng, save sections, mute; opt-in buttons,
@@ -342,6 +365,7 @@ crates/skate_game    Skate (the arcade cabinet)
 crates/bees_game     Bees??? (the humming tree)
 crates/orbit_game    Orbit, circular pong (touch), its own firmware binary
 desktop/             minifb simulator (std) for Fishing Minigame or any one app + headless PNGs
+web/                 the itch.io build: the same apps in a browser (Trunk, web-sys)
 firmware/            ESP32-S3: board support lib, the pals binary, and one binary per game
 tools/               heap32 (heap on a 32-bit target) and qemu-smoke (the firmware in QEMU)
 case/                3D-printable fly-reel case (Python/build123d), see case/README.md

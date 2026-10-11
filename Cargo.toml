@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["crates/*", "desktop"]
+members = ["crates/*", "desktop", "web"]
 exclude = ["firmware", "tools/heap32", "tools/qemu-smoke"]
 
 [workspace.package]
