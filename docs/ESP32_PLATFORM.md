@@ -315,9 +315,9 @@ All on one bus; each driver gets an `embedded-hal-bus` `RefCellDevice` on it.
 - **Reading:** one 12-byte burst from 0x35.
 - **Steps** (while an app has `Steps`): the accelerometer reads above go to
   `orbit_motion::StepCounter`, every frame awake and once a doze wake (10 a second):
-  - a step is the acceleration's size dipping more than `STEP_SWING_G` (15 mg) under its 1 s
-    running average and coming back up more than 15 mg over it, at most one every
-    `STEP_GAP_SECS` (0.2 s);
+  - a step is the acceleration's size dipping more than `STEP_SWING_G` (25 mg) under its 1 s
+    running average and coming back up more than 25 mg over it, at most one every
+    `STEP_GAP_SECS` (0.3 s, so a step's heel landing and push-off count once);
   - turning the board doesn't count (gravity's size stays 1 g), but any bounce or shake does,
     so it overcounts on purpose;
   - the chip's built-in pedometer (SensorLib's `configPedometer`, CTRL9 command 0x0D, count at

@@ -7,10 +7,12 @@
 use bevy::math::Vec3;
 
 /// How far past the average (each way) a swing must go, in g. The QMI8658
-/// at rest wobbles a few mg; a walk in the hand swings 100 mg or more.
-pub const STEP_SWING_G: f32 = 0.015;
-/// Steps come no closer than this, in seconds (five a second at most).
-pub const STEP_GAP_SECS: f32 = 0.2;
+/// at rest wobbles a few mg and a hand holding it about 20; a walk in the
+/// hand swings 100 mg or more. 15 counted a little too much on the board.
+pub const STEP_SWING_G: f32 = 0.025;
+/// Steps come no closer than this, in seconds (3.3 a second at most, above a
+/// jog), so a step's two bumps (the heel landing, the push-off) count once.
+pub const STEP_GAP_SECS: f32 = 0.3;
 /// The running average forgets with this time constant, in seconds.
 const AVERAGE_SECS: f32 = 1.0;
 
@@ -55,6 +57,17 @@ mod tests {
     /// Readings at `rate` Hz for `secs`: gravity (turned by `turn`) times a
     /// bounce of `swing` g at `hz`, plus a few mg of noise.
     fn count(rate: f32, secs: f32, hz: f32, swing: f32, turn: impl Fn(f32) -> Quat) -> u32 {
+        count_bounce(rate, secs, turn, |t| swing * ops::sin(TAU * hz * t))
+    }
+
+    /// Readings at `rate` Hz for `secs`: gravity (turned by `turn`) times
+    /// `1 + bounce(t)`, plus a few mg of noise.
+    fn count_bounce(
+        rate: f32,
+        secs: f32,
+        turn: impl Fn(f32) -> Quat,
+        bounce: impl Fn(f32) -> f32,
+    ) -> u32 {
         let mut counter = StepCounter::default();
         let mut seed = 12345u32;
         let dt = 1.0 / rate;
@@ -63,7 +76,7 @@ mod tests {
                 let t = i as f32 * dt;
                 seed = seed.wrapping_mul(1_664_525).wrapping_add(1_013_904_223);
                 let noise = ((seed >> 8) as f32 / (1 << 24) as f32 - 0.5) * 0.006;
-                let size = 1.0 + swing * ops::sin(TAU * hz * t) + noise;
+                let size = 1.0 + bounce(t) + noise;
                 counter.push(turn(t) * Vec3::new(0.0, -size, 0.0), dt)
             })
             .sum()
@@ -92,8 +105,21 @@ mod tests {
 
     #[test]
     fn a_gentle_stroll_with_the_board_held_still_counts() {
-        let steps = count(60.0, 10.0, 1.6, 0.03, still);
+        let steps = count(60.0, 10.0, 1.6, 0.045, still);
         assert!(steps >= 15, "{steps} for 16 steps");
+    }
+
+    #[test]
+    fn a_hand_wobbling_20_mg_counts_nothing() {
+        assert_eq!(count(60.0, 20.0, 1.5, 0.02, still), 0);
+    }
+
+    #[test]
+    fn a_step_that_lands_and_pushes_off_counts_once() {
+        // Each step bounces twice: the heel lands, then the foot pushes off.
+        let walk = |t: f32| 0.15 * ops::sin(TAU * 2.0 * t) + 0.12 * ops::sin(TAU * 4.0 * t + 1.0);
+        let steps = count_bounce(60.0, 10.0, still, walk);
+        assert!((19..=21).contains(&steps), "{steps} for 20 steps");
     }
 
     #[test]
@@ -103,8 +129,12 @@ mod tests {
     }
 
     #[test]
-    fn a_shake_counts_no_more_than_five_a_second() {
+    fn a_shake_counts_no_more_than_one_step_a_gap() {
         let steps = count(60.0, 10.0, 9.0, 0.5, still);
-        assert!((40..=50).contains(&steps), "{steps}");
+        let most = (10.0 / STEP_GAP_SECS) as u32;
+        assert!(
+            (most - 6..=most).contains(&steps),
+            "{steps}, at most {most}"
+        );
     }
 }

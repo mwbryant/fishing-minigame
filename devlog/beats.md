@@ -1261,6 +1261,10 @@ Images are in `img/`. Newest beats go at the bottom.
   Error:   × Broken pipe
   ```
 
+- **Tuned on the board:** the first flash was "just slightly too sensitive". The swing went
+  from 15 to 25 mg, so a hand's 20 mg wobble counts nothing (tested), and the gap from 0.2 to
+  0.3 s, so a step that bounces twice (heel, then push-off) counts once (tested: 20 for 20, was
+  22). A jog at about 3 steps a second still fits under the 3.3-a-second cap.
 - **Hook:** "The chip has a pedometer built in. It never counted a single step. So I wrote
   my own, and it counts everything."
 - **Media:** none yet.
