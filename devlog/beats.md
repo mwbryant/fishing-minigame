@@ -1317,3 +1317,15 @@ Images are in `img/`. Newest beats go at the bottom.
   - The case slide was re-rendered, and the canvas and the website's 2x copy follow.
 - **Media:** `img/66-before-case-slide.png`, `img/66-after-case-slide.png`,
   `img/66-before-button-side.png`, `img/66-after-button-side.png`.
+
+## 67. A wooden rim for every shot (2026-10-12)
+
+- **The ask:** "in every screnshot it has the green outline in the trailer, those should all be
+  brown too"
+- **The fix:** the trailer draws the reel case around every game shot itself (`Device` in
+  `trailer/build.py`), from the front, where all you see is the front flange. It was teal-green
+  from before the print had colours. It's now the flange's brown (`#6b4226`, the same as the
+  eaten case and the case renders), with a lighter brown highlight and darker brown grooves.
+- **The numbers:** the trailer stayed 46.2 s; the MP4 went from 28.3 to 27.4 MB. The trailer
+  slide, the canvas and the website's copy show the new frame.
+- **Media:** `img/67-before-green-rim.png`, `img/67-after-brown-rim.png`.

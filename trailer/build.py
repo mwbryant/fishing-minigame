@@ -460,11 +460,11 @@ def place_blurred(canvas, sprite, pivot, at, scale, angle_deg, blur, copies=9):
 
 
 class Device:
-    """The board in its reel case, seen from the front: the game's screen inside the green rim,
-    with the orange PWR and BOOT caps. Built at K times the panel's resolution."""
+    """The board in its reel case, seen from the front: the game's screen inside the brown front
+    flange, with the orange PWR and BOOT caps. Built at K times the panel's resolution."""
 
     K = 3
-    CASE, CASE_LIGHT, CASE_DARK = "#2e6b5a", "#4f9a83", "#173b31"
+    CASE, CASE_LIGHT, CASE_DARK = "#6b4226", "#94653f", "#45291a"
 
     def __init__(self):
         k = self.K

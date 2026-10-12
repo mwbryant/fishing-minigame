@@ -830,7 +830,7 @@ def trailer():
         472,
         span(
             span("46.2 s", font_family=PIXEL, font_size="40px", line_height="48px", color=rgb(YELLOW))
-            + "<br>1920×1080 · 30 fps · 28.3 MB<br>"
+            + "<br>1920×1080 · 30 fps · 27.4 MB<br>"
             + span("fishing_minigame_trailer.mp4", font_family=MONO, font_size="13px", color=INK)
             + "<br><br>"
             + mono("ffmpeg", WHITE, 16)
@@ -845,7 +845,7 @@ def trailer():
         font_size="14px",
         color=SOFT,
     )
-    b.image(1568, 232, 272, 153, "devlog/img/37-trailer-fish.png", "a frame of the trailer", object_fit="cover", border_radius="8px")
+    b.image(1568, 232, 272, 153, "devlog/img/67-after-brown-rim.png", "a frame of the trailer", object_fit="cover", border_radius="8px")
 
     b.arrow(424, 268, 519, 268, WHITE, alpha=0.5)
     b.text(432, 240, "the STL", size=13, color=MUTED, line=16, width="80px", text_align="center")
