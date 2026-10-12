@@ -9,7 +9,8 @@ code keeps that name (`pals`, `pals_game`, `--bin pals`, the `PALS` save key) so
 Only text people read says Fishing Minigame.
 
 - **town** (`pals_game::town`): walk by touch; menus still turn.
-- **pond**: Angler. Catch, then KEEP and name by turning, up to three.
+- **pond**: Angler. Catch, then KEEP and name by turning (up to three) or RELEASE. Either way
+  the catch pays 5 to 50 gold (`Catch::gold`).
 - **house**: the tank, cards, and trick school by voice and touch strokes.
 - **park**: walks for stamina, counted in steps from the accelerometer
   (`orbit_motion::StepCounter`) with the screen off (`Power::dozing`), or MOCK WALK. The GPS sleeps from boot.

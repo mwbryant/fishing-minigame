@@ -1349,3 +1349,20 @@ Images are in `img/`. Newest beats go at the bottom.
     2.5 mm up, is now white, as it prints.
   - The README's banner is beat 67's brown-rimmed frame.
 - **Media:** `img/68-before-front.png`, `img/68-after-front.png`.
+
+## 69. Every catch pays a little (2026-10-12)
+
+- **The ask:** "Releasing/keeping fish should still earn some gold (5-50)".
+- **Before:** catches paid nothing, so gold came from contests (10 to 500 a show) and the den.
+- **The rule:** `Catch::gold` is 5 + 45 x worth, where worth is (tier + size for its species)
+  / 4.
+  - The smallest tier-0 fish pays 5 and the biggest trophy 50.
+  - A rarer fish at its smallest pays at least what a commoner one pays at its biggest.
+- **Paid once:** on RELEASE, on LET IT GO from a full tank, or when a kept fish gets its name.
+  The catch screen shows "+N GOLD" under the weight; the 15.8 cm perch in the snapshot pays
+  17.
+- **Tests:** the range and ordering over every species and size; releasing, keeping and
+  letting go each pay into the saved purse, once. The old assertion "catches pay no gold"
+  flipped.
+- **Hook:** even the smallest minnow is worth 5 gold now.
+- **Media:** `img/69-before.png`, `img/69-after.png`.

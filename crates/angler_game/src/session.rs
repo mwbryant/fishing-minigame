@@ -225,6 +225,7 @@ fn play(
     let mut level_now = false;
     let mut difficulty_change = None;
     let mut kept = None;
+    let mut let_go = None;
     let mut sfx: Option<&'static Clip> = None;
     let release_pointed = tilt.steer_deg >= RELEASE_TURN_DEG;
     let full = pals.is_full();
@@ -325,8 +326,10 @@ fn play(
                 naming(*catch, None)
             })
         }
-        Phase::Caught { .. } if results_open && (tapped(&ui::RELEASE_FISH) || action.pressed()) => {
-            next_fish = true;
+        Phase::Caught { catch, .. }
+            if results_open && (tapped(&ui::RELEASE_FISH) || action.pressed()) =>
+        {
+            let_go = Some(*catch);
             Some(aim())
         }
         Phase::Swap { catch } => {
@@ -337,7 +340,7 @@ fn play(
             };
             match picked {
                 Some(LET_IT_GO) => {
-                    next_fish = true;
+                    let_go = Some(*catch);
                     Some(aim())
                 }
                 Some(slot) => {
@@ -389,6 +392,11 @@ fn play(
     if let Some(clip) = sfx.or(hit_button.get().then_some(&audio::CLICK)) {
         sound.play(clip);
     }
+    if let Some(catch) = let_go {
+        pals.earn(catch.gold());
+        pals::save::store(&mut blob, &pals);
+        next_fish = true;
+    }
     if let Some((catch, name, replacing)) = kept {
         let pet = pet_from(&catch, name, &mut rng);
         match replacing {
@@ -399,6 +407,7 @@ fn play(
                 pals.keep(pet).ok();
             }
         }
+        pals.earn(catch.gold());
         pals::save::store(&mut blob, &pals);
         next_fish = true;
     }

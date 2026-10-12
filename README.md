@@ -18,7 +18,8 @@ trailer and cad files were generated with this workflow.
   straight in.
 - **Fish at the pond.** Turn to aim, hold the upper button (or a finger on the glass) and let go
   at the top of the meter to land the cast, then lean forward and back to keep the fish in the catch zone. KEEP a catch
-  (or RELEASE it) and name it by turning on a ring of letters.
+  and name it by turning on a ring of letters, or RELEASE it. Either way it pays 5 to 50 gold,
+  more for rarer and bigger fish.
 - **Raise them at home.** Your fish swim in the tank wearing their hats. Each has a card
   (species, size, stamina, appeal) and five tricks, from SPLASH to RAINBOW LEAP. Teach a trick
   by saying a word twice, or by drawing a stroke on the glass twice. Pet the fish right after

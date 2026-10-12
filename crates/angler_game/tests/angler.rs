@@ -665,10 +665,7 @@ fn a_landed_fish_can_be_kept_named_by_turning_and_joins_the_tank() {
     let mut app = headless_app();
     let catch = land_a_fish(&mut app);
     assert!(shows(&app, "KEEP") && shows(&app, "RELEASE"));
-    assert!(
-        !labels(&app).iter().any(|l| l.contains("GOLD")),
-        "catches pay no gold"
-    );
+    assert!(shows(&app, &format!("+{} GOLD", catch.gold())));
     click_action(&mut app);
     assert!(matches!(phase(&app), Phase::Naming { .. }));
     assert!(shows(&app, "NAME YOUR FISH"));
@@ -704,6 +701,37 @@ fn ok_waits_for_a_name_and_del_takes_a_letter_back() {
     assert!(shows(&app, "A_"));
     press_key(&mut app, Key::Done);
     assert_eq!(names(&app), ["A"]);
+}
+
+#[test]
+fn releasing_a_catch_pays_its_gold_into_the_saved_purse() {
+    let mut app = headless_app();
+    let catch = land_a_fish(&mut app);
+    assert!((5..=50).contains(&catch.gold()));
+    assert!(shows(&app, &format!("+{} GOLD", catch.gold())));
+    assert_eq!(tank(&app).gold, 0, "nothing until it's released or kept");
+    tap(&mut app, ui::RELEASE_FISH.center());
+    assert_eq!(tank(&app).gold, catch.gold());
+    assert_eq!(
+        saved_tank(&mut app).map(|tank| tank.gold),
+        Some(catch.gold())
+    );
+}
+
+#[test]
+fn keeping_a_catch_pays_its_gold_once_it_has_a_name() {
+    let mut app = headless_app();
+    let catch = land_a_fish(&mut app);
+    click_action(&mut app);
+    assert_eq!(tank(&app).gold, 0);
+    type_name(&mut app, "GIL");
+    assert_eq!(tank(&app).gold, catch.gold());
+    tick(&mut app, 60 * 3);
+    assert_eq!(tank(&app).gold, catch.gold(), "paid once");
+    assert_eq!(
+        saved_tank(&mut app).map(|tank| tank.gold),
+        Some(catch.gold())
+    );
 }
 
 #[test]
@@ -757,13 +785,18 @@ fn a_full_tank_asks_which_fish_to_let_go_and_the_new_one_takes_its_place() {
 #[test]
 fn from_a_full_tank_the_new_catch_can_still_be_let_go() {
     let mut app = headless_app_with_save(Some(tank_of(3)));
-    land_a_fish(&mut app);
+    let catch = land_a_fish(&mut app);
     click_action(&mut app);
     set_tilt(&mut app, -30.0, 0.0);
     tick(&mut app, 1);
     click_action(&mut app);
     assert!(matches!(phase(&app), Phase::Aim { .. }));
     assert_eq!(names(&app), ["ONE", "TWO", "THREE"]);
+    assert_eq!(
+        tank(&app).gold,
+        catch.gold(),
+        "letting it go pays like a release"
+    );
 }
 
 #[test]

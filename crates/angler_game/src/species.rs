@@ -178,7 +178,18 @@ impl Catch {
         let fullness = ((f32::from(self.length_mm) / 10.0 - min) / (max - min)).clamp(0.0, 1.0);
         ops::round(fullness * 100.0) as u8
     }
+
+    /// The gold it pays, kept or let go: by its tier, then by its size for its
+    /// species, from the smallest common fish to the biggest trophy.
+    pub fn gold(&self) -> u32 {
+        let (least, most) = CATCH_GOLD;
+        let worth = (f32::from(self.species().tier) + f32::from(self.size_pct()) / 100.0) / 4.0;
+        least + ops::round(worth * (most - least) as f32) as u32
+    }
 }
+
+/// What a catch can pay, the least and the most.
+pub const CATCH_GOLD: (u32, u32) = (5, 50);
 
 pub fn weight_g(species: &Species, length_cm: f32) -> u32 {
     (species.girth * length_cm * length_cm * length_cm) as u32
@@ -218,7 +229,57 @@ pub fn roll_catch(rng: &mut Rng, accuracy: f32, distance: f32) -> Catch {
 
 #[cfg(test)]
 mod tests {
+    use alloc::vec::Vec;
+
     use super::*;
+
+    fn at_length(species: usize, fullness: f32) -> Catch {
+        let (min, max) = SPECIES[species].length_cm;
+        let cm = min + (max - min) * fullness;
+        Catch {
+            species,
+            length_mm: ops::round(cm * 10.0) as u16,
+            weight_g: weight_g(&SPECIES[species], cm),
+        }
+    }
+
+    #[test]
+    fn a_catch_pays_5_gold_for_the_smallest_common_fish_up_to_50_for_the_biggest_trophy() {
+        let by_tier = |tier: u8| (0..SPECIES.len()).filter(move |&s| SPECIES[s].tier == tier);
+        for smallest in by_tier(0) {
+            assert_eq!(
+                at_length(smallest, 0.0).gold(),
+                5,
+                "{}",
+                SPECIES[smallest].name
+            );
+        }
+        for biggest in by_tier(3) {
+            assert_eq!(
+                at_length(biggest, 1.0).gold(),
+                50,
+                "{}",
+                SPECIES[biggest].name
+            );
+        }
+        for species in 0..SPECIES.len() {
+            let golds: Vec<u32> = (0..=10)
+                .map(|tenth| at_length(species, tenth as f32 / 10.0).gold())
+                .collect();
+            assert!(golds.windows(2).all(|pair| pair[0] <= pair[1]), "{golds:?}");
+            assert!(
+                golds.iter().all(|gold| (5..=50).contains(gold)),
+                "{golds:?}"
+            );
+        }
+        let rarer_is_worth_more = (0..3).all(|tier| {
+            by_tier(tier).all(|common| {
+                by_tier(tier + 1)
+                    .all(|rare| at_length(rare, 0.0).gold() >= at_length(common, 1.0).gold())
+            })
+        });
+        assert!(rarer_is_worth_more);
+    }
 
     fn average_tier_and_length(accuracy: f32, distance: f32) -> (f32, f32) {
         let mut rng = Rng::new(7);

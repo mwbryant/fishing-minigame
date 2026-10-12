@@ -6,8 +6,8 @@ use bevy::{math::ops, prelude::*};
 use orbit_core::{Frame, Launcher, Power, Tilt};
 use orbit_gfx::{Point, Rectangle, Rgb565, SCREEN_CENTER, Shape, Size, SpriteRef};
 use orbit_ui::{
-    battery_level, button, clear_text_of, dial_choice, framed_button, key_ring, labelled_button,
-    notice, power_overlay, running_low,
+    battery_level, button, clear_text_of, dial_choice, framed_button, gold_label, key_ring,
+    labelled_button, notice, power_overlay, running_low,
 };
 use pals::{MAX_PETS, Pals};
 
@@ -419,6 +419,12 @@ fn caught(shapes: &mut Vec<Shape>, catch: &Catch) {
     shapes.push(label(236, species.name, 2, TEXT));
     shapes.push(label(268, &length_text(catch.length_mm), 1, TEXT));
     shapes.push(label(290, &weight_text(catch.weight_g), 1, TEXT));
+    gold_label(
+        shapes,
+        Point::new(240, 312),
+        &format!("+{} GOLD", catch.gold()),
+        1,
+    );
 }
 
 /// KEEP and RELEASE, the pointed one framed in gold, and whether keeping

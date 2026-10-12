@@ -7,7 +7,7 @@ built on it, and sections 11-12 the gotchas and sources.
 
 The board boots **Fishing Minigame** (10.6), a Nintendogs-style loop. You walk a town by
 touch, catch fish at the pond (**Angler**, 10.4), keep and name them, walk them, teach them
-tricks by voice and touch, and win contest gold to buy them hats. Spider Roulette, Skate and
+tricks by voice and touch, and earn gold from catches and contests to buy them hats. Spider Roulette, Skate and
 Bees??? live in the town. **Orbit** (circular pong, touch) is a separate binary.
 
 **Contents:** 1 Quick commands · 2 Repo map and frame loop · 3 Hardware reference ·
@@ -909,7 +909,11 @@ tests check behaviour, not values, so retune freely and rerun `cargo test -p ang
 - **Naming:** the letter ring (typing by turning, 10.6). OK with a name makes a `pals::Pet`
   with the catch's species, tier, length and `Catch::size_pct` (where its length falls in the
   species range), plus five tricks rolled by rarity, and saves `PALS`.
-- **Catches pay no gold.** Gold and hats live in `pals`; a FLOG v3 save hands its old gold and
+- **Catches pay gold:** 5 to 50 (`Catch::gold`). Worth runs over the tier, then the size for
+  the species, so the smallest tier-0 fish pays 5 and the biggest trophy 50. It's paid once,
+  when the fish is released, let go from a full tank, or kept (once it has a name), and the
+  catch screen shows it under the weight.
+- **Gold and hats live in `pals`.** A FLOG v3 save hands its old gold and
   hats over once (`save::legacy_purse`).
 - **Art:** the angler is bareheaded; the fish wear the hats (`pals::hats`).
 
@@ -1129,7 +1133,7 @@ touch, so a worn button never blocks play; only sleep (holding BOOT) needs a but
   section but `PREF` and keeps the mock-walk setting.
 
 **The pond** is Angler (10.4): KEEP or RELEASE a landed fish; a full tank asks who goes back,
-or lets the new catch go.
+or lets the new catch go. Either way the catch pays 5 to 50 gold.
 
 **Tricks** (`pals::tricks`): 15 in five rarities.
 

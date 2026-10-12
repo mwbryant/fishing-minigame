@@ -1,4 +1,4 @@
-//! The contest hall, where the gold comes from. Pick a fish and a tier (higher
+//! The contest hall, where the big prizes are. Pick a fish and a tier (higher
 //! tiers need a higher stamina level), then put on a 30 s show: give taught
 //! commands by word or stroke, and the fish performs.
 //!
