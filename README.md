@@ -7,9 +7,9 @@ looks like a fly-fishing reel.** Turn it like a steering wheel to cast, lean it 
 fish, and keep your best three. Name them, teach them tricks with your voice, walk them (it
 counts your steps), buy them hats and enter them in contests. It's Nintendogs for fish, and it fits in one hand.
 
-Fishing Minigame was made with an AI-first workflow. Claude Code wrote most of the code, the
-case model and the trailer pipeline. The developer decided what to build, played every change,
-and tested it on the board.
+Fishing Minigame was made with an AI-first workflow. I drove the vision and gave the technical
+expertise of how to implement things but AI wrote the detailed final lines of code. Even the 
+trailer and cad files were generated with this workflow.
 
 ### What you do
 
