@@ -56,11 +56,13 @@ moved button), fix the take in `footage.rs`.
 |---|---|---|
 | Music and the font, downloaded | `cache/assets/` | the file is missing |
 | The takes, filmed headless | `cache/footage/` | a take is missing, or `--refilm` |
-| The ending, rendered in Blender (`eat.py`) | `cache/eat/<hash>/` | `eat.py`, the edit's bites, the screen frame or the case STL changes |
+| The ending, rendered in Blender (`eat.py`) | `cache/eat/<hash>/` | `eat.py`, the edit's bites, the screen frame, the case STL or its flange heights change |
 | Frames and the mix, encoded with ffmpeg | `out/` | every run |
 
 - **The ending:** Blender loads `case/out/reel_case.stl`, shows a game frame on the glass and cuts
-  the bites out with booleans. The man's mouth follows a curve that `build.py` works out: wide
+  the bites out with booleans. The case is coloured like the two-tone print: brown flanges with
+  white line wound between them, changing colour at `BACK_FLANGE` and `FRONT_FLANGE` from
+  `case/params.py`. The man's mouth follows a curve that `build.py` works out: wide
   open for each bite, then chewing, with a crunch each time it shuts. YOU CAN EAT IT is on screen
   only.
 - **Sounds:** the game's own sounds play under the music. A cut lets a sound finish (up to a

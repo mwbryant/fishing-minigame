@@ -1280,3 +1280,26 @@ Images are in `img/`. Newest beats go at the bottom.
   pointed hat.
 - **Media:** `img/64-before-shop.png` (pointing at CROWN dressed the fish in it),
   `img/64-after-shop.png` (pointing at CROWN, the fish keeps its own hat).
+
+## 65. The reel you can eat, in the print's colours (2026-10-12)
+
+- **The ask:** "regenerate the trailer. Also in the you can eat it make the top/bottom of the
+  cad model brown and the middle white. It's a flywheel fishing thing."
+- **The fix:**
+  - The case is coloured by height along its axis, the way the print changes filament: brown
+    for the first 2.0 mm (the back flange) and the last 2.2 mm (the front flange), and white
+    fishing line between.
+  - `eat.py` reads those heights from `case/params.py`, so the trailer follows the case.
+  - A filament change colours everything at that height, so the inside and the bite edges
+    are white too. It bites like a cookie.
+  - He now holds it turned 55 degrees, so the white side shows next to the screen.
+- **What got in the way:** the game had moved on since the last cut, so all 14 takes were
+  filmed again (8 s, every frame 466 px at 60 fps). The spider now leaps 3.08 s into its
+  take, found by scanning for the first red frame. The edit had 3.37 s, so the leap at the
+  viewer was landing 0.3 s late.
+- **The numbers:** 4,192 game frames and 255 Blender frames; a full rebuild in 3 min 51 s;
+  46.2 s of trailer at 28.3 MB.
+- **Hook:** "It's a fly reel: brown flanges, white line wound between. And yes, you can
+  still eat it."
+- **Media:** `img/65-before-green-case.png`, `img/65-after-two-tone-case.png`,
+  `video/65-before-eat.mp4`, `video/65-after-eat.mp4`.

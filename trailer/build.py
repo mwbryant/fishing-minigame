@@ -20,6 +20,7 @@ import hashlib
 import json
 import math
 import os
+import runpy
 import shutil
 import subprocess
 import sys
@@ -44,6 +45,7 @@ TAKE_HZ = 60  # the takes' frames a second of game time
 SCREEN = 466  # panel size, px
 FONT_URL = "https://github.com/google/fonts/raw/main/apache/luckiestguy/LuckiestGuy-Regular.ttf"
 CASE_STL = ROOT / "case" / "out" / "reel_case.stl"
+CASE_PARAMS = ROOT / "case" / "params.py"
 BLENDERS = [
     os.environ.get("BLENDER", ""),
     shutil.which("blender") or "",
@@ -379,6 +381,7 @@ def render_eat(shot, takes):
     work.mkdir(parents=True, exist_ok=True)
     screen = work / "screen.png"
     shutil.copy(takes.path(*shot["screen"]), screen)
+    case = runpy.run_path(str(CASE_PARAMS))
     config = {
         "stl": str(CASE_STL),
         "screen": str(screen),
@@ -388,6 +391,7 @@ def render_eat(shot, takes):
         "samples": 24,
         "bites": bites,
         "mouth": mouth_curve(frames, bites),
+        "flanges": {"back": case["BACK_FLANGE"], "front": case["FRONT_FLANGE"]},
     }
     script = HERE / "eat.py"
     digest = hashlib.sha1(script.read_bytes() + json.dumps(config, sort_keys=True).encode())

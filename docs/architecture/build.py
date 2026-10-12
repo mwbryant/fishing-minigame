@@ -774,7 +774,7 @@ def trailer():
         font_size="14px",
         color=SOFT,
     )
-    b.image(536, 232, 128, 72, "devlog/img/37-you-can-eat-it.png", "the man eating the case", object_fit="cover", border_radius="8px")
+    b.image(536, 232, 128, 72, "devlog/img/65-after-two-tone-case.png", "the man eating the case", object_fit="cover", border_radius="8px")
     b.card(
         64,
         344,
@@ -830,7 +830,7 @@ def trailer():
         472,
         span(
             span("46.2 s", font_family=PIXEL, font_size="40px", line_height="48px", color=rgb(YELLOW))
-            + "<br>1920×1080 · 30 fps · 28.5 MB<br>"
+            + "<br>1920×1080 · 30 fps · 28.3 MB<br>"
             + span("fishing_minigame_trailer.mp4", font_family=MONO, font_size="13px", color=INK)
             + "<br><br>"
             + mono("ffmpeg", WHITE, 16)

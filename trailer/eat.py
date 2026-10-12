@@ -25,8 +25,9 @@ MOUTH = CONFIG["mouth"]
 SKIN = "#e9b48c"
 SHIRT = "#d8452f"
 HAT = "#6f7d3c"
-CASE = "#2e6b5a"
-CASE_INSIDE = "#24584a"
+# The printed fly reel: brown flanges, and white fishing line wound between them.
+FLANGE = "#6b4226"
+LINE = "#f2eee4"
 BUTTON = "#ff7a1a"
 WALL = "#ffd45c"
 
@@ -240,18 +241,48 @@ def man():
     return head, eyes, brows, (hole, top, bottom, tongue)
 
 
-def case_object(mat_case, mat_inside, screen_mat, button):
-    """The case STL joined with the glass, a solid filling so bites show plastic, and two caps."""
+def two_tone(back, line_from, line_to, front):
+    """The case's plastic, coloured by height along its axis (mm) as the print changes filament:
+    FLANGE up to `line_from`, LINE to `line_to`, then FLANGE again to `front`."""
+    mat = material("plastic", FLANGE, 0.5)
+    nodes, links = mat.node_tree.nodes, mat.node_tree.links
+    coords = nodes.new("ShaderNodeTexCoord")
+    axis = nodes.new("ShaderNodeSeparateXYZ")
+    height = nodes.new("ShaderNodeMapRange")
+    height.inputs["From Min"].default_value = back
+    height.inputs["From Max"].default_value = front
+    bands = nodes.new("ShaderNodeValToRGB")
+    ramp = bands.color_ramp
+    ramp.interpolation = "CONSTANT"
+    ramp.elements[0].position = 0.0
+    ramp.elements[0].color = hex_color(FLANGE)
+    ramp.elements[1].position = (line_from - back) / (front - back)
+    ramp.elements[1].color = hex_color(LINE)
+    ramp.elements.new((line_to - back) / (front - back)).color = hex_color(FLANGE)
+    links.new(coords.outputs["Object"], axis.inputs["Vector"])
+    links.new(axis.outputs["Z"], height.inputs["Value"])
+    links.new(height.outputs["Result"], bands.inputs["Fac"])
+    links.new(bands.outputs["Color"], nodes["Principled BSDF"].inputs["Base Color"])
+    return mat
+
+
+def case_object(screen_mat, button):
+    """The case STL joined with the glass, a solid filling so bites show plastic, and two caps.
+    The shell and filling are two-tone at the flange heights in `CONFIG["flanges"]`."""
     bpy.ops.wm.stl_import(filepath=CONFIG["stl"])
     shell = bpy.context.selected_objects[0]
     shell.name = "case"
-    give(shell, mat_case)
+    back = min(corner[2] for corner in shell.bound_box)
+    front = max(corner[2] for corner in shell.bound_box)
+    flanges = CONFIG["flanges"]
+    plastic = two_tone(back, back + flanges["back"], front - flanges["front"], front)
+    give(shell, plastic)
     bpy.ops.mesh.primitive_cylinder_add(vertices=96, radius=24.48, depth=0.8, location=(0, 0, -0.4))
     glass = give(bpy.context.active_object, screen_mat)
     bpy.ops.mesh.primitive_cylinder_add(
         vertices=64, radius=23.6, depth=22.6, location=(0, 0, -12.0)
     )
-    filling = give(bpy.context.active_object, mat_inside)
+    filling = give(bpy.context.active_object, plastic)
     nubs = []
     for deg in (60.0, 120.0):
         a = math.radians(90.0 - deg)
@@ -404,8 +435,8 @@ def animate_hand(grip, roll):
         ),
         (second, grip_for_bite(-BITE_SPOTS[1]), -BITE_SPOTS[1], 0.0),
         (second + 3, grip_for_bite(-BITE_SPOTS[1]), -BITE_SPOTS[1], 0.0),
-        (second + 22, show, -20.0, -22.0),
-        (FRAMES - 1, show + Vector((0, 0, 0.012)), -24.0, -22.0),
+        (second + 22, show, -20.0, -55.0),
+        (FRAMES - 1, show + Vector((0, 0, 0.012)), -24.0, -55.0),
     ]
     for frame, at, roll_deg, face_deg in poses:
         key(grip, frame, location=at, rotation_euler=Euler((0, 0, math.radians(face_deg))))
@@ -513,8 +544,7 @@ def main():
     scene = scene_setup()
     lights()
     head, eyes, brows, mouth = man()
-    case_mat, inside = material("case", CASE, 0.45), material("inside", CASE_INSIDE, 0.8)
-    whole = case_object(case_mat, inside, screen_material(), material("button", BUTTON, 0.4))
+    whole = case_object(screen_material(), material("button", BUTTON, 0.4))
     cutters = [bite_cutters(spot, f"bite{i}") for i, spot in enumerate(BITE_SPOTS)]
     once = bitten(whole, cutters[:1], "case bitten once")
     twice = bitten(whole, cutters, "case bitten twice")
@@ -528,7 +558,7 @@ def main():
     show_between(twice, second, FRAMES)
     animate_hand(grip, roll)
     animate_face(head, eyes, brows, mouth)
-    crumbs(BITES, [case_mat, inside])
+    crumbs(BITES, [material("flange crumb", FLANGE, 0.5), material("line crumb", LINE, 0.5)])
     camera()
     if CONFIG.get("stills"):
         for frame in CONFIG["stills"]:

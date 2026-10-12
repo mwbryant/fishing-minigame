@@ -134,7 +134,7 @@ SHOTS = [
         "color": "#5e0a12",
         "takes": [("spider", 1.4)],
         # When the spider leaps, seconds into the shot: it comes at you.
-        "pounce": 3.37 - 1.4,
+        "pounce": 3.08 - 1.4,
     },
     {
         "kind": "eat",
@@ -151,7 +151,7 @@ SHOTS = [
         "start": FISH_HOLD[0],
         "end": FISH_HOLD[1],
         "takes": [("guten", 0.0)],
-        # The fish spins to the ukulele, not its own song.
+        # The fish spins to the ukulele.
         "mute": ["guten"],
         "tag": "FISHING MINIGAME",
         # Stacked beside the fish, a line at a time from this many seconds in; the last line
