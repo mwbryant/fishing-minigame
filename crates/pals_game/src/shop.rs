@@ -1,7 +1,7 @@
-//! The hat shop. The hats ring the glass, turning points at one, and the
-//! mirror in the middle shows your fish wearing it. PWR buys it (or puts on one
-//! you own), NO HAT takes it off, and tapping the mirror dresses the next fish.
-//! A hat bought is every fish's to wear.
+//! The hat shop. The hats ring the glass and turning points at one; the
+//! mirror in the middle shows your fish in the hat it has on. PWR buys the
+//! pointed hat (or puts on one you own), NO HAT takes it off, and tapping the
+//! mirror dresses the next fish. A hat bought is every fish's to wear.
 
 use alloc::{format, vec::Vec};
 
@@ -161,13 +161,9 @@ fn draw_frame(
     let hat = pointed.checked_sub(1).filter(|&hat| hat < HATS.len());
     match pals.pets.get(shop.pet) {
         Some(pet) => {
-            let mut trying = pet.clone();
-            if pointed != OUT {
-                trying.hat = hat.map(|hat| hat as u8);
-            }
             fish::draw(
                 shapes,
-                &trying,
+                pet,
                 Vec2::new(MIRROR.x as f32, MIRROR.y as f32 + 14.0),
                 4,
                 true,

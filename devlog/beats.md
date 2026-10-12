@@ -1270,3 +1270,13 @@ Images are in `img/`. Newest beats go at the bottom.
 - **Media:** none yet.
   - TODO(user): a phone clip of the park's step count climbing on a walk, and the log line
     `steps <n>` from `./flash.sh`.
+
+## 61. The mirror shows what's on (2026-10-11)
+
+- **The ask:** "In the hat shop the middle fish should show the currently equiped hat not the
+  one on the spinner"
+- **The fix:** the mirror draws the fish exactly as it is, in the hat it has on; the ring shows
+  which hat you're pointing at and its price. With no fish to dress, the mirror still shows the
+  pointed hat.
+- **Media:** `img/61-before-shop.png` (pointing at CROWN dressed the fish in it),
+  `img/61-after-shop.png` (pointing at CROWN, the fish keeps its own hat).

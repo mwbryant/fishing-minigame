@@ -1223,7 +1223,7 @@ or lets the new catch go.
 - Three rivals (SPLASHY, FINLEY, OLD BOOTS) decide the place; the top three pay.
 
 **The hat shop** (`pals_game::shop`):
-- NO HAT, the 12 hats and EXIT ring the glass; the mirror shows the fish in the pointed one.
+- NO HAT, the 12 hats and EXIT ring the glass; the mirror shows the fish in the hat it has on.
 - PWR buys (it goes straight on) or wears an owned hat. Tap the mirror for the next fish.
 - `pals_game::fish::HAT_SEATS` seats hats on each species' head column and top row, at 3/4 of
   the fish's scale.

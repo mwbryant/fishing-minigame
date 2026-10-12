@@ -65,14 +65,20 @@ fn choice(hat: usize) -> usize {
 }
 
 #[test]
-fn the_hats_ring_the_glass_and_the_mirror_tries_the_pointed_one_on() {
-    let mut app = shop(0, &["GILLY"]);
+fn the_hats_ring_the_glass_and_the_mirror_shows_the_hat_the_fish_has_on() {
+    let mut app = shop(100, &["GILLY"]);
     for hat in &HATS {
         assert!(drawn(&app, hat.sprite) >= 1, "{} on the ring", hat.name);
     }
     point_at(&mut app, choice(hat("CROWN")));
     assert!(shows(&app, "CROWN") && shows(&app, "500 GOLD"));
-    assert_eq!(drawn(&app, HATS[hat("CROWN")].sprite), 2, "ring and mirror");
+    assert_eq!(drawn(&app, HATS[hat("CROWN")].sprite), 1, "only on the ring");
+    point_at(&mut app, choice(hat("STRAW HAT")));
+    click_action(&mut app);
+    point_at(&mut app, choice(hat("CROWN")));
+    let straw = HATS[hat("STRAW HAT")].sprite;
+    assert_eq!(drawn(&app, straw), 2, "the worn hat on the ring and in the mirror");
+    assert_eq!(drawn(&app, HATS[hat("CROWN")].sprite), 1);
 }
 
 #[test]

@@ -29,7 +29,7 @@ and tested it on the board.
 - **Show off at the contest hall.** A 30-second live show. Give your commands as it runs: the
   judges call for tricks, rarer tricks score more, and the top three win gold.
 - **Spend it.** The hat shop's ring of 12 hats runs from a beanie to a crown, and the mirror
-  shows your fish wearing the one you point at.
+  shows your fish in the hat it has on.
 - **Play the side games.**
   - Spider Roulette in the den: bet gold on twelve eggs, one of which hides a spider.
   - Skate on the arcade cabinet: a night street, benches to grind, and a halfpipe every 150 m.
