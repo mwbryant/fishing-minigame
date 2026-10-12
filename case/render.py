@@ -2,7 +2,6 @@
 
 from pathlib import Path
 
-import numpy as np
 import pyvista as pv
 from build123d import export_stl
 
@@ -12,7 +11,7 @@ import parts
 
 OUT = Path(__file__).parent / "previews"
 # The case as printed: brown flanges with white line wound between, changing filament at the
-# flanges' heights. PRINTED in a shot colours a case mesh that way.
+# flanges' heights. PRINTED in a shot cuts a case mesh into those three colours.
 FLANGE_COLOR = "#6b4226"
 LINE_COLOR = "#f2eee4"
 PRINTED = "printed"
@@ -42,22 +41,24 @@ def board_mesh() -> pv.PolyData:
 
 
 def glass_mesh() -> pv.PolyData:
-    """A dark disc standing in for the cover glass."""
+    """A dark disc standing in for the cover glass, its face 0.05 mm proud of the board model's
+    so the two never fight over the same depth."""
     return pv.Cylinder(
-        center=(0, 0, -0.6), direction=(0, 0, 1), radius=board.GLASS_R, height=1.2, resolution=180
+        center=(0, 0, -0.55), direction=(0, 0, 1), radius=board.GLASS_R, height=1.2, resolution=180
     )
 
 
-def printed(m: pv.PolyData) -> pv.PolyData:
-    """`m` with a `colour` cell array: FLANGE_COLOR in the back and front flanges' heights and
-    LINE_COLOR between, as the two-tone print comes out."""
-    z = m.cell_centers().points[:, 2]
+def printed(m: pv.PolyData) -> list:
+    """`m` cut at the two filament changes into the back flange, the line and the front flange,
+    each with its colour, so the colours meet exactly where the print's do."""
     back, front = m.bounds[4], m.bounds[5]
-    line = (z > back + p.BACK_FLANGE) & (z < front - p.FRONT_FLANGE)
-    rgb = [np.array(pv.Color(c).int_rgb, np.uint8) for c in (FLANGE_COLOR, LINE_COLOR)]
-    m = m.copy()
-    m.cell_data["colour"] = np.where(line[:, None], rgb[1], rgb[0])
-    return m
+    below_line, above_line = back + p.BACK_FLANGE, front - p.FRONT_FLANGE
+    up = (0, 0, 1)
+    back_flange = m.clip(normal=up, origin=(0, 0, below_line), invert=True)
+    rest = m.clip(normal=up, origin=(0, 0, below_line), invert=False)
+    line = rest.clip(normal=up, origin=(0, 0, above_line), invert=True)
+    front_flange = rest.clip(normal=up, origin=(0, 0, above_line), invert=False)
+    return [(back_flange, FLANGE_COLOR), (line, LINE_COLOR), (front_flange, FLANGE_COLOR)]
 
 
 def shot(name: str, actors, camera, section: bool = False, parallel: bool = False, key=None):
@@ -69,14 +70,14 @@ def shot(name: str, actors, camera, section: bool = False, parallel: bool = Fals
         key = tuple(e + 60 * u for e, u in zip(eye, up))
     plot.add_light(pv.Light(position=key, focal_point=focus, intensity=0.85))
     plot.add_light(pv.Light(position=eye, focal_point=focus, intensity=0.35))
+    pieces = []
     for m, color in actors:
-        if color == PRINTED:
-            m = printed(m)
+        pieces += printed(m) if color == PRINTED else [(m, color)]
+    for m, color in pieces:
         if section:
             m = m.clip(normal=(0, -1, 0), origin=(0, 0.01, 0))
         m = m.compute_normals(split_vertices=True, feature_angle=35)
-        look = {"scalars": "colour", "rgb": True} if color == PRINTED else {"color": color}
-        plot.add_mesh(m, smooth_shading=True, specular=0.25, specular_power=20, **look)
+        plot.add_mesh(m, color=color, smooth_shading=True, specular=0.25, specular_power=20)
     plot.camera_position = camera
     if parallel:
         plot.enable_parallel_projection()

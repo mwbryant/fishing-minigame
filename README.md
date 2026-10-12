@@ -1,6 +1,6 @@
 # Fishing Minigame
 
-![Fishing Minigame in its fly-reel case](devlog/img/37-trailer-fish.png)
+![Fishing Minigame in its fly-reel case](devlog/img/67-after-brown-rim.png)
 
 **A pocket fishing game on a round, watch-sized AMOLED screen, inside a 3D-printed case that
 looks like a fly-fishing reel.** Turn it like a steering wheel to cast, lean it to fight the

@@ -1329,3 +1329,23 @@ Images are in `img/`. Newest beats go at the bottom.
 - **The numbers:** the trailer stayed 46.2 s; the MP4 went from 28.3 to 27.4 MB. The trailer
   slide, the canvas and the website's copy show the new frame.
 - **Media:** `img/67-before-green-rim.png`, `img/67-after-brown-rim.png`.
+
+## 68. Two surfaces at the same depth (2026-10-12)
+
+- **The ask:** "case/previews/front.png has artifacts and the banner first image in the github
+  has the green coloring still"
+- **What got in the way:**
+  - The grey patches on the glass were z-fighting. The stand-in glass disc's face sat at
+    z = 0, exactly where Waveshare's board model has its own glass, so the renderer picked
+    between them pixel by pixel.
+  - Faint white ticks round the rim came from beat 66's colouring, which took each
+    triangle's colour from its centre. The long triangles down the bore crossed the filament
+    line.
+- **The fix:**
+  - The glass disc's face is 0.05 mm proud of the board's. The rim stands 0.5 mm proud, so it
+    still sits below the rim.
+  - The case mesh is cut at the two filament heights (z = -22.1 and -1.7 mm) into three
+    pieces, one per colour, so the colours meet exactly where the print's do. The inside floor,
+    2.5 mm up, is now white, as it prints.
+  - The README's banner is beat 67's brown-rimmed frame.
+- **Media:** `img/68-before-front.png`, `img/68-after-front.png`.
