@@ -1303,3 +1303,17 @@ Images are in `img/`. Newest beats go at the bottom.
   still eat it."
 - **Media:** `img/65-before-green-case.png`, `img/65-after-two-tone-case.png`,
   `video/65-before-eat.mp4`, `video/65-after-eat.mp4`.
+
+## 66. The case renders in the print's colours (2026-10-12)
+
+- **The ask:** "It seems like the image for the case still isn't colored"
+- **What got in the way:** beat 65 coloured the trailer's Blender case, but the case slide's
+  pictures come from `case/render.py`, which drew the whole case in one teal-green.
+- **The fix:**
+  - `render.py` colours each face of the case by its height, the way the filament changes:
+    brown in the back and front flanges (`BACK_FLANGE` 2.0 mm, `FRONT_FLANGE` 2.2 mm) and
+    white line between. The raised art on the back stays cream.
+  - All 8 previews were re-rendered in 15 s.
+  - The case slide was re-rendered, and the canvas and the website's 2x copy follow.
+- **Media:** `img/66-before-case-slide.png`, `img/66-after-case-slide.png`,
+  `img/66-before-button-side.png`, `img/66-after-button-side.png`.

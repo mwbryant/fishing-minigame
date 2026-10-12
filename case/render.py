@@ -2,14 +2,20 @@
 
 from pathlib import Path
 
+import numpy as np
 import pyvista as pv
 from build123d import export_stl
 
 import board
+import params as p
 import parts
 
 OUT = Path(__file__).parent / "previews"
-CASE_COLOR = "#2e6b5a"
+# The case as printed: brown flanges with white line wound between, changing filament at the
+# flanges' heights. PRINTED in a shot colours a case mesh that way.
+FLANGE_COLOR = "#6b4226"
+LINE_COLOR = "#f2eee4"
+PRINTED = "printed"
 BUTTON_COLOR = "#ff7a1a"
 BOARD_COLOR = "#3a3f45"
 GLASS_COLOR = "#0b0d10"
@@ -42,6 +48,18 @@ def glass_mesh() -> pv.PolyData:
     )
 
 
+def printed(m: pv.PolyData) -> pv.PolyData:
+    """`m` with a `colour` cell array: FLANGE_COLOR in the back and front flanges' heights and
+    LINE_COLOR between, as the two-tone print comes out."""
+    z = m.cell_centers().points[:, 2]
+    back, front = m.bounds[4], m.bounds[5]
+    line = (z > back + p.BACK_FLANGE) & (z < front - p.FRONT_FLANGE)
+    rgb = [np.array(pv.Color(c).int_rgb, np.uint8) for c in (FLANGE_COLOR, LINE_COLOR)]
+    m = m.copy()
+    m.cell_data["colour"] = np.where(line[:, None], rgb[1], rgb[0])
+    return m
+
+
 def shot(name: str, actors, camera, section: bool = False, parallel: bool = False, key=None):
     """One preview PNG. `key` is the main light; by default it rakes in over the camera."""
     plot = pv.Plotter(off_screen=True, window_size=SIZE, lighting="none")
@@ -52,10 +70,13 @@ def shot(name: str, actors, camera, section: bool = False, parallel: bool = Fals
     plot.add_light(pv.Light(position=key, focal_point=focus, intensity=0.85))
     plot.add_light(pv.Light(position=eye, focal_point=focus, intensity=0.35))
     for m, color in actors:
+        if color == PRINTED:
+            m = printed(m)
         if section:
             m = m.clip(normal=(0, -1, 0), origin=(0, 0.01, 0))
         m = m.compute_normals(split_vertices=True, feature_angle=35)
-        plot.add_mesh(m, color=color, smooth_shading=True, specular=0.25, specular_power=20)
+        look = {"scalars": "colour", "rgb": True} if color == PRINTED else {"color": color}
+        plot.add_mesh(m, smooth_shading=True, specular=0.25, specular_power=20, **look)
     plot.camera_position = camera
     if parallel:
         plot.enable_parallel_projection()
@@ -81,19 +102,19 @@ def main():
     buttons = mesh(parts.button(), "buttons")
     pcb = board_mesh()
     glass = glass_mesh()
-    fitted = [(case, CASE_COLOR), (buttons, BUTTON_COLOR), (pcb, BOARD_COLOR), (glass, GLASS_COLOR)]
+    fitted = [(case, PRINTED), (buttons, BUTTON_COLOR), (pcb, BOARD_COLOR), (glass, GLASS_COLOR)]
 
     shot("front", fitted, [(40, -70, 140), (0, 0, -7), (0, 0, 1)])
     art = mesh(parts.art(False), "art")
     shot(
         "back",
-        [(case, CASE_COLOR), (art, ART_COLOR)],
+        [(case, PRINTED), (art, ART_COLOR)],
         [(0, 0, -140), (0, 0, -8), (0, 1, 0)],
         parallel=True,
     )
     shot(
         "back_angle_single_colour",
-        [(case, CASE_COLOR)],
+        [(case, PRINTED)],
         [(-25, 40, -120), (0, 0, -8), (0, 1, 0)],
         key=(-80, 60, -40),
     )
@@ -101,7 +122,7 @@ def main():
     shot("button_side", fitted, [(140, 25, 10), (0, 0, -7), (0, 0, 1)])
     shot(
         "inside",
-        [(case, CASE_COLOR), (buttons, BUTTON_COLOR)],
+        [(case, PRINTED), (buttons, BUTTON_COLOR)],
         [(30, -60, 120), (0, 0, -8), (0, 0, 1)],
     )
     shot(
@@ -112,7 +133,7 @@ def main():
         parallel=True,
     )
     bat = [
-        (case_bat, CASE_COLOR),
+        (case_bat, PRINTED),
         (buttons, BUTTON_COLOR),
         (pcb, BOARD_COLOR),
         (glass, GLASS_COLOR),
