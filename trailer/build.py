@@ -9,6 +9,7 @@
     uv run build.py --refilm     film the game's takes again (after the game changes)
     uv run build.py --sheets     contact sheets of every take, to check the cuts in edit.py
     uv run build.py --still 9.5  one frame of the trailer, as out/still-09.50.png
+    uv run build.py --thumbnail  the video's thumbnail, as out/thumbnail.png and .jpg
     uv run build.py --preview    half size and 15 fps, quick to check the edit
 
 The edit (what plays when) is in edit.py. The downloads (music, font), the filmed takes and the
@@ -1063,6 +1064,9 @@ def main():
         "--still", type=float, action="append", help="write the frame at these seconds, then stop"
     )
     parser.add_argument("--preview", action="store_true", help="half size, 15 fps")
+    parser.add_argument(
+        "--thumbnail", action="store_true", help="the frame at edit.THUMBNAIL_AT, then stop"
+    )
     args = parser.parse_args()
 
     font, music = fetch_assets()
@@ -1078,6 +1082,13 @@ def main():
             path = OUT / f"still-{secs:05.2f}.png"
             trailer.frame(secs).save(path)
             print(f"wrote {path}")
+        return
+    if args.thumbnail:
+        OUT.mkdir(exist_ok=True)
+        frame = trailer.frame(edit.THUMBNAIL_AT)
+        frame.save(OUT / "thumbnail.png")
+        frame.resize((1280, 720), Image.LANCZOS).save(OUT / "thumbnail.jpg", quality=90)
+        print(f"wrote {OUT / 'thumbnail.png'} (1920x1080) and {OUT / 'thumbnail.jpg'} (1280x720)")
         return
     encode(trailer, mix(takes, music), args.preview)
 

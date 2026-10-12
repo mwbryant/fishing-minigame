@@ -26,6 +26,9 @@ def loop_shot(n):
     return on_beat(8 + n * LOOP_BEATS)
 
 
+# The thumbnail: FISHING MINIGAME over the town and the house, just before the dive.
+THUMBNAIL_AT = 2.5
+
 # After the loop each shot's (start, end) follows the last, so lengthening one moves the rest.
 SCRATCH = (loop_shot(5), loop_shot(5) + 0.7)
 BEES = (SCRATCH[1], SCRATCH[1] + 4.0)

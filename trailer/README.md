@@ -18,6 +18,7 @@ cd trailer
 uv run build.py              # out/fishing_minigame_trailer.mp4 (about 2 minutes)
 uv run build.py --preview    # half size, 15 fps
 uv run build.py --still 36.5 # one frame, as out/still-36.50.png
+uv run build.py --thumbnail  # out/thumbnail.png (1920x1080) and .jpg (1280x720)
 ```
 
 You need `cargo`, `uv`, `ffmpeg` and Blender. `build.py` looks for Blender at `$BLENDER`, on
